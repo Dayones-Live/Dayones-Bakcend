@@ -144,7 +144,7 @@ export class CognitoService {
       const result = await this.cognitoClient.send(command);
       if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
         return {
-          message: 'Confirmation email sent successfully',
+          message: 'Confirmation email sent successful',
           statusCode: result['$metadata'].httpStatusCode,
           data: {
             attribute_name: result?.CodeDeliveryDetails?.AttributeName,
@@ -200,20 +200,19 @@ export class CognitoService {
             clientId: process.env.COGNITO_CLIENT_ID || '',
           },
         );
-        await this.userService.updateIsConfirmedUser({
-          user_sub: payload.username,
+        const response = await this.userService.updateIsConfirmedUser({
+          user_sub: payload?.username,
           is_confirmed: true,
         });
-        const user = await this.userService.findUserByUserSub(payload.username);
         return {
           statusCode: result['$metadata'].httpStatusCode,
-          message: 'User Sign in Successfully',
+          message: 'User Sign in Successful',
           data: {
             access_token: result?.AuthenticationResult?.AccessToken,
             expires_in: result?.AuthenticationResult?.ExpiresIn,
             refresh_token: result?.AuthenticationResult?.RefreshToken,
             token_type: result?.AuthenticationResult?.TokenType,
-            user,
+            user: response.data,
           },
         }; // Contains the JWT tokens (ID, Access, and Refresh)
       }
@@ -245,7 +244,7 @@ export class CognitoService {
       const result = await this.cognitoClient.send(command);
       if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
         return {
-          message: 'User Signed Out successfully successfully',
+          message: 'User Signed Out successful',
           statusCode: result['$metadata'].httpStatusCode,
           data: '',
         };
@@ -276,7 +275,7 @@ export class CognitoService {
       const response = await this.userService.findUserByUserSub(user);
       if (response) {
         return {
-          message: 'User Fetched Successfully!',
+          message: 'User Fetched Successful!',
           statusCode: 200,
           data: { ...response, role: response?.role[0] },
         };

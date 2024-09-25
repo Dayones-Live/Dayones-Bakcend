@@ -8,33 +8,33 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CognitoService } from '../services/cognito.service';
-import { JwtGuard } from 'src/modules/Auth/guards/aws.cognito.guard';
+import { CognitoService } from '../../lib/Aws/cognito/services/cognito.service';
+import { CognitoGuard } from 'src/modules/auth/guards/aws.cognito.guard';
 import {
   ResendConfirmationCodeInput,
   SignInUserInput,
   UserConfirmationInput,
   UserSignUpInput,
-} from '../dto/types';
+} from '../../lib/Aws/cognito/dto/types';
 import { Request, Response } from 'express';
-import { Token } from 'src/modules/Auth/decorators/auth.decorator';
+import { Token } from 'src/modules/auth/decorators/auth.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
-export class CognitoController {
+export class AuthController {
   constructor(private cognitoService: CognitoService) {}
 
   @Post('signup')
   async userSignUp(
     @Body()
-    body: UserSignUpInput,
+    userSignUpInput: UserSignUpInput,
     @Res() res: Response,
   ) {
     try {
-      const response = await this.cognitoService.signUp(body);
+      const response = await this.cognitoService.signUp(userSignUpInput);
       res
         .status(HttpStatus.CREATED)
-        .json({ message: 'User successfully signed up', data: response });
+        .json({ message: 'User signed up successful', data: response });
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;
@@ -42,8 +42,11 @@ export class CognitoController {
   }
 
   @Post('verify')
-  async verifyUser(@Body() body: UserConfirmationInput, @Res() res: Response) {
-    const { username, confirmationCode } = body;
+  async verifyUser(
+    @Body() userConfirmationInput: UserConfirmationInput,
+    @Res() res: Response,
+  ) {
+    const { username, confirmationCode } = userConfirmationInput;
     try {
       const result = await this.cognitoService.confirmSignUp(
         username,
@@ -60,10 +63,10 @@ export class CognitoController {
 
   @Post('resend-confirm-email')
   async resendConfirmationCode(
-    @Body() body: ResendConfirmationCodeInput,
+    @Body() resendConfirmationCodeInput: ResendConfirmationCodeInput,
     @Res() res: Response,
   ) {
-    const { username } = body;
+    const { username } = resendConfirmationCodeInput;
     try {
       const result = await this.cognitoService.resendSignUpCode(username);
       res
@@ -79,8 +82,8 @@ export class CognitoController {
   }
 
   @Post('signin')
-  async signIn(@Body() body: SignInUserInput, @Res() res: Response) {
-    const { username, password } = body;
+  async signIn(@Body() signInUserInput: SignInUserInput, @Res() res: Response) {
+    const { username, password } = signInUserInput;
     try {
       const result = await this.cognitoService.signIn({ username, password });
       res
@@ -92,7 +95,7 @@ export class CognitoController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  @UseGuards(CognitoGuard)
   @Post('signout')
   async signout(@Token() token: string, @Res() res: Response) {
     try {
@@ -106,11 +109,11 @@ export class CognitoController {
     }
   }
 
-  @UseGuards(JwtGuard)
+  @UseGuards(CognitoGuard)
   @Post('me')
   async getCognitoUser(@Res() res: Response, @Req() req: Request) {
     try {
-      const result = await this.cognitoService.getUser(req?.user_sub || '');
+      const result = await this.cognitoService.getUser(req?.userSub || '');
       res
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });
