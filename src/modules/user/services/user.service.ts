@@ -2,8 +2,9 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { User } from '../entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ROLES } from 'src/shared/constants';
 import { createUserInput } from 'src/modules/lib/Aws/cognito/dto/types';
+import { UserUpdateInput } from '../dto/types';
+import { GlobalServiceResponse } from 'src/shared/types';
 
 @Injectable()
 export class UserService {
@@ -180,6 +181,54 @@ export class UserService {
         error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Service tp update the user
+   * @param userUpdateInput
+   * @returns
+   */
+  async updateUser(
+    userUpdateInput: UserUpdateInput,
+  ): Promise<GlobalServiceResponse> {
+    try {
+      // Check if the user already exists
+      const existingUser = await this.userRepository.findOne({
+        where: { id: userUpdateInput.id }, // Check based on the user's id
+      });
+
+      if (!existingUser) {
+        throw new HttpException(
+          `User with ID: ${userUpdateInput.id} does not exist`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Update existing user
+      const updatedUser = await this.userRepository.save({
+        ...existingUser, // Retain existing properties
+        ...userUpdateInput, // Overwrite with new values from body
+        full_name: userUpdateInput.name || existingUser.full_name,
+        role: userUpdateInput?.role
+          ? [userUpdateInput.role]
+          : [existingUser.role[0]], // Ensure role is an array
+      });
+
+      return {
+        statusCode: 200,
+        message: 'User Update Successfully',
+        data: updatedUser,
+      };
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts:96 ~ UserService ~ updateUser ~ error:',
+        error,
+      );
+      throw new HttpException(
+        `User update error: ${error?.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 }

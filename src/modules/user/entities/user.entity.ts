@@ -19,7 +19,7 @@ export class User extends BaseEntity {
   @Column({ nullable: false })
   @Index()
   @IsNotEmpty({ message: 'Full Name cannot be empty' })
-  @Length(3, 20, { message: 'Full Name must be between 3 and 10 characters' })
+  @Length(3, 20, { message: 'Full Name must be between 3 and 20 characters' })
   full_name?: string;
 
   @Column({ nullable: true })
@@ -43,4 +43,26 @@ export class User extends BaseEntity {
   @IsNotEmpty({ message: 'User Sub is required' })
   @Index()
   user_sub: string;
+
+  @Column({ nullable: true })
+  latitude: string;
+
+  @Column({ nullable: true })
+  longitude: string;
+
+  @Column({ nullable: true })
+  avatar_url: string;
+
+  @Column({ nullable: true })
+  notification_token: string;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  created_at: Date;
+
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  updated_at: Date;
 }

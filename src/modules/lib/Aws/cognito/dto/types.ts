@@ -12,7 +12,7 @@ export class UserSignUpInput {
   password?: string;
 
   @IsNotEmpty({ message: 'Role is required' })
-  @IsEnum(ROLES, { message: 'Role must be one of: ADMIN, USER, ARTIST' })
+  @IsEnum(ROLES, { message: 'Role must be one of: USER, ARTIST' })
   role: ROLES;
 
   @IsNotEmpty({ message: 'Name is required' })
