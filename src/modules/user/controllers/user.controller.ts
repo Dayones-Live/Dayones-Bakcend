@@ -1,9 +1,7 @@
 import {
   Body,
   Controller,
-  HttpException,
   HttpStatus,
-  Patch,
   Post,
   Req,
   Res,
@@ -21,7 +19,7 @@ export class UserController {
   constructor(private userService: UserService) {}
 
   @UseGuards(CognitoGuard)
-  @Patch('update-user')
+  @Post('update-user')
   async updateUser(
     @Body()
     userUpdateInput: UserUpdateInput,

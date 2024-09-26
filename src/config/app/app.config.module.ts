@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { NestConfigModule } from '../nest/nest.config.module';
-import { AuthModule } from '../../modules/Auth/auth.module';
+import { AuthModule } from '@auth/auth.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServerHealthCheckModule } from 'src/modules/server-health-check/server-health-check.module';
 import databaseConfig from '../database/postgres/orm.config';

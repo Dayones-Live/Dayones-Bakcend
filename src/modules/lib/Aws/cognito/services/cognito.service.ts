@@ -24,19 +24,13 @@ import { GlobalServiceResponse } from 'src/shared/types';
 import { cognitoJwtVerify } from '../constants/cognito.constants';
 @Injectable()
 export class CognitoService {
-  private readonly verifier;
   private clientId = process.env.COGNITO_CLIENT_ID; // Replace with your App Client ID
   private cognitoClient;
 
   constructor(private userService: UserService) {
-    this.verifier = cognitoJwtVerify;
     this.cognitoClient = new CognitoIdentityProviderClient({
       region: process.env.AWS_REGION,
     });
-  }
-
-  getVerifier() {
-    return this.verifier;
   }
 
   /**
@@ -200,7 +194,7 @@ export class CognitoService {
         result['$metadata']?.httpStatusCode === HttpStatus.OK &&
         result?.AuthenticationResult?.AccessToken
       ) {
-        const payload = await this.verifier.verify(
+        const payload = await cognitoJwtVerify.verify(
           result?.AuthenticationResult?.AccessToken || '',
           {
             tokenUse: 'access',

@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CognitoService } from '../../lib/Aws/cognito/services/cognito.service';
-import { CognitoGuard } from '../guards/aws.cognito.guard';
+import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import {
   ResendConfirmationCodeInput,
   SignInUserInput,
@@ -17,7 +17,7 @@ import {
   UserSignUpInput,
 } from '../../lib/Aws/cognito/dto/types';
 import { Request, Response } from 'express';
-import { Token } from '../decorators/auth.decorator';
+import { Token } from '@auth/decorators/auth.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
