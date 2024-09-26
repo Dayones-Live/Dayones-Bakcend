@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from 'src/modules/auth/auth.module';
+import { NestConfigModule } from '../nest/nest.config.module';
+import { AuthModule } from '../../modules/Auth/auth.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServerHealthCheckModule } from 'src/modules/server-health-check/server-health-check.module';
 import databaseConfig from '../database/postgres/orm.config';
@@ -8,6 +9,7 @@ import { AwsModule } from 'src/modules/lib/Aws/aws.module';
 
 @Module({
   imports: [
+    NestConfigModule,
     TypeOrmModule.forRoot(databaseConfig),
     ServerHealthCheckModule,
     AuthModule,

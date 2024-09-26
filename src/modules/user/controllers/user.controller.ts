@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UserService } from '../services/user.service';
-import { CognitoGuard } from 'src/modules/auth/guards/aws.cognito.guard';
+import { CognitoGuard } from '../../Auth/guards/aws.cognito.guard';
 import { UserUpdateInput } from '../dto/types';
 import { Response } from 'express';
 

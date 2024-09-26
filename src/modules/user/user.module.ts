@@ -1,11 +1,12 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { UserService } from './services/user.service';
 import { UserController } from './controllers/user.controller';
+import { CognitoModule } from '../lib/Aws/cognito/cognito.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
+  imports: [TypeOrmModule.forFeature([User]), forwardRef(() => CognitoModule)],
   controllers: [UserController],
   providers: [UserService],
   exports: [UserService],

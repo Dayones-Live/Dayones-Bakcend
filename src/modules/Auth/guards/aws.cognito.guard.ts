@@ -5,13 +5,13 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { cognitoJwtVerify } from 'src/modules/lib/Aws/cognito/utils/cognito.utils';
+import { CognitoService } from '../../lib/Aws/cognito/services/cognito.service';
 
 @Injectable()
 export class CognitoGuard implements CanActivate {
   private readonly verifier;
-  constructor() {
-    this.verifier = cognitoJwtVerify();
+  constructor(private cognitoService: CognitoService) {
+    this.verifier = this.cognitoService.getVerifier();
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

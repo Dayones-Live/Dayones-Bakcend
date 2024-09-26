@@ -16,20 +16,27 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import { UserService } from 'src/modules/user/services/user.service';
 import { ROLES } from 'src/shared/constants';
-import { cognitoJwtVerify, computeSecretHash } from '../utils/cognito.utils';
+import { computeSecretHash } from '../utils/cognito.utils';
 import { signupUserAttributes } from '../dto/constants';
 import { SignInUserInput, UserSignUpInput } from '../dto/types';
 import { User } from 'src/modules/user/entities/user.entity';
 import { GlobalServiceResponse } from 'src/shared/types';
+import { cognitoJwtVerify } from '../constants/cognito.constants';
 @Injectable()
 export class CognitoService {
+  private readonly verifier;
   private clientId = process.env.COGNITO_CLIENT_ID; // Replace with your App Client ID
   private cognitoClient;
 
   constructor(private userService: UserService) {
+    this.verifier = cognitoJwtVerify;
     this.cognitoClient = new CognitoIdentityProviderClient({
       region: process.env.AWS_REGION,
     });
+  }
+
+  getVerifier() {
+    return this.verifier;
   }
 
   /**
@@ -193,7 +200,7 @@ export class CognitoService {
         result['$metadata']?.httpStatusCode === HttpStatus.OK &&
         result?.AuthenticationResult?.AccessToken
       ) {
-        const payload = await cognitoJwtVerify().verify(
+        const payload = await this.verifier.verify(
           result?.AuthenticationResult?.AccessToken || '',
           {
             tokenUse: 'access',
