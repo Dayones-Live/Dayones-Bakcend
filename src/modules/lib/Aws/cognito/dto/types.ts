@@ -22,7 +22,7 @@ export class UserSignUpInput {
   phone_number: string;
 }
 
-export class createUserInput extends UserSignUpInput {
+export class CreateUserInput extends UserSignUpInput {
   @IsNotEmpty({ message: 'User Sub is required' })
   user_sub: string;
 

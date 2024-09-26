@@ -4,10 +4,12 @@ import {
   Column,
   Entity,
   Index,
+  OneToOne,
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
 import { IsEmail, IsNotEmpty, Length, Matches } from 'class-validator';
+import { UserNotification } from '../modules/user-notifications/entities/user-notifications.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -22,24 +24,24 @@ export class User extends BaseEntity {
   @Length(3, 20, { message: 'Full Name must be between 3 and 20 characters' })
   full_name?: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: false })
   @IsNotEmpty({ message: 'Email is required' })
   @IsEmail({}, { message: 'Invalid email format' })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: false })
   @IsNotEmpty({ message: 'Phone no is required' })
   @Index()
   phone_number: string;
 
-  @Column({ nullable: true })
-  is_confirmed: boolean;
+  @Column({ nullable: false, default: false })
+  is_confirmed: boolean = false;
 
   @Column({ type: 'enum', enum: ROLES, array: true, default: [ROLES.USER] })
   @IsNotEmpty({ message: 'Role is required' })
   role: ROLES[];
 
-  @Column({ nullable: true })
+  @Column({ nullable: false })
   @IsNotEmpty({ message: 'User Sub is required' })
   @Index()
   user_sub: string;
@@ -53,9 +55,6 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   avatar_url: string;
 
-  @Column({ nullable: true })
-  notification_token: string;
-
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
@@ -65,4 +64,7 @@ export class User extends BaseEntity {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updated_at: Date;
+
+  @OneToOne(() => UserNotification, (userNotification) => userNotification.user)
+  userNotification: UserNotification;
 }

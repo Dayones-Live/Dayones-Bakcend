@@ -6,6 +6,6 @@ import { ServerHealthCheckService } from './services/server-health-check.service
   imports: [],
   controllers: [ServerHealthController],
   providers: [ServerHealthCheckService],
-  exports: [ServerHealthCheckService],
+  exports: [],
 })
 export class ServerHealthCheckModule {}

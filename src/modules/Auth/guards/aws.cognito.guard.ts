@@ -5,13 +5,13 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { cognitoJwtVerify } from 'src/modules/lib/Aws/cognito/utils/cognito.utils';
+import { cognitoJwtVerify } from '@app/modules/lib/Aws/cognito/constants/cognito.constants';
 
 @Injectable()
-export class JwtGuard implements CanActivate {
+export class CognitoGuard implements CanActivate {
   private readonly verifier;
   constructor() {
-    this.verifier = cognitoJwtVerify();
+    this.verifier = cognitoJwtVerify;
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -28,7 +28,7 @@ export class JwtGuard implements CanActivate {
         clientId: process.env.COGNITO_CLIENT_ID || '',
       });
       // You can add additional checks or modify the request object if needed
-      request.user_sub = payload.username;
+      request.userSub = payload?.username;
       return true;
     } catch (error) {
       throw new HttpException(

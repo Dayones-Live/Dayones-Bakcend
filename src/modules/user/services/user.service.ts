@@ -2,8 +2,8 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { User } from '../entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { createUserInput } from 'src/modules/lib/Aws/cognito/dto/types';
-import { UserUpdateInput } from '../dto/types';
+import { CreateUserInput } from 'src/modules/lib/Aws/cognito/dto/types';
+import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
 import { GlobalServiceResponse } from 'src/shared/types';
 
 @Injectable()
@@ -19,23 +19,23 @@ export class UserService {
    * @param registerUserInput
    * @returns {User}
    */
-  async createUser(body: createUserInput): Promise<User> {
+  async createUser(createUserInput: CreateUserInput): Promise<User> {
     try {
       const existingUser = await this.userRepository.findOne({
-        where: { email: body?.email },
+        where: { email: createUserInput?.email },
       });
 
       if (existingUser) {
         throw new HttpException(
-          `User with Email: ${body.email} already exists`,
-          HttpStatus.BAD_REQUEST,
+          `User with Email: ${createUserInput.email} already exists`,
+          HttpStatus.CONFLICT,
         );
       }
       // Ensure the role is an array, as per the entity definition
       const newUser = await this.userRepository.save({
-        ...body,
-        full_name: body.name,
-        role: [body.role], // Wrap the role in an array
+        ...createUserInput,
+        full_name: createUserInput.name,
+        role: [createUserInput.role], // Wrap the role in an array
       });
 
       // await this.userRepository.save(newUser);
@@ -121,39 +121,6 @@ export class UserService {
     }
   }
 
-  async updateIsConfirmedUser({
-    user_sub,
-    is_confirmed,
-  }: {
-    user_sub: string;
-    is_confirmed: boolean;
-  }): Promise<User> {
-    try {
-      const existingUser = await this.userRepository.findOneBy({
-        user_sub,
-      });
-
-      if (!existingUser) {
-        throw new HttpException(
-          `User with User Sub: ${user_sub} does not exist`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      // Update the user's is_confirmed field
-      existingUser.is_confirmed = is_confirmed;
-
-      // Save the updated user object
-      return await this.userRepository.save(existingUser);
-    } catch (error) {
-      console.error(
-        '🚀 ~ file: user.service.ts ~ UserService ~ updateUser ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
-
   /**
    * Fetch a user for the given Id
    *
@@ -171,7 +138,7 @@ export class UserService {
       if (user) {
         throw new HttpException(
           `User with this data already exist`,
-          HttpStatus.BAD_REQUEST,
+          HttpStatus.CONFLICT,
         );
       }
       return true;
@@ -185,22 +152,23 @@ export class UserService {
   }
 
   /**
-   * Service tp update the user
+   * Service to update the user
    * @param userUpdateInput
    * @returns
    */
   async updateUser(
     userUpdateInput: UserUpdateInput,
+    userSub: string,
   ): Promise<GlobalServiceResponse> {
     try {
       // Check if the user already exists
       const existingUser = await this.userRepository.findOne({
-        where: { id: userUpdateInput.id }, // Check based on the user's id
+        where: { user_sub: userSub }, // Check based on the user sub id
       });
 
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${userUpdateInput.id} does not exist`,
+          `User with ID: ${userSub} does not exist`,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -209,16 +177,63 @@ export class UserService {
       const updatedUser = await this.userRepository.save({
         ...existingUser, // Retain existing properties
         ...userUpdateInput, // Overwrite with new values from body
-        full_name: userUpdateInput.name || existingUser.full_name,
+        full_name: userUpdateInput.full_name || existingUser.full_name,
         role: userUpdateInput?.role
           ? [userUpdateInput.role]
           : [existingUser.role[0]], // Ensure role is an array
       });
+      const { user_sub, ...rest } = updatedUser;
 
       return {
         statusCode: 200,
-        message: 'User Update Successfully',
-        data: updatedUser,
+        message: 'User Update Successful',
+        data: { ...rest, role: rest.role[0] },
+      };
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts:96 ~ UserService ~ updateUser ~ error:',
+        error,
+      );
+      throw new HttpException(
+        `User update error: ${error?.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  /**
+   * Service to update the user
+   * @param UpdateUserLocationInput
+   * @returns
+   */
+  async updateUserLocation(
+    updateUserLocationInput: UpdateUserLocationInput,
+    userSub: string,
+  ): Promise<GlobalServiceResponse> {
+    try {
+      // Check if the user already exists
+      const existingUser = await this.userRepository.findOne({
+        where: { user_sub: userSub }, // Check based on the user sub id
+      });
+
+      if (!existingUser) {
+        throw new HttpException(
+          `User with ID: ${userSub} does not exist`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Update existing user
+      const updatedUser = await this.userRepository.save({
+        ...existingUser, // Retain existing properties
+        ...updateUserLocationInput, // Overwrite with new values from body
+      });
+      const { user_sub, ...rest } = updatedUser;
+
+      return {
+        statusCode: 200,
+        message: 'User Update Successful',
+        data: { ...rest, role: rest.role[0] },
       };
     } catch (error) {
       console.error(
