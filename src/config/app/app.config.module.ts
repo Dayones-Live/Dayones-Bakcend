@@ -6,6 +6,7 @@ import { ServerHealthCheckModule } from 'src/modules/server-health-check/server-
 import databaseConfig from '../database/postgres/orm.config';
 import { UserModule } from 'src/modules/user/user.module';
 import { AwsModule } from 'src/modules/lib/Aws/aws.module';
+import { UserNotificationModule } from 'src/modules/user/modules/user-notifications/user-notification.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AwsModule } from 'src/modules/lib/Aws/aws.module';
     AuthModule,
     AwsModule,
     UserModule,
+    UserNotificationModule,
   ],
 })
 export class AppConfigModule {}

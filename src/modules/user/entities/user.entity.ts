@@ -4,10 +4,12 @@ import {
   Column,
   Entity,
   Index,
+  OneToOne,
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
 import { IsEmail, IsNotEmpty, Length, Matches } from 'class-validator';
+import { UserNotification } from '../modules/user-notifications/entities/user-notifications.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -53,9 +55,6 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   avatar_url: string;
 
-  @Column({ nullable: true })
-  notification_token: string;
-
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
@@ -65,4 +64,7 @@ export class User extends BaseEntity {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updated_at: Date;
+
+  @OneToOne(() => UserNotification, (userNotification) => userNotification.user)
+  userNotification: UserNotification;
 }

@@ -207,10 +207,12 @@ export class CognitoService {
             clientId: process.env.COGNITO_CLIENT_ID || '',
           },
         );
-        const response = await this.userService.updateIsConfirmedUser({
-          user_sub: payload?.username,
-          is_confirmed: true,
-        });
+        const response = await this.userService.updateUser(
+          {
+            is_confirmed: true,
+          },
+          payload?.username,
+        );
         return {
           statusCode: result['$metadata'].httpStatusCode,
           message: 'User Sign in Successful',
@@ -266,7 +268,7 @@ export class CognitoService {
     } catch (error) {
       console.error('🚀 ~ CognitoService ~ signOut error:', error);
       throw new HttpException(
-        `Cognito Error : ${error.message}`,
+        `${error.message}`,
         error['$metadata']?.httpStatusCode || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
