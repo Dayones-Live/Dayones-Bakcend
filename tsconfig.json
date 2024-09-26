@@ -16,6 +16,12 @@
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@app/*": ["src/*"],
+      "@auth/*": ["src/modules/auth/*"],
+      "@lib/*": ["src/modules/lib/*"],
+      "@user/*": ["src/modules/user/*"],
+    }
   }
 }

@@ -16,11 +16,12 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import { UserService } from 'src/modules/user/services/user.service';
 import { ROLES } from 'src/shared/constants';
-import { cognitoJwtVerify, computeSecretHash } from '../utils/cognito.utils';
+import { computeSecretHash } from '../utils/cognito.utils';
 import { signupUserAttributes } from '../dto/constants';
 import { SignInUserInput, UserSignUpInput } from '../dto/types';
 import { User } from 'src/modules/user/entities/user.entity';
 import { GlobalServiceResponse } from 'src/shared/types';
+import { cognitoJwtVerify } from '../constants/cognito.constants';
 @Injectable()
 export class CognitoService {
   private clientId = process.env.COGNITO_CLIENT_ID; // Replace with your App Client ID
@@ -144,7 +145,7 @@ export class CognitoService {
       const result = await this.cognitoClient.send(command);
       if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
         return {
-          message: 'Confirmation email sent successfully',
+          message: 'Confirmation email sent successful',
           statusCode: result['$metadata'].httpStatusCode,
           data: {
             attribute_name: result?.CodeDeliveryDetails?.AttributeName,
@@ -193,27 +194,28 @@ export class CognitoService {
         result['$metadata']?.httpStatusCode === HttpStatus.OK &&
         result?.AuthenticationResult?.AccessToken
       ) {
-        const payload = await cognitoJwtVerify().verify(
+        const payload = await cognitoJwtVerify.verify(
           result?.AuthenticationResult?.AccessToken || '',
           {
             tokenUse: 'access',
             clientId: process.env.COGNITO_CLIENT_ID || '',
           },
         );
-        await this.userService.updateIsConfirmedUser({
-          user_sub: payload.username,
-          is_confirmed: true,
-        });
-        const user = await this.userService.findUserByUserSub(payload.username);
+        const response = await this.userService.updateUser(
+          {
+            is_confirmed: true,
+          },
+          payload?.username,
+        );
         return {
           statusCode: result['$metadata'].httpStatusCode,
-          message: 'User Sign in Successfully',
+          message: 'User Sign in Successful',
           data: {
             access_token: result?.AuthenticationResult?.AccessToken,
             expires_in: result?.AuthenticationResult?.ExpiresIn,
             refresh_token: result?.AuthenticationResult?.RefreshToken,
             token_type: result?.AuthenticationResult?.TokenType,
-            user,
+            user: response.data,
           },
         }; // Contains the JWT tokens (ID, Access, and Refresh)
       }
@@ -245,7 +247,7 @@ export class CognitoService {
       const result = await this.cognitoClient.send(command);
       if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
         return {
-          message: 'User Signed Out successfully successfully',
+          message: 'User Signed Out successful',
           statusCode: result['$metadata'].httpStatusCode,
           data: '',
         };
@@ -260,7 +262,7 @@ export class CognitoService {
     } catch (error) {
       console.error('🚀 ~ CognitoService ~ signOut error:', error);
       throw new HttpException(
-        `Cognito Error : ${error.message}`,
+        `${error.message}`,
         error['$metadata']?.httpStatusCode || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -276,7 +278,7 @@ export class CognitoService {
       const response = await this.userService.findUserByUserSub(user);
       if (response) {
         return {
-          message: 'User Fetched Successfully!',
+          message: 'User Fetched Successful!',
           statusCode: 200,
           data: { ...response, role: response?.role[0] },
         };
