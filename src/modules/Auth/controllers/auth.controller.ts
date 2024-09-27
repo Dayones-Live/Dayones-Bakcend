@@ -8,14 +8,14 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CognitoService } from '../../lib/Aws/cognito/services/cognito.service';
+import { CognitoService } from '../../libs/modules/aws/cognito/services/cognito.service';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import {
   ResendConfirmationCodeInput,
   SignInUserInput,
   UserConfirmationInput,
   UserSignUpInput,
-} from '../../lib/Aws/cognito/dto/types';
+} from '../../libs/modules/aws/cognito/dto/types';
 import { Request, Response } from 'express';
 import { Token } from '@auth/decorators/auth.decorator';
 

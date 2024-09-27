@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { AuthController } from '@auth/controllers/auth.controller';
-import { CognitoModule } from '../lib/Aws/cognito/cognito.module';
+import { CognitoModule } from '../libs/modules/aws/cognito/cognito.module';
 import { UserModule } from '../user/user.module';
 
 @Module({

@@ -20,7 +20,7 @@
     "paths": {
       "@app/*": ["src/*"],
       "@auth/*": ["src/modules/auth/*"],
-      "@lib/*": ["src/modules/lib/*"],
+      "@lib/*": ["src/modules/libs/*"],
       "@user/*": ["src/modules/user/*"],
     }
   }

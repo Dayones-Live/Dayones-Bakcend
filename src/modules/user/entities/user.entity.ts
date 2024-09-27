@@ -4,12 +4,15 @@ import {
   Column,
   Entity,
   Index,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
 import { IsEmail, IsNotEmpty, Length, Matches } from 'class-validator';
 import { UserNotification } from '../modules/user-notifications/entities/user-notifications.entity';
+import { Signatures } from '../modules/signatures/entities/signature.entity';
+import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist.post.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -67,4 +70,10 @@ export class User extends BaseEntity {
 
   @OneToOne(() => UserNotification, (userNotification) => userNotification.user)
   userNotification: UserNotification;
+
+  @OneToMany(() => Signatures, (signature) => signature.user)
+  signature?: Signatures[];
+
+  @OneToMany(() => ArtistPost, (artistPost) => artistPost.user)
+  artistPost?: ArtistPost[];
 }
