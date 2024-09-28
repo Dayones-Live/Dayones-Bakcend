@@ -1,4 +1,3 @@
-import { integer } from 'aws-sdk/clients/cloudfront';
 import { IsNotEmpty, IsUUID } from 'class-validator';
 import { User } from 'src/modules/user/entities/user.entity';
 import {
@@ -13,7 +12,7 @@ import {
 } from 'typeorm';
 import { POST_TYPE } from '../constants';
 
-@Entity({ name: 'signatures' })
+@Entity({ name: 'artist_post' })
 @Unique(['id'])
 export class ArtistPost extends BaseEntity {
   @Column()
