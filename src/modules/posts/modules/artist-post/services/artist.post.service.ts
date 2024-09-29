@@ -20,7 +20,7 @@ export class ArtistPostService {
    * @param createArtistPostInput
    * @returns {ArtistPost}
    */
-  async createSignatureNotification(
+  async createArtistPost(
     createArtistPostInput: CreateArtistPostInput,
   ): Promise<ArtistPostObject> {
     try {
@@ -32,7 +32,7 @@ export class ArtistPostService {
       return rest;
     } catch (error) {
       console.error(
-        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ createSignatureNotification ~ error:',
+        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ createArtistPost ~ error:',
         error,
       );
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
@@ -41,10 +41,10 @@ export class ArtistPostService {
 
   /**
    *
-   * @param createArtistPostInput
-   * @returns {ArtistPost}
+   * @param updateArtistPostInput
+   * @returns {ArtistPostObject}
    */
-  async updateSignatureNotification(
+  async updateArtistPost(
     updateArtistPostInput: UpdateArtistPostInput,
   ): Promise<ArtistPostObject> {
     try {
@@ -69,7 +69,7 @@ export class ArtistPostService {
       return rest;
     } catch (error) {
       console.error(
-        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ createSignatureNotification ~ error:',
+        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ updateArtistPost ~ error:',
         error,
       );
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);

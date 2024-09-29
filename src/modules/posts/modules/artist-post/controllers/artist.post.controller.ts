@@ -17,7 +17,6 @@ import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { CognitoGuard } from 'src/modules/auth/guards/aws.cognito.guard';
 import { UserService } from 'src/modules/user/services/user.service';
-import { ArtistPost } from '../entities/artist.post.entity';
 import { ArtistPostService } from '../services/artist.post.service';
 import { CreateArtistPostInput, UpdateArtistPostInput } from '../dto/types';
 
@@ -43,12 +42,10 @@ export class ArtistPostController {
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
       }
-      const response = await this.artistPostService.createSignatureNotification(
-        {
-          ...createArtistPostInput,
-          user_id,
-        },
-      );
+      const response = await this.artistPostService.createArtistPost({
+        ...createArtistPostInput,
+        user_id,
+      });
       res
         .status(HttpStatus.CREATED)
         .json({ message: 'User is update successfully', data: response });
@@ -74,12 +71,10 @@ export class ArtistPostController {
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
       }
-      const response = await this.artistPostService.updateSignatureNotification(
-        {
-          ...updateArtistPostInput,
-          user_id,
-        },
-      );
+      const response = await this.artistPostService.updateArtistPost({
+        ...updateArtistPostInput,
+        user_id,
+      });
       res
         .status(HttpStatus.CREATED)
         .json({ message: 'Artist Post update Successful', data: response });
