@@ -1,6 +1,5 @@
 import { IsNotEmpty, IsEnum, IsEmail, IsOptional } from 'class-validator';
-import { User } from 'src/modules/user/entities/user.entity';
-import { ROLES } from 'src/shared/constants';
+import { Roles } from 'src/shared/constants';
 
 export class UserSignUpInput {
   @IsNotEmpty({ message: 'Email is required' })
@@ -12,8 +11,8 @@ export class UserSignUpInput {
   password?: string;
 
   @IsNotEmpty({ message: 'Role is required' })
-  @IsEnum(ROLES, { message: 'Role must be one of: USER, ARTIST' })
-  role: ROLES;
+  @IsEnum(Roles, { message: 'Role must be one of: USER, ARTIST' })
+  role: Roles;
 
   @IsNotEmpty({ message: 'Name is required' })
   name: string;

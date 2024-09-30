@@ -8,10 +8,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Response, Request } from 'express';
 import { UserService } from '../services/user.service';
 import { CognitoGuard } from '../../auth/guards/aws.cognito.guard';
 import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
-import { Response, Request } from 'express';
 
 @ApiTags('user')
 @Controller('user')
@@ -55,7 +55,10 @@ export class UserController {
       );
       res
         .status(HttpStatus.CREATED)
-        .json({ message: 'User is update successfully', data: response });
+        .json({
+          message: 'User Location is update successfully',
+          data: response,
+        });
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;

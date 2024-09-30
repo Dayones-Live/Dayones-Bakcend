@@ -5,7 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { cognitoJwtVerify } from '@app/modules/lib/Aws/cognito/constants/cognito.constants';
+import { cognitoJwtVerify } from '@app/modules/libs/modules/aws/cognito/constants/cognito.constants';
 
 @Injectable()
 export class CognitoGuard implements CanActivate {

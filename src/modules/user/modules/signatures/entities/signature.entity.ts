@@ -1,4 +1,4 @@
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsUUID } from 'class-validator';
 import { User } from '@user/entities/user.entity';
 import {
   BaseEntity,
@@ -6,32 +6,32 @@ import {
   Entity,
   Index,
   JoinColumn,
-  OneToOne,
+  ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
 
-@Entity({ name: 'user-notifications' })
+@Entity({ name: 'signatures' })
 @Unique(['id'])
-export class UserNotification extends BaseEntity {
+export class Signatures extends BaseEntity {
   @Column()
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
+  @IsUUID()
   @Index()
-  user_id?: string;
+  user_id: string;
 
-  @OneToOne(() => User, (user) => user.userNotification, {
+  @ManyToOne(() => User, (user) => user.signature, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
   @Column()
-  @IsNotEmpty({ message: 'Notification Token is required' })
-  @Index()
-  notification_token: string;
+  @IsNotEmpty({ message: 'Url is required' })
+  url: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

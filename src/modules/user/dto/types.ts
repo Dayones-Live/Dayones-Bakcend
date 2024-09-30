@@ -1,10 +1,10 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
-import { ROLES } from 'src/shared/constants';
+import { Roles } from 'src/shared/constants';
 
 export class UserUpdateInput {
   @IsOptional()
-  @IsEnum(ROLES, { message: 'Role must be one of:  USER, ARTIST' })
-  role?: ROLES;
+  @IsEnum(Roles, { message: 'Role must be one of:  USER, ARTIST' })
+  role?: Roles;
 
   @IsOptional()
   full_name?: string;
