@@ -12,9 +12,9 @@ export class SignatureService {
   ) {}
 
   /**
-   *
+   * Service to create user signature
    * @param createUserSignatureInput
-   * @returns
+   * @returns {Signatures}
    */
   async createSignatureNotification(
     createUserSignatureInput: CreateUserSignatureInput,
@@ -34,6 +34,12 @@ export class SignatureService {
     }
   }
 
+  /**
+   * Service to delete the signature
+   * @param id
+   * @param user_id
+   * @returns {boolean}
+   */
   async deleteSignatureById(id: string, user_id: string): Promise<boolean> {
     try {
       // Delete the signature based on both id and user_id
@@ -61,9 +67,9 @@ export class SignatureService {
   }
 
   /**
-   *
+   * Service to fetch all logged in user signatures
    * @param user_id
-   * @returns
+   * @returns {Signatures[]}
    */
   async fetchAllSignatures(user_id: string): Promise<Signatures[]> {
     try {

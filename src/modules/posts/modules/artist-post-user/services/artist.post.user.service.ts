@@ -15,9 +15,9 @@ export class ArtistPostUserService {
   ) {}
 
   /**
-   *
+   * Service to create artist post user
    * @param createArtistPostUserInput
-   * @returns
+   * @returns {ArtistPostUser}
    */
   async createArtistPostUser(
     createArtistPostUserInput: CreateArtistPostUserInput,
@@ -38,8 +38,8 @@ export class ArtistPostUserService {
   }
 
   /**
-   *
-   * @param createArtistPostInput
+   * Service to update the artist post user
+   * @param updateArtistPostUserInput
    * @returns {ArtistPost}
    */
   async updateArtistPostUser(
@@ -76,6 +76,12 @@ export class ArtistPostUserService {
     }
   }
 
+  /**
+   * Service to delete the artist post user
+   * @param id
+   * @param user_id
+   * @returns {boolean}
+   */
   async deleteArtistPostUserById(
     id: string,
     user_id: string,

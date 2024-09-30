@@ -16,9 +16,9 @@ export class ArtistPostService {
   ) {}
 
   /**
-   *
+   * Service to create Artist post
    * @param createArtistPostInput
-   * @returns {ArtistPost}
+   * @returns {ArtistPostObject}
    */
   async createArtistPost(
     createArtistPostInput: CreateArtistPostInput,
@@ -40,7 +40,7 @@ export class ArtistPostService {
   }
 
   /**
-   *
+   * Service to update the artist post
    * @param updateArtistPostInput
    * @returns {ArtistPostObject}
    */
@@ -76,6 +76,12 @@ export class ArtistPostService {
     }
   }
 
+  /**
+   * Service to delete the artist post
+   * @param id
+   * @param user_id
+   * @returns
+   */
   async deleteArtistPostById(id: string, user_id: string): Promise<boolean> {
     try {
       // Delete the signature based on both id and user_id
@@ -103,9 +109,9 @@ export class ArtistPostService {
   }
 
   /**
-   *
+   * Service to fetch all Artist post
    * @param user_id
-   * @returns
+   * @returns {ArtistPostObject[]}
    */
   async fetchAllArtistPost(user_id: string): Promise<ArtistPostObject[]> {
     try {

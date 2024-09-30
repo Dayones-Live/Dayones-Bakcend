@@ -10,7 +10,11 @@ export class UserNotificationService {
     @InjectRepository(UserNotification)
     private userNotificationRepository: Repository<UserNotification>,
   ) {}
-
+  /**
+   * Service to upsert the user device notification
+   * @param upsertUserNotificationInput
+   * @returns {UserNotification}
+   */
   async upsertUserNotification(
     upsertUserNotificationInput: UpsertUserNotificationInput,
   ): Promise<UserNotification> {
