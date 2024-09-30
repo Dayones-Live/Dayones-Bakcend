@@ -7,12 +7,14 @@ import {
   CreateArtistPostInput,
   UpdateArtistPostInput,
 } from '../dto/types';
+import { ArtistPostMapper } from '../dto/artist-post.mapper';
 
 @Injectable()
 export class ArtistPostService {
   constructor(
     @InjectRepository(ArtistPost)
     private artistPostRepository: Repository<ArtistPost>,
+    private artistPostMapper: ArtistPostMapper,
   ) {}
 
   /**
@@ -24,10 +26,9 @@ export class ArtistPostService {
     createArtistPostInput: CreateArtistPostInput,
   ): Promise<ArtistPostObject> {
     try {
+      const dto = this.artistPostMapper.dtoToEntity(createArtistPostInput);
       // Use the upsert method
-      const artistPost = await this.artistPostRepository.save(
-        createArtistPostInput,
-      );
+      const artistPost = await this.artistPostRepository.save(dto);
       const { user_id, ...rest } = artistPost;
       return rest;
     } catch (error) {
@@ -52,7 +53,7 @@ export class ArtistPostService {
       const existingPost = await this.artistPostRepository.findOne({
         where: {
           id: updateArtistPostInput.id,
-          user_id: updateArtistPostInput.user_id,
+          user_id: updateArtistPostInput.userId,
         },
       });
       // If no post is found, throw an error

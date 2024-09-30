@@ -43,7 +43,7 @@ export class ArtistPostController {
       }
       const response = await this.artistPostService.createArtistPost({
         ...createArtistPostInput,
-        user_id,
+        userId: user_id,
       });
       res
         .status(HttpStatus.CREATED)
@@ -72,7 +72,7 @@ export class ArtistPostController {
       }
       const response = await this.artistPostService.updateArtistPost({
         ...updateArtistPostInput,
-        user_id,
+        userId: user_id,
       });
       res
         .status(HttpStatus.CREATED)

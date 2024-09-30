@@ -3,13 +3,13 @@ import { Invite_Status } from '../constants/constants';
 
 export class CreateArtistPostUserInput {
   @IsOptional()
-  user_id: string;
+  userId: string;
 
   @IsNotEmpty({ message: 'Artist post id is required' })
-  artist_post_id: string;
+  artistPostId: string;
 
   @IsNotEmpty({ message: 'Valid till is required' })
-  valid_till: Date;
+  validTill: Date;
 
   @IsNotEmpty({ message: 'Invite Status is required' })
   status: Invite_Status;
@@ -21,13 +21,13 @@ export class UpdateArtistPostUserInput {
   id: string;
 
   @IsOptional()
-  user_id: string;
+  userId: string;
 
   @IsOptional()
-  artist_post_id: string;
+  artistPostId: string;
 
   @IsOptional()
-  valid_till: Date;
+  validTill: Date;
 
   @IsOptional()
   status: Invite_Status;

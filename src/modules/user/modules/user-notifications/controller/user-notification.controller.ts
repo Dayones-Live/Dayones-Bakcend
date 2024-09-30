@@ -42,14 +42,12 @@ export class UserNotificationController {
       const response =
         await this.userNotificationService.upsertUserNotification({
           ...upsertUserNotificationInput,
-          user_id,
+          userId: user_id,
         });
-      res
-        .status(HttpStatus.CREATED)
-        .json({
-          message: 'User Notification is update successfully',
-          data: response,
-        });
+      res.status(HttpStatus.CREATED).json({
+        message: 'User Notification is update successfully',
+        data: response,
+      });
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;

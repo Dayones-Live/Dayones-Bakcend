@@ -40,9 +40,9 @@ export class SignatureController {
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
       }
-      const response = await this.signatureService.createSignatureNotification({
+      const response = await this.signatureService.createSignature({
         ...createUserSignatureInput,
-        user_id,
+        userId: user_id,
       });
       res.status(HttpStatus.CREATED).json({
         message: 'User Signature creation successfull',

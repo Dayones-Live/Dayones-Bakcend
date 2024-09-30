@@ -3,14 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserInput } from '@cognito/dto/types';
 import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
-import { GlobalServiceResponse } from 'src/shared/types';
+import { GlobalServiceResponse } from '@app/shared/types/types';
 import { User } from '../entities/user.entity';
+import { UserMapper } from '../dto/user.mapper';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private userMapper: UserMapper,
   ) {}
 
   /**
@@ -31,13 +33,9 @@ export class UserService {
           HttpStatus.CONFLICT,
         );
       }
+      const dto = this.userMapper.dtoToEntity(createUserInput);
       // Ensure the role is an array, as per the entity definition
-      const newUser = await this.userRepository.save({
-        ...createUserInput,
-        full_name: createUserInput.name,
-        role: [createUserInput.role], // Wrap the role in an array
-      });
-
+      const newUser = await this.userRepository.save(dto);
       // await this.userRepository.save(newUser);
       return newUser;
     } catch (error) {
@@ -172,16 +170,12 @@ export class UserService {
           HttpStatus.NOT_FOUND,
         );
       }
-
+      const dto = this.userMapper.dtoToEntityUpdate(
+        existingUser,
+        userUpdateInput,
+      );
       // Update existing user
-      const updatedUser = await this.userRepository.save({
-        ...existingUser, // Retain existing properties
-        ...userUpdateInput, // Overwrite with new values from body
-        full_name: userUpdateInput.full_name || existingUser.full_name,
-        role: userUpdateInput?.role
-          ? [userUpdateInput.role]
-          : [existingUser.role[0]], // Ensure role is an array
-      });
+      const updatedUser = await this.userRepository.save(dto);
       const { user_sub, ...rest } = updatedUser;
 
       return {

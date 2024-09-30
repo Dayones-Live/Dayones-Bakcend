@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserNotification } from '@user-notifications/entities/user-notifications.entity';
 import { UpsertUserNotificationInput } from '@user-notifications/dto/types';
+import { UserNotificationMapper } from '../dto/user-notification.mapper';
 
 @Injectable()
 export class UserNotificationService {
   constructor(
     @InjectRepository(UserNotification)
     private userNotificationRepository: Repository<UserNotification>,
+    private userNotificationMapper: UserNotificationMapper,
   ) {}
   /**
    * Service to upsert the user device notification
@@ -18,28 +20,26 @@ export class UserNotificationService {
   async upsertUserNotification(
     upsertUserNotificationInput: UpsertUserNotificationInput,
   ): Promise<UserNotification> {
-    const { user_id, notification_token } = upsertUserNotificationInput;
-
     try {
       // Check if notification for the user already exists
       let userNotification = await this.userNotificationRepository.findOne({
-        where: { user_id },
+        where: { user_id: upsertUserNotificationInput.userId },
       });
-
+      let dto;
       if (userNotification) {
         // Update existing user notification token
-        userNotification.notification_token =
-          notification_token || userNotification?.notification_token;
+        dto = this.userNotificationMapper.dtoToEntityUpdate(
+          userNotification,
+          upsertUserNotificationInput,
+        );
       } else {
-        // Create a new user notification if not found
-        userNotification = this.userNotificationRepository.create({
-          user_id,
-          notification_token,
-        });
+        dto = this.userNotificationMapper.dtoToEntity(
+          upsertUserNotificationInput,
+        );
       }
 
       // Save the user notification (will perform update or insert)
-      return await this.userNotificationRepository.save(userNotification);
+      return await this.userNotificationRepository.save(dto);
     } catch (error) {
       console.error(
         '🚀 ~ file: user-notification.service.ts:96 ~ UserService ~ upsertUserNotification ~ error:',

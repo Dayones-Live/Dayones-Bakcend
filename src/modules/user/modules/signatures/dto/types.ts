@@ -2,7 +2,7 @@ import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 
 export class CreateUserSignatureInput {
   @IsOptional()
-  user_id: string;
+  userId: string;
 
   @IsNotEmpty({ message: 'Url is required' })
   url: string;

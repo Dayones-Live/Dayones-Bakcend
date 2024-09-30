@@ -45,7 +45,7 @@ export class ArtistPostUserController {
       }
       const response = await this.artistPostUserService.createArtistPostUser({
         ...createArtistPostUserInput,
-        user_id,
+        userId: user_id,
       });
       res.status(HttpStatus.CREATED).json({
         message: 'Artist post User creation successful',
@@ -75,7 +75,7 @@ export class ArtistPostUserController {
       }
       const response = await this.artistPostUserService.updateArtistPostUser({
         ...updateArtistPostUserInput,
-        user_id,
+        userId: user_id,
       });
       res
         .status(HttpStatus.CREATED)

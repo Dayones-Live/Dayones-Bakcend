@@ -12,7 +12,7 @@ import { cognitoJwtVerify } from '../constants/cognito.constants';
 import { computeSecretHash } from '../utils/cognito.utils';
 import { signupUserAttributes } from '../dto/constants';
 import { SignInUserInput, UserSignUpInput } from '../dto/types';
-import { GlobalServiceResponse } from 'src/shared/types';
+import { GlobalServiceResponse } from '@app/shared/types/types';
 import { UserService } from '@user/services/user.service';
 
 @Injectable()
@@ -36,13 +36,7 @@ export class CognitoService {
    * @returns {User}
    */
   async signUp(userData: UserSignUpInput): Promise<GlobalServiceResponse> {
-    const {
-      email,
-      password,
-      role,
-      name: userFullName,
-      phone_number,
-    } = userData;
+    const { email, password, role, name: userFullName, phoneNumber } = userData;
 
     const params = {
       ClientId: this.clientId || '',
@@ -53,7 +47,7 @@ export class CognitoService {
         email,
         role,
         userFullName,
-        phone_number,
+        phoneNumber,
       ),
     };
     try {
@@ -62,10 +56,10 @@ export class CognitoService {
       const newUser = await this.userService.createUser({
         name: userFullName,
         email,
-        phone_number, // Ensure you pass phoneNumber as phone_number
+        phoneNumber, // Ensure you pass phoneNumber as phone_number
         role: role, // Assuming role is of type ROLES
-        user_sub: result.UserSub || '', // UserSub returned by Cognito
-        is_confirmed: false, // Assuming the user is not confirmed immediately
+        userSub: result.UserSub || '', // UserSub returned by Cognito
+        isConfirmed: false, // Assuming the user is not confirmed immediately
       });
       const { user_sub, ...extractedUserData } = newUser;
       return {
@@ -202,7 +196,7 @@ export class CognitoService {
         );
         const response = await this.userService.updateUser(
           {
-            is_confirmed: true,
+            isConfirmed: true,
           },
           payload?.username,
         );

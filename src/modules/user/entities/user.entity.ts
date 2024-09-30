@@ -1,4 +1,4 @@
-import { Roles } from 'src/shared/constants';
+import { Roles } from '@app/shared/constants/constants';
 import {
   BaseEntity,
   Column,
