@@ -1,10 +1,10 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { User } from '../entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateUserInput } from '@app/modules/libs/modules/aws/cognito/dto/types';
+import { CreateUserInput } from '@cognito/dto/types';
 import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
 import { GlobalServiceResponse } from 'src/shared/types';
+import { User } from '../entities/user.entity';
 
 @Injectable()
 export class UserService {

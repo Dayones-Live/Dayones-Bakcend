@@ -1,27 +1,20 @@
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import {
   AuthFlowType,
   CognitoIdentityProviderClient,
   ConfirmSignUpCommand,
-  GetUserCommand,
   GlobalSignOutCommand,
   InitiateAuthCommand,
   ResendConfirmationCodeCommand,
   SignUpCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { UserService } from 'src/modules/user/services/user.service';
-import { ROLES } from 'src/shared/constants';
+import { cognitoJwtVerify } from '../constants/cognito.constants';
 import { computeSecretHash } from '../utils/cognito.utils';
 import { signupUserAttributes } from '../dto/constants';
 import { SignInUserInput, UserSignUpInput } from '../dto/types';
-import { User } from 'src/modules/user/entities/user.entity';
 import { GlobalServiceResponse } from 'src/shared/types';
-import { cognitoJwtVerify } from '../constants/cognito.constants';
+import { UserService } from '@user/services/user.service';
+
 @Injectable()
 export class CognitoService {
   private clientId = process.env.COGNITO_CLIENT_ID; // Replace with your App Client ID
@@ -42,7 +35,7 @@ export class CognitoService {
    * @param phone_number
    * @returns {User}
    */
-  async signUp(userData: UserSignUpInput): Promise<User> {
+  async signUp(userData: UserSignUpInput): Promise<GlobalServiceResponse> {
     const {
       email,
       password,
@@ -50,6 +43,7 @@ export class CognitoService {
       name: userFullName,
       phone_number,
     } = userData;
+
     const params = {
       ClientId: this.clientId || '',
       SecretHash: computeSecretHash(email),
@@ -69,16 +63,21 @@ export class CognitoService {
         name: userFullName,
         email,
         phone_number, // Ensure you pass phoneNumber as phone_number
-        role: ROLES[role as keyof typeof ROLES], // Assuming role is of type ROLES
+        role: role, // Assuming role is of type ROLES
         user_sub: result.UserSub || '', // UserSub returned by Cognito
         is_confirmed: false, // Assuming the user is not confirmed immediately
       });
-      return newUser;
+      const { user_sub, ...extractedUserData } = newUser;
+      return {
+        message: 'User Creation Successful!',
+        statusCode: 200,
+        data: { ...extractedUserData, role: extractedUserData?.role[0] },
+      };
     } catch (error) {
       console.error('🚀 ~ CognitoService ~ error:', error);
       throw new HttpException(
         `User Creation Error: ${error.message}`,
-        error['$metadata'].httpStatusCode ||
+        error['$metadata']?.httpStatusCode ||
           error.status ||
           HttpStatus.INTERNAL_SERVER_ERROR,
       );

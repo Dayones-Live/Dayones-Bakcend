@@ -1,4 +1,4 @@
-import { PASSWORD_REGEX, ROLES } from 'src/shared/constants';
+import { Roles } from 'src/shared/constants';
 import {
   BaseEntity,
   Column,
@@ -10,10 +10,10 @@ import {
   Unique,
 } from 'typeorm';
 import { IsEmail, IsNotEmpty, Length, Matches } from 'class-validator';
-import { UserNotification } from '../modules/user-notifications/entities/user-notifications.entity';
-import { Signatures } from '../modules/signatures/entities/signature.entity';
-import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist.post.entity';
-import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist.post.user.entity';
+import { UserNotification } from '@user-notifications/entities/user-notifications.entity';
+import { Signatures } from '@signature/entities/signature.entity';
+import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
+import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post.user.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -41,9 +41,9 @@ export class User extends BaseEntity {
   @Column({ nullable: false, default: false })
   is_confirmed: boolean = false;
 
-  @Column({ type: 'enum', enum: ROLES, array: true, default: [ROLES.USER] })
+  @Column({ type: 'enum', enum: Roles, array: true, default: [Roles.USER] })
   @IsNotEmpty({ message: 'Role is required' })
-  role: ROLES[];
+  role: Roles[];
 
   @Column({ nullable: false })
   @IsNotEmpty({ message: 'User Sub is required' })

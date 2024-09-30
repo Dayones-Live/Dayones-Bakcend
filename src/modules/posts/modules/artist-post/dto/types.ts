@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
-import { POST_TYPE } from '../constants';
+import { Post_Type } from '../constants';
 
 export class CreateArtistPostInput {
   @IsOptional()
@@ -15,7 +15,7 @@ export class CreateArtistPostInput {
   range: number;
 
   @IsNotEmpty({ message: 'Type is required' })
-  type: POST_TYPE;
+  type: Post_Type;
 }
 
 export class UpdateArtistPostInput {
@@ -36,7 +36,7 @@ export class UpdateArtistPostInput {
   range: number;
 
   @IsOptional()
-  type: POST_TYPE;
+  type: Post_Type;
 }
 
 export class ArtistPostObject {
@@ -54,5 +54,5 @@ export class ArtistPostObject {
   range: number;
 
   @IsOptional()
-  type: POST_TYPE;
+  type: Post_Type;
 }

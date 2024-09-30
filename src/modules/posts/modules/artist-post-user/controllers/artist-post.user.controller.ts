@@ -1,5 +1,5 @@
-import { CognitoGuard } from '@app/modules/auth/guards/aws.cognito.guard';
-import { UserService } from '@app/modules/user/services/user.service';
+import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
+import { UserService } from '@user/services/user.service';
 import {
   Body,
   Controller,
@@ -13,13 +13,13 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response, Request } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import {
   CreateArtistPostUserInput,
   UpdateArtistPostUserInput,
 } from '../dto/types';
-import { ArtistPostUserService } from '../services/artist.post.user.service';
-import { Response, Request } from 'express';
+import { ArtistPostUserService } from '../services/artist-post.user.service';
 
 @ApiTags('Artist-Post-User')
 @Controller('artist-post-user')
@@ -47,9 +47,10 @@ export class ArtistPostUserController {
         ...createArtistPostUserInput,
         user_id,
       });
-      res
-        .status(HttpStatus.CREATED)
-        .json({ message: 'User is update successfully', data: response });
+      res.status(HttpStatus.CREATED).json({
+        message: 'Artist post User creation successful',
+        data: response,
+      });
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostUserController ~ createArtistPostUser ~ error:',
@@ -103,12 +104,10 @@ export class ArtistPostUserController {
       }
       const response =
         await this.artistPostUserService.deleteArtistPostUserById(id, user_id);
-      res
-        .status(HttpStatus.CREATED)
-        .json({
-          message: 'Artist Post User delete successful',
-          data: response,
-        });
+      res.status(HttpStatus.CREATED).json({
+        message: 'Artist Post User delete successful',
+        data: response,
+      });
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostUserController ~ deleteArtistPostUser ~ error:',

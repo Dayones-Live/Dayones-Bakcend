@@ -1,6 +1,6 @@
 export const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[@#$%^&+=]).{8,}$/;
 
-export enum ROLES {
+export enum Roles {
   USER = 'USER',
   ARTIST = 'ARTIST',
 }

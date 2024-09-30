@@ -1,4 +1,4 @@
-export enum INVITE_STATUS {
+export enum Invite_Status {
   ACCEPT = 'accept',
   REJECT = 'reject',
   PENDING = 'pending',

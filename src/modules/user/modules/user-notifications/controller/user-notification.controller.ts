@@ -10,12 +10,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-
 import { Response, Request } from 'express';
-import { CognitoGuard } from 'src/modules/auth/guards/aws.cognito.guard';
 import { UserNotificationService } from '../services/user-notification.service';
 import { UpsertUserNotificationInput } from '../dto/types';
 import { UserService } from 'src/modules/user/services/user.service';
+import { CognitoGuard } from 'src/modules/auth/guards/aws.cognito.guard';
 
 @ApiTags('user-notification')
 @Controller('user-notification')
@@ -47,7 +46,10 @@ export class UserNotificationController {
         });
       res
         .status(HttpStatus.CREATED)
-        .json({ message: 'User is update successfully', data: response });
+        .json({
+          message: 'User Notification is update successfully',
+          data: response,
+        });
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;

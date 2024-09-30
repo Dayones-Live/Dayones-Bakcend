@@ -13,12 +13,11 @@ import {
   Patch,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-
 import { Response, Request } from 'express';
-import { CognitoGuard } from 'src/modules/auth/guards/aws.cognito.guard';
-import { UserService } from 'src/modules/user/services/user.service';
-import { ArtistPostService } from '../services/artist.post.service';
+import { ArtistPostService } from '../services/artist-post.service';
 import { CreateArtistPostInput, UpdateArtistPostInput } from '../dto/types';
+import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
+import { UserService } from '@user/services/user.service';
 
 @ApiTags('signature')
 @Controller('artist-post')
@@ -48,7 +47,7 @@ export class ArtistPostController {
       });
       res
         .status(HttpStatus.CREATED)
-        .json({ message: 'User is update successfully', data: response });
+        .json({ message: 'Artist post creation successfully', data: response });
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostController ~ createArtistPost ~ error:',

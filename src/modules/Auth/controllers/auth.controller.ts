@@ -7,16 +7,16 @@ import {
   HttpStatus,
   Req,
 } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
-import { CognitoService } from '../../libs/modules/aws/cognito/services/cognito.service';
+import { CognitoService } from '@libs/modules/aws/cognito/services/cognito.service';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import {
   ResendConfirmationCodeInput,
   SignInUserInput,
   UserConfirmationInput,
   UserSignUpInput,
-} from '../../libs/modules/aws/cognito/dto/types';
-import { Request, Response } from 'express';
+} from '@cognito/dto/types';
 import { Token } from '@auth/decorators/auth.decorator';
 
 @ApiTags('auth')
@@ -33,8 +33,8 @@ export class AuthController {
     try {
       const response = await this.cognitoService.signUp(userSignUpInput);
       res
-        .status(HttpStatus.CREATED)
-        .json({ message: 'User signed up successful', data: response });
+        .status(response?.statusCode)
+        .json({ message: response?.message, data: response?.data || '' });
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;

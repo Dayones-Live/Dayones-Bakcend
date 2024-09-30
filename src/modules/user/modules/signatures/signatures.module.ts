@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { SignatureController } from './controllers/signature.controller';
 import { SignatureService } from './services/signature.service';
 import { Signatures } from './entities/signature.entity';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserModule } from '../../user.module';
+import { UserModule } from '@user/user.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Signatures]), UserModule],

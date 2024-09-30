@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
-import { User } from 'src/modules/user/entities/user.entity';
+import { User } from '@user/entities/user.entity';
 import {
   BaseEntity,
   Column,
@@ -11,8 +11,8 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { POST_TYPE } from '../constants';
-import { ArtistPostUser } from '../../artist-post-user/entities/artist.post.user.entity';
+import { Post_Type } from '../constants';
+import { ArtistPostUser } from '../../artist-post-user/entities/artist-post.user.entity';
 
 @Entity({ name: 'artist_post' })
 @Unique(['id'])
@@ -44,9 +44,9 @@ export class ArtistPost extends BaseEntity {
   @IsNotEmpty({ message: 'type is required' })
   range: number;
 
-  @Column({ type: 'enum', enum: POST_TYPE, nullable: false })
+  @Column({ type: 'enum', enum: Post_Type, nullable: false })
   @IsNotEmpty({ message: 'Post Type is required' })
-  type: POST_TYPE;
+  type: Post_Type;
 
   @OneToMany(
     () => ArtistPostUser,

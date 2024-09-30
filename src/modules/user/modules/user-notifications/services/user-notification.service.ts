@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserNotification } from '../entities/user-notifications.entity';
-import { UpsertUserNotificationInput } from '../dto/types';
+import { UserNotification } from '@user-notifications/entities/user-notifications.entity';
+import { UpsertUserNotificationInput } from '@user-notifications/dto/types';
 
 @Injectable()
 export class UserNotificationService {

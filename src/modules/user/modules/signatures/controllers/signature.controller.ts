@@ -12,12 +12,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-
 import { Response, Request } from 'express';
-import { CognitoGuard } from 'src/modules/auth/guards/aws.cognito.guard';
-import { UserService } from 'src/modules/user/services/user.service';
 import { SignatureService } from '../services/signature.service';
 import { CreateUserSignatureInput } from '../dto/types';
+import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
+import { UserService } from '@user/services/user.service';
 
 @ApiTags('signature')
 @Controller('signature')
@@ -45,12 +44,10 @@ export class SignatureController {
         ...createUserSignatureInput,
         user_id,
       });
-      res
-        .status(HttpStatus.CREATED)
-        .json({
-          message: 'User Signature creation successfull',
-          data: response,
-        });
+      res.status(HttpStatus.CREATED).json({
+        message: 'User Signature creation successfull',
+        data: response,
+      });
     } catch (error) {
       console.error(
         '🚀 ~ SignatureController ~ upsertUserSignature ~ error:',

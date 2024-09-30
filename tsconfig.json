@@ -20,8 +20,14 @@
     "paths": {
       "@app/*": ["src/*"],
       "@auth/*": ["src/modules/auth/*"],
-      "@lib/*": ["src/modules/libs/*"],
+      "@libs/*": ["src/modules/libs/*"],
+      "@aws/*": ["src/modules/libs/modules/aws/*"],
+      "@cognito/*": ["src/modules/libs/modules/aws/cognito/*"],
       "@user/*": ["src/modules/user/*"],
+      "@signature/*": ["src/modules/user/modules/signatures/*"],
+      "@user-notifications/*": ["src/modules/user/modules/user-notifications/*"],
+      "@artist-post/*": ["src/modules/posts/artist-post/*"],
+      "@artist-post-user/*": ["src/modules/posts/artist-post-user/*"],
     }
   }
 }

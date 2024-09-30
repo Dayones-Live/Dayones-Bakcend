@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
-import { INVITE_STATUS } from '../constants/constants';
+import { Invite_Status } from '../constants/constants';
 
 export class CreateArtistPostUserInput {
   @IsOptional()
@@ -12,7 +12,7 @@ export class CreateArtistPostUserInput {
   valid_till: Date;
 
   @IsNotEmpty({ message: 'Invite Status is required' })
-  status: INVITE_STATUS;
+  status: Invite_Status;
 }
 
 export class UpdateArtistPostUserInput {
@@ -30,5 +30,5 @@ export class UpdateArtistPostUserInput {
   valid_till: Date;
 
   @IsOptional()
-  status: INVITE_STATUS;
+  status: Invite_Status;
 }

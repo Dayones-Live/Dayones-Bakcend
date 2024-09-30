@@ -1,4 +1,4 @@
-export enum POST_TYPE {
+export enum Post_Type {
   PHOTO = 'photo',
   INVITE = 'invite',
   BOTH = 'both',

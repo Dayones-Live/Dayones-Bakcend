@@ -1,11 +1,11 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { ArtistPostUser } from '../entities/artist.post.user.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   CreateArtistPostUserInput,
   UpdateArtistPostUserInput,
 } from '../dto/types';
+import { ArtistPostUser } from '../entities/artist-post.user.entity';
 
 @Injectable()
 export class ArtistPostUserService {

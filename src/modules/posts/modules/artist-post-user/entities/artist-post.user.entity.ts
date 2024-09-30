@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsUUID } from 'class-validator';
-import { User } from 'src/modules/user/entities/user.entity';
+import { User } from '@user/entities/user.entity';
 import {
   BaseEntity,
   Column,
@@ -10,8 +10,8 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { ArtistPost } from '../../artist-post/entities/artist.post.entity';
-import { INVITE_STATUS } from '../constants/constants';
+import { ArtistPost } from '../../artist-post/entities/artist-post.entity';
+import { Invite_Status } from '../constants/constants';
 
 @Entity({ name: 'artist_post_user' })
 @Unique(['id'])
@@ -46,9 +46,9 @@ export class ArtistPostUser extends BaseEntity {
   @IsNotEmpty({ message: 'Valid Till is  required' })
   valid_till: Date;
 
-  @Column({ type: 'enum', enum: INVITE_STATUS, nullable: false })
+  @Column({ type: 'enum', enum: Invite_Status, nullable: false })
   @IsNotEmpty({ message: 'Invite Status is required' })
-  status: INVITE_STATUS;
+  status: Invite_Status;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

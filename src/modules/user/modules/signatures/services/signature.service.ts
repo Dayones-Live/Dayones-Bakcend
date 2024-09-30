@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { Signatures } from '../entities/signature.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserSignatureInput } from '../dto/types';
+import { Signatures } from '../entities/signature.entity';
 
 @Injectable()
 export class SignatureService {
