@@ -3,10 +3,10 @@ import { Post_Type } from '../constants';
 
 export class CreateArtistPostInput {
   @IsOptional()
-  user_id: string;
+  userId: string;
 
   @IsNotEmpty({ message: 'Image Url is required' })
-  image_url: string;
+  imageUrl: string;
 
   @IsOptional()
   message: string;
@@ -24,10 +24,10 @@ export class UpdateArtistPostInput {
   id: string;
 
   @IsOptional()
-  user_id: string;
+  userId: string;
 
   @IsOptional()
-  image_url: string;
+  imageUrl: string;
 
   @IsOptional()
   message: string;

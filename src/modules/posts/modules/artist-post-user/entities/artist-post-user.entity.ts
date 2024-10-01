@@ -7,11 +7,15 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
 import { ArtistPost } from '../../artist-post/entities/artist-post.entity';
 import { Invite_Status } from '../constants/constants';
+import { Comments } from '../../comments/entities/comments.entity';
+import { Reactions } from '../../reactions/entities/reaction.entity';
 
 @Entity({ name: 'artist_post_user' })
 @Unique(['id'])
@@ -59,4 +63,10 @@ export class ArtistPostUser extends BaseEntity {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updated_at: Date;
+
+  @OneToMany(() => Comments, (comments) => comments.artistPostUser)
+  comment?: Comments[];
+
+  @OneToOne(() => Reactions, (reaction) => reaction.artistPostUser)
+  reaction: Reactions;
 }

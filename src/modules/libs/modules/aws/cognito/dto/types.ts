@@ -1,14 +1,13 @@
 import { IsNotEmpty, IsEnum, IsEmail, IsOptional } from 'class-validator';
-import { Roles } from 'src/shared/constants';
+import { Roles } from '@app/shared/constants/constants';
 
 export class UserSignUpInput {
   @IsNotEmpty({ message: 'Email is required' })
   @IsEmail({}, { message: 'Email must be a valid email address' })
   email: string;
 
-  @IsOptional()
   @IsNotEmpty({ message: 'Password is required' })
-  password?: string;
+  password: string;
 
   @IsNotEmpty({ message: 'Role is required' })
   @IsEnum(Roles, { message: 'Role must be one of: USER, ARTIST' })
@@ -18,15 +17,29 @@ export class UserSignUpInput {
   name: string;
 
   @IsNotEmpty({ message: 'Phone number is required' })
-  phone_number: string;
+  phoneNumber: string;
 }
 
-export class CreateUserInput extends UserSignUpInput {
+export class CreateUserInput {
+  @IsNotEmpty({ message: 'Email is required' })
+  @IsEmail({}, { message: 'Email must be a valid email address' })
+  email: string;
+
+  @IsNotEmpty({ message: 'Role is required' })
+  @IsEnum(Roles, { message: 'Role must be one of: USER, ARTIST' })
+  role: Roles;
+
+  @IsNotEmpty({ message: 'Name is required' })
+  name: string;
+
+  @IsNotEmpty({ message: 'Phone number is required' })
+  phoneNumber: string;
+
   @IsNotEmpty({ message: 'User Sub is required' })
-  user_sub: string;
+  userSub: string;
 
   @IsNotEmpty({ message: 'Is Confirmed is required' })
-  is_confirmed: boolean;
+  isConfirmed: boolean;
 }
 
 export class UserConfirmationInput {

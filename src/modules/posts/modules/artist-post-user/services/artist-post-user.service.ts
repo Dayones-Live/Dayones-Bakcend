@@ -5,13 +5,15 @@ import {
   CreateArtistPostUserInput,
   UpdateArtistPostUserInput,
 } from '../dto/types';
-import { ArtistPostUser } from '../entities/artist-post.user.entity';
+import { ArtistPostUser } from '../entities/artist-post-user.entity';
+import { ArtistPostUserMapper } from '../dto/atrist-post-user.mapper';
 
 @Injectable()
 export class ArtistPostUserService {
   constructor(
     @InjectRepository(ArtistPostUser)
     private artistPostUserRepository: Repository<ArtistPostUser>,
+    private artistPostUserMapper: ArtistPostUserMapper,
   ) {}
 
   /**
@@ -23,10 +25,11 @@ export class ArtistPostUserService {
     createArtistPostUserInput: CreateArtistPostUserInput,
   ): Promise<ArtistPostUser> {
     try {
-      // Use the upsert method
-      const artistPostUser = await this.artistPostUserRepository.save(
+      const dto = this.artistPostUserMapper.dtoToEntity(
         createArtistPostUserInput,
       );
+      // Use the upsert method
+      const artistPostUser = await this.artistPostUserRepository.save(dto);
       return artistPostUser;
     } catch (error) {
       console.error(
@@ -47,24 +50,26 @@ export class ArtistPostUserService {
   ): Promise<ArtistPostUser> {
     try {
       // Fetch the existing post based on id and user_id
-      const existingPost = await this.artistPostUserRepository.findOne({
+      const existingPostUser = await this.artistPostUserRepository.findOne({
         where: {
           id: updateArtistPostUserInput.id,
-          user_id: updateArtistPostUserInput.user_id,
+          user_id: updateArtistPostUserInput.userId,
         },
       });
       // If no post is found, throw an error
-      if (!existingPost) {
+      if (!existingPostUser) {
         throw new HttpException(
           `Artist post User not found`,
           HttpStatus.NOT_FOUND,
         );
       }
+      const updateDto = this.artistPostUserMapper.dtoToEntityUpdate(
+        existingPostUser,
+        updateArtistPostUserInput,
+      );
       // Update the post using save (this will update only the changed fields)
-      const artistPostUser = await this.artistPostUserRepository.save({
-        ...existingPost, // Keep existing properties
-        ...updateArtistPostUserInput, // Overwrite with new values from input
-      });
+      const artistPostUser =
+        await this.artistPostUserRepository.save(updateDto);
       // Exclude user_id and cast the result to exclude TypeORM methods
       return artistPostUser;
     } catch (error) {

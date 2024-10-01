@@ -1,5 +1,5 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
-import { Roles } from 'src/shared/constants';
+import { Roles } from '@app/shared/constants/constants';
 
 export class UserUpdateInput {
   @IsOptional()
@@ -7,16 +7,16 @@ export class UserUpdateInput {
   role?: Roles;
 
   @IsOptional()
-  full_name?: string;
+  fullName?: string;
 
   @IsOptional()
-  is_confirmed?: boolean;
+  isConfirmed?: boolean;
 
   @IsOptional()
-  phone_number?: string;
+  phoneNumber?: string;
 
   @IsOptional()
-  avatar_url?: string;
+  avatarUrl?: string;
 }
 
 export class UpdateUserLocationInput {

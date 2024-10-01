@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserSignatureInput } from '../dto/types';
 import { Signatures } from '../entities/signature.entity';
+import { SignatureMapper } from '../dto/signature.mapper';
 
 @Injectable()
 export class SignatureService {
   constructor(
     @InjectRepository(Signatures)
     private signaturesRepository: Repository<Signatures>,
+    private signatureMapper: SignatureMapper,
   ) {}
 
   /**
@@ -16,14 +18,13 @@ export class SignatureService {
    * @param createUserSignatureInput
    * @returns {Signatures}
    */
-  async createSignatureNotification(
+  async createSignature(
     createUserSignatureInput: CreateUserSignatureInput,
   ): Promise<Signatures> {
     try {
       // Use the upsert method
-      const signature = await this.signaturesRepository.save(
-        createUserSignatureInput,
-      );
+      const dto = this.signatureMapper.dtoToEntity(createUserSignatureInput);
+      const signature = await this.signaturesRepository.save(dto);
       return signature;
     } catch (error) {
       console.error(

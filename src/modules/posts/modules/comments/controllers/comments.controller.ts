@@ -15,83 +15,21 @@ import {
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { ApiTags } from '@nestjs/swagger';
-import {
-  CreateArtistPostUserInput,
-  UpdateArtistPostUserInput,
-} from '../dto/types';
-import { ArtistPostUserService } from '../services/artist-post.user.service';
+import { CommentsService } from '../services/commnets.service';
+import { CreateCommentInput, UpdateCommentInput } from '../dto/types';
 
-@ApiTags('Artist-Post-User')
-@Controller('artist-post-user')
+@ApiTags('Comments')
+@Controller('comment')
 @UseGuards(CognitoGuard)
-export class ArtistPostUserController {
+export class CommentsController {
   constructor(
-    private artistPostUserService: ArtistPostUserService,
+    private commentsService: CommentsService,
     private userService: UserService,
   ) {}
 
   @Post()
-  async createArtistPostUser(
-    @Body() createArtistPostUserInput: CreateArtistPostUserInput,
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
-    try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      const response = await this.artistPostUserService.createArtistPostUser({
-        ...createArtistPostUserInput,
-        user_id,
-      });
-      res.status(HttpStatus.CREATED).json({
-        message: 'Artist post User creation successful',
-        data: response,
-      });
-    } catch (error) {
-      console.error(
-        '🚀 ~ ArtistPostUserController ~ createArtistPostUser ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
-
-  @Patch()
-  async updateArtistPostUser(
-    @Body() updateArtistPostUserInput: UpdateArtistPostUserInput,
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
-    try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      const response = await this.artistPostUserService.updateArtistPostUser({
-        ...updateArtistPostUserInput,
-        user_id,
-      });
-      res
-        .status(HttpStatus.CREATED)
-        .json({ message: 'Artist Post update Successful', data: response });
-    } catch (error) {
-      console.error(
-        '🚀 ~ ArtistPostUserController ~ updateArtistPostUser ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
-
-  @Delete(':id')
-  async deleteArtistPostUser(
-    @Param('id') id: string,
+  async createComment(
+    @Body() createCommentInput: CreateCommentInput,
     @Res() res: Response,
     @Req() req: Request,
   ) {
@@ -103,9 +41,57 @@ export class ArtistPostUserController {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
       }
       const response =
-        await this.artistPostUserService.deleteArtistPostUserById(id, user_id);
+        await this.commentsService.createComment(createCommentInput);
       res.status(HttpStatus.CREATED).json({
-        message: 'Artist Post User delete successful',
+        message: 'Comment creation successful',
+        data: response,
+      });
+    } catch (error) {
+      console.error('🚀 ~ CommentsController ~ createComment ~ error:', error);
+      throw error;
+    }
+  }
+
+  @Patch()
+  async updateComment(
+    @Body() updateCommentInput: UpdateCommentInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const { id: user_id } = await this.userService.findUserByUserSub(
+        req?.userSub || '',
+      );
+      if (!user_id) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      const response =
+        await this.commentsService.updateComment(updateCommentInput);
+      res
+        .status(HttpStatus.CREATED)
+        .json({ message: 'Comment update Successful', data: response });
+    } catch (error) {
+      console.error('🚀 ~ CommentsController ~ updateComment ~ error:', error);
+      throw error;
+    }
+  }
+
+  @Delete(':id')
+  async deleteComment(
+    @Param('id') id: string,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const { id: user_id } = await this.userService.findUserByUserSub(
+        req?.userSub || '',
+      );
+      if (!user_id) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      const response = await this.commentsService.deleteCommentById(id);
+      res.status(HttpStatus.CREATED).json({
+        message: 'Comment delete successful',
         data: response,
       });
     } catch (error) {
