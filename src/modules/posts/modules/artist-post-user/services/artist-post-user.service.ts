@@ -7,6 +7,8 @@ import {
 } from '../dto/types';
 import { ArtistPostUser } from '../entities/artist-post-user.entity';
 import { ArtistPostUserMapper } from '../dto/atrist-post-user.mapper';
+import { InviteStatus } from 'aws-sdk/clients/chime';
+import { Invite_Status } from '../constants/constants';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -25,11 +27,12 @@ export class ArtistPostUserService {
     createArtistPostUserInput: CreateArtistPostUserInput,
   ): Promise<ArtistPostUser> {
     try {
-      const dto = this.artistPostUserMapper.dtoToEntity(
+      const artistPostUserDto = this.artistPostUserMapper.dtoToEntity(
         createArtistPostUserInput,
       );
       // Use the upsert method
-      const artistPostUser = await this.artistPostUserRepository.save(dto);
+      const artistPostUser =
+        await this.artistPostUserRepository.save(artistPostUserDto);
       return artistPostUser;
     } catch (error) {
       console.error(
@@ -50,21 +53,25 @@ export class ArtistPostUserService {
   ): Promise<ArtistPostUser> {
     try {
       // Fetch the existing post based on id and user_id
-      const existingPostUser = await this.artistPostUserRepository.findOne({
-        where: {
-          id: updateArtistPostUserInput.id,
-          user_id: updateArtistPostUserInput.userId,
-        },
-      });
+      const existingInvite = await this.artistPostUserRepository
+        .createQueryBuilder('artistPostUser')
+        .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
+        .andWhere('artistPostUser.id = :id', {
+          id: updateArtistPostUserInput?.id,
+        })
+        .andWhere('artistPostUser.user_id = :user_id', {
+          user_id: updateArtistPostUserInput?.userId,
+        }) // Filter by user_id
+        .getOne();
       // If no post is found, throw an error
-      if (!existingPostUser) {
+      if (!existingInvite) {
         throw new HttpException(
-          `Artist post User not found`,
+          `No Existing Invite found`,
           HttpStatus.NOT_FOUND,
         );
       }
       const updateDto = this.artistPostUserMapper.dtoToEntityUpdate(
-        existingPostUser,
+        existingInvite,
         updateArtistPostUserInput,
       );
       // Update the post using save (this will update only the changed fields)
@@ -110,6 +117,117 @@ export class ArtistPostUserService {
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ deleteArtistPostById ~ error:',
+        err,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Fetch all ArtistPostUser records where valid_till is greater than current date
+   */
+  async fetchValidArtistInvites(user_id: string): Promise<ArtistPostUser[]> {
+    try {
+      const currentDate = new Date();
+
+      const artistValidInvites = await this.artistPostUserRepository
+        .createQueryBuilder('artistPostUser')
+        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
+        .where('artistPostUser.valid_till > :currentDate', { currentDate })
+        .andWhere('artistPost.user_id = :user_id', { user_id }) // Filter by user_id
+        .getMany();
+
+      return artistValidInvites;
+    } catch (err) {
+      console.error(
+        '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ fetchValidArtistPostUsers ~ error:',
+        err,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Fetch all ArtistPostUser records where valid_till is greater than current date
+   */
+  async fetchUserInvitesByStatus(
+    user_id: string,
+    status: InviteStatus,
+  ): Promise<ArtistPostUser[]> {
+    try {
+      const artistValidInvites = await this.artistPostUserRepository
+        .createQueryBuilder('artistPostUser')
+        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
+        .leftJoinAndSelect('artistPostUser.comment', 'comment')
+        .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+        .where('artistPostUser.status = :status', { status })
+        .andWhere('artistPostUser.user_id = :user_id', { user_id }) // Filter by user_id
+        .getMany();
+
+      return artistValidInvites;
+    } catch (err) {
+      console.error(
+        '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ fetchValidArtistPostUsers ~ error:',
+        err,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Fetch all User comments
+   */
+  async fetchUserCommentsAndReaction(
+    user_id: string,
+    postId: string,
+  ): Promise<ArtistPostUser[]> {
+    try {
+      const artistValidInvites = await this.artistPostUserRepository
+        .createQueryBuilder('artistPostUser')
+        .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
+        .leftJoinAndSelect('artistPostUser.comment', 'comment')
+        .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+        .where('artistPostUser.status = :status', {
+          status: Invite_Status.ACCEPT,
+        })
+        .andWhere('artistPostUser.user_id = :user_id', { user_id })
+        .andWhere('artistPost.id =: postId', { postId }) // Filter by user_id
+        .getMany();
+
+      return artistValidInvites;
+    } catch (err) {
+      console.error(
+        '🚀 ~ file:artist.post.user.service.ts:96  ~ fetchComments ~ error:',
+        err,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Fetch all User comments
+   */
+  async getArtistPostByPostId(
+    userId: string,
+    postId: string,
+  ): Promise<ArtistPostUser> {
+    try {
+      const artistPostUser = await this.artistPostUserRepository.findOne({
+        where: {
+          artist_post_id: postId,
+          user_id: userId,
+        },
+      });
+      if (!artistPostUser) {
+        throw new HttpException(
+          `Artist Post not found or already deleted`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      return artistPostUser;
+    } catch (err) {
+      console.error(
+        '🚀 ~ file:artist.post.user.service.ts:96  ~ fetchComments ~ error:',
         err,
       );
       throw err;

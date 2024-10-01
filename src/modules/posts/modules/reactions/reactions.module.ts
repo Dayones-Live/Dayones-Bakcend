@@ -5,8 +5,13 @@ import { UserModule } from '@app/modules/user/user.module';
 import { ReactionService } from './services/reactions.service';
 import { ReactionsMapper } from './dto/reaction.mapper';
 import { ReactionsController } from './controllers/reaction.controller';
+import { ArtistPostUserModule } from '../artist-post-user/atrist-post-user.module';
 @Module({
-  imports: [TypeOrmModule.forFeature([Reactions]), UserModule],
+  imports: [
+    TypeOrmModule.forFeature([Reactions]),
+    UserModule,
+    ArtistPostUserModule,
+  ],
   controllers: [ReactionsController],
   providers: [ReactionService, ReactionsMapper],
   exports: [ReactionService],

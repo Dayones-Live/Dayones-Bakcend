@@ -25,21 +25,21 @@ export class UserNotificationService {
       let userNotification = await this.userNotificationRepository.findOne({
         where: { user_id: upsertUserNotificationInput.userId },
       });
-      let dto;
+      let userNotificationDto;
       if (userNotification) {
         // Update existing user notification token
-        dto = this.userNotificationMapper.dtoToEntityUpdate(
+        userNotificationDto = this.userNotificationMapper.dtoToEntityUpdate(
           userNotification,
           upsertUserNotificationInput,
         );
       } else {
-        dto = this.userNotificationMapper.dtoToEntity(
+        userNotificationDto = this.userNotificationMapper.dtoToEntity(
           upsertUserNotificationInput,
         );
       }
 
       // Save the user notification (will perform update or insert)
-      return await this.userNotificationRepository.save(dto);
+      return await this.userNotificationRepository.save(userNotificationDto);
     } catch (error) {
       console.error(
         '🚀 ~ file: user-notification.service.ts:96 ~ UserService ~ upsertUserNotification ~ error:',

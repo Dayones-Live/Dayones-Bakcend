@@ -27,34 +27,6 @@ export class ReactionsController {
     private userService: UserService,
   ) {}
 
-  @Post()
-  async createReaction(
-    @Body() createReactionInput: CreateReactionInput,
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
-    try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      const response =
-        await this.reactionService.createReaction(createReactionInput);
-      res.status(HttpStatus.CREATED).json({
-        message: 'Reaction Added successful',
-        data: response,
-      });
-    } catch (error) {
-      console.error(
-        '🚀 ~ ReactionsController ~ createReaction ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
-
   @Delete(':id')
   async deleteReaction(
     @Param('id') id: string,

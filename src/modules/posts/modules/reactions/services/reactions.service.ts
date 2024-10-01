@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Reactions } from '../entities/reaction.entity';
 import { ReactionsMapper } from '../dto/reaction.mapper';
 import { CreateReactionInput } from '../dto/types';
+import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
 
 @Injectable()
 export class ReactionService {
@@ -11,6 +12,7 @@ export class ReactionService {
     @InjectRepository(Reactions)
     private reactionsRepository: Repository<Reactions>,
     private reactionsMapper: ReactionsMapper,
+    private artistPostUserService: ArtistPostUserService,
   ) {}
 
   /**
@@ -18,13 +20,19 @@ export class ReactionService {
    * @param Creation
    * @returns {Reactions}
    */
-  async createReaction(
+  async likeAPost(
     createReactionInput: CreateReactionInput,
+    postId: string,
+    userId: string,
   ): Promise<Reactions> {
     try {
-      const dto = this.reactionsMapper.dtoToEntity(createReactionInput);
+      // Fetch the artistPostUserId through user id and artistPost
+      const artistPostUser =
+        await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      createReactionInput.artistPostUserId = artistPostUser?.id;
+      const reactionDto = this.reactionsMapper.dtoToEntity(createReactionInput);
       // Use the upsert method
-      const reaction = await this.reactionsRepository.save(dto);
+      const reaction = await this.reactionsRepository.save(reactionDto);
       return reaction;
     } catch (error) {
       console.error(

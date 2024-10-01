@@ -27,30 +27,30 @@ export class CommentsController {
     private userService: UserService,
   ) {}
 
-  @Post()
-  async createComment(
-    @Body() createCommentInput: CreateCommentInput,
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
-    try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      const response =
-        await this.commentsService.createComment(createCommentInput);
-      res.status(HttpStatus.CREATED).json({
-        message: 'Comment creation successful',
-        data: response,
-      });
-    } catch (error) {
-      console.error('🚀 ~ CommentsController ~ createComment ~ error:', error);
-      throw error;
-    }
-  }
+  // @Post()
+  // async createComment(
+  //   @Body() createCommentInput: CreateCommentInput,
+  //   @Res() res: Response,
+  //   @Req() req: Request,
+  // ) {
+  //   try {
+  //     const { id: user_id } = await this.userService.findUserByUserSub(
+  //       req?.userSub || '',
+  //     );
+  //     if (!user_id) {
+  //       throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+  //     }
+  //     const response =
+  //       await this.commentsService.createComment(createCommentInput);
+  //     res.status(HttpStatus.CREATED).json({
+  //       message: 'Comment creation successful',
+  //       data: response,
+  //     });
+  //   } catch (error) {
+  //     console.error('🚀 ~ CommentsController ~ createComment ~ error:', error);
+  //     throw error;
+  //   }
+  // }
 
   @Patch()
   async updateComment(

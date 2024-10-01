@@ -6,6 +6,7 @@ import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
 import { GlobalServiceResponse } from '@app/shared/types/types';
 import { User } from '../entities/user.entity';
 import { UserMapper } from '../dto/user.mapper';
+import { Roles } from '@app/shared/constants/constants';
 
 @Injectable()
 export class UserService {
@@ -33,9 +34,9 @@ export class UserService {
           HttpStatus.CONFLICT,
         );
       }
-      const dto = this.userMapper.dtoToEntity(createUserInput);
+      const createUserDto = this.userMapper.dtoToEntity(createUserInput);
       // Ensure the role is an array, as per the entity definition
-      const newUser = await this.userRepository.save(dto);
+      const newUser = await this.userRepository.save(createUserDto);
       // await this.userRepository.save(newUser);
       return newUser;
     } catch (error) {
@@ -170,12 +171,12 @@ export class UserService {
           HttpStatus.NOT_FOUND,
         );
       }
-      const dto = this.userMapper.dtoToEntityUpdate(
+      const updateUserDto = this.userMapper.dtoToEntityUpdate(
         existingUser,
         userUpdateInput,
       );
       // Update existing user
-      const updatedUser = await this.userRepository.save(dto);
+      const updatedUser = await this.userRepository.save(updateUserDto);
       const { user_sub, ...rest } = updatedUser;
 
       return {
@@ -238,6 +239,28 @@ export class UserService {
         `User update error: ${error?.message}`,
         HttpStatus.BAD_REQUEST,
       );
+    }
+  }
+
+  /**
+   * Fetch users by role
+   *
+   * @param {Roles} role
+   * @returns {User[]}
+   */
+  async fetchUsersByRole(role: Roles): Promise<User[]> {
+    try {
+      const users = await this.userRepository
+        .createQueryBuilder('user')
+        .where(':role = ANY(user.role)', { role })
+        .getMany();
+      return users;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts ~ UserService ~ fetchUsersByRole ~ error:',
+        error,
+      );
+      throw error;
     }
   }
 }

@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Comments } from '../entities/comments.entity';
 import { CommentsMapper } from '../dto/comments.mapper';
 import { CreateCommentInput, UpdateCommentInput } from '../dto/types';
+import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
 
 @Injectable()
 export class CommentsService {
@@ -11,6 +12,7 @@ export class CommentsService {
     @InjectRepository(Comments)
     private commentsRepository: Repository<Comments>,
     private commentsMapper: CommentsMapper,
+    private artistPostUserService: ArtistPostUserService,
   ) {}
 
   /**
@@ -18,13 +20,19 @@ export class CommentsService {
    * @param Create Comment
    * @returns {Comments}
    */
-  async createComment(
+  async commentAPost(
     createCommentInput: CreateCommentInput,
+    postId: string,
+    userId: string,
   ): Promise<Comments> {
     try {
-      const dto = this.commentsMapper.dtoToEntity(createCommentInput);
+      // Fetch the artistPostUserId through user id and artistPost
+      const artistPostUser =
+        await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      createCommentInput.artistPostUserId = artistPostUser?.id;
+      const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
       // Use the upsert method
-      const comment = await this.commentsRepository.save(dto);
+      const comment = await this.commentsRepository.save(commentDto);
       return comment;
     } catch (error) {
       console.error(
@@ -54,14 +62,15 @@ export class CommentsService {
       if (!existingComment) {
         throw new HttpException(`Comment not found`, HttpStatus.NOT_FOUND);
       }
-      const updateDto = this.commentsMapper.dtoToEntityUpdate(
+      const commentUpdateDto = this.commentsMapper.dtoToEntityUpdate(
         existingComment,
         updateCommentInput,
       );
       // Update the post using save (this will update only the changed fields)
-      const updateComment = await this.commentsRepository.save(updateDto);
+      const updatedComment =
+        await this.commentsRepository.save(commentUpdateDto);
       // Exclude user_id and cast the result to exclude TypeORM methods
-      return updateComment;
+      return updatedComment;
     } catch (error) {
       console.error(
         '🚀 ~ file:comments.service.ts:96 ~ CommentsService ~ updateComment ~ error:',
