@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Reactions1727727845186 implements MigrationInterface {
-    name = 'Reactions1727727845186'
+export class ReactionCommentsTable1727776834768 implements MigrationInterface {
+    name = 'ReactionCommentsTable1727776834768'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE TABLE "comments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "artist_post_user_id" uuid NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_8bf68bc960f2b69e818bdb90dcb" UNIQUE ("id"), CONSTRAINT "PK_8bf68bc960f2b69e818bdb90dcb" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "comments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "artist_post_user_id" uuid NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "message" character varying, "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_8bf68bc960f2b69e818bdb90dcb" UNIQUE ("id"), CONSTRAINT "PK_8bf68bc960f2b69e818bdb90dcb" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_94f65d2b59625921cbf8a1edb6" ON "comments" ("artist_post_user_id") `);
         await queryRunner.query(`CREATE TABLE "reactions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "artist_post_user_id" uuid NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_0b213d460d0c473bc2fb6ee27f3" UNIQUE ("id"), CONSTRAINT "REL_8f44eacd8611c2d11c283cb2c8" UNIQUE ("artist_post_user_id"), CONSTRAINT "PK_0b213d460d0c473bc2fb6ee27f3" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_8f44eacd8611c2d11c283cb2c8" ON "reactions" ("artist_post_user_id") `);

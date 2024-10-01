@@ -19,7 +19,7 @@ import {
   CreateArtistPostUserInput,
   UpdateArtistPostUserInput,
 } from '../dto/types';
-import { ArtistPostUserService } from '../services/artist-post.user.service';
+import { ArtistPostUserService } from '../services/artist-post-user.service';
 
 @ApiTags('Artist-Post-User')
 @Controller('artist-post-user')

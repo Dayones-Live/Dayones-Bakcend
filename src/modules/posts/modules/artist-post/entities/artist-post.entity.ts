@@ -12,7 +12,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Post_Type } from '../constants';
-import { ArtistPostUser } from '../../artist-post-user/entities/artist-post.user.entity';
+import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 
 @Entity({ name: 'artist_post' })
 @Unique(['id'])

@@ -5,8 +5,8 @@ import {
   CreateArtistPostUserInput,
   UpdateArtistPostUserInput,
 } from '../dto/types';
-import { ArtistPostUser } from '../entities/artist-post.user.entity';
-import { ArtistPostUserMapper } from '../dto/atrist-post.user.mapper';
+import { ArtistPostUser } from '../entities/artist-post-user.entity';
+import { ArtistPostUserMapper } from '../dto/atrist-post-user.mapper';
 
 @Injectable()
 export class ArtistPostUserService {

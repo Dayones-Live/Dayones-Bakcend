@@ -56,7 +56,7 @@ export class CognitoService {
       const newUser = await this.userService.createUser({
         name: userFullName,
         email,
-        phoneNumber, // Ensure you pass phoneNumber as phone_number
+        phoneNumber,
         role: role, // Assuming role is of type ROLES
         userSub: result.UserSub || '', // UserSub returned by Cognito
         isConfirmed: false, // Assuming the user is not confirmed immediately

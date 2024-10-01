@@ -13,7 +13,7 @@ import { IsEmail, IsNotEmpty, Length, Matches } from 'class-validator';
 import { UserNotification } from '@user-notifications/entities/user-notifications.entity';
 import { Signatures } from '@signature/entities/signature.entity';
 import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
-import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post.user.entity';
+import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
 
 @Entity('user')
 @Unique(['email'])

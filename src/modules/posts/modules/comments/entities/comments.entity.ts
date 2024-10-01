@@ -9,7 +9,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { ArtistPostUser } from '../../artist-post-user/entities/artist-post.user.entity';
+import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 
 @Entity({ name: 'comments' })
 @Unique(['id'])
@@ -31,6 +31,9 @@ export class Comments extends BaseEntity {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
+
+  @Column({ nullable: true })
+  message: string;
 
   @Column({
     type: 'timestamp',

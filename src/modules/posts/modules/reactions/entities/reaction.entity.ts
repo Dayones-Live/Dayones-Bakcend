@@ -10,7 +10,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { ArtistPostUser } from '../../artist-post-user/entities/artist-post.user.entity';
+import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 
 @Entity({ name: 'reactions' })
 @Unique(['id'])

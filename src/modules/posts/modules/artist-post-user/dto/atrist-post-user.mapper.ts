@@ -1,5 +1,5 @@
 import { mapInputToEntity } from '@app/shared/utils';
-import { ArtistPostUser } from '../entities/artist-post.user.entity';
+import { ArtistPostUser } from '../entities/artist-post-user.entity';
 import { CreateArtistPostUserInput, UpdateArtistPostUserInput } from './types';
 
 export class ArtistPostUserMapper {
