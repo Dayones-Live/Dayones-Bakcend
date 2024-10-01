@@ -35,7 +35,7 @@ export class ArtistPostController {
     private reactionService: ReactionService,
   ) {}
 
-  @Post('create')
+  @Post()
   async createArtistPost(
     @Body() createArtistPostInput: CreateArtistPostInput,
     @Res() res: Response,
@@ -54,13 +54,14 @@ export class ArtistPostController {
           HttpStatus.FORBIDDEN,
         );
       }
-      const response = await this.artistPostService.createArtistPost({
+      const artistPost = await this.artistPostService.createArtistPost({
         ...createArtistPostInput,
         userId: user_id,
       });
-      res
-        .status(HttpStatus.CREATED)
-        .json({ message: 'Artist post creation successfully', data: response });
+      res.status(HttpStatus.CREATED).json({
+        message: 'Artist post creation successfully',
+        data: artistPost,
+      });
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostController ~ createArtistPost ~ error:',
@@ -99,28 +100,6 @@ export class ArtistPostController {
     }
   }
 
-  @Get()
-  async getAllArtistPost(@Res() res: Response, @Req() req: Request) {
-    try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      const response = await this.artistPostService.fetchAllArtistPost(user_id);
-      res
-        .status(HttpStatus.OK)
-        .json({ message: 'Signatures Fetched Successfully', data: response });
-    } catch (error) {
-      console.error(
-        '🚀 ~ ArtistPostController ~ getAllArtistPost ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
-
   @Delete(':id')
   async deleteArtistPost(
     @Param('id') id: string,
@@ -150,7 +129,7 @@ export class ArtistPostController {
     }
   }
 
-  @Get('/list')
+  @Get()
   async getAllUserPostsData(@Res() res: Response, @Req() req: Request) {
     try {
       const user = await this.userService.findUserByUserSub(req?.userSub || '');
@@ -158,10 +137,11 @@ export class ArtistPostController {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
       }
 
-      const response = await this.artistPostService.fetchAllUserPostsData(user);
+      const postsData =
+        await this.artistPostService.fetchAllUserPostsData(user);
       res
         .status(HttpStatus.OK)
-        .json({ message: 'Data Fetched Successfully', data: response });
+        .json({ message: 'Data Fetched Successfully', data: postsData });
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostController ~ getAllUserPostsData ~ error:',
@@ -171,9 +151,9 @@ export class ArtistPostController {
     }
   }
 
-  @Get('/:postId')
+  @Get('/:id')
   async getPostData(
-    @Param('id') postId: string,
+    @Param('id') id: string,
     @Res() res: Response,
     @Req() req: Request,
   ) {
@@ -183,10 +163,7 @@ export class ArtistPostController {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
       }
 
-      const response = await this.artistPostService.fetchArtistPostById(
-        user,
-        postId,
-      );
+      const response = await this.artistPostService.fetchPostDataById(user, id);
       res
         .status(HttpStatus.OK)
         .json({ message: 'Data Fetched Successfully', data: response });
@@ -196,9 +173,9 @@ export class ArtistPostController {
     }
   }
 
-  @Post('/:postId/comment')
-  async addCommentToPost(
-    @Param('postId') postId: string,
+  @Post('/:id/comment')
+  async CommentAPost(
+    @Param('id') id: string,
     @Body() createCommentInput: CreateCommentInput,
     @Res() res: Response,
     @Req() req: Request,
@@ -214,23 +191,23 @@ export class ArtistPostController {
           HttpStatus.FORBIDDEN,
         );
       }
-      const response = await this.commentService.createComment(
+      const comment = await this.commentService.commentAPost(
         createCommentInput,
-        postId,
+        id,
         user?.id,
       );
       res
         .status(HttpStatus.OK)
-        .json({ message: 'Data Fetched Successfully', data: response });
+        .json({ message: 'Data Fetched Successfully', data: comment });
     } catch (error) {
       console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;
     }
   }
 
-  @Post('/:postId/likes')
-  async addLikeToPost(
-    @Param('postId') postId: string,
+  @Post('/:id/likes')
+  async likeAPost(
+    @Param('id') id: string,
     @Body() createReactionInput: CreateReactionInput,
     @Res() res: Response,
     @Req() req: Request,
@@ -246,14 +223,14 @@ export class ArtistPostController {
           HttpStatus.FORBIDDEN,
         );
       }
-      const response = await this.reactionService.createReaction(
+      const like = await this.reactionService.likeAPost(
         createReactionInput,
-        postId,
+        id,
         user?.id,
       );
       res
         .status(HttpStatus.OK)
-        .json({ message: 'Data Fetched Successfully', data: response });
+        .json({ message: 'Data Fetched Successfully', data: like });
     } catch (error) {
       console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;

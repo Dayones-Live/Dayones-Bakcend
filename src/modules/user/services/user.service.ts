@@ -34,9 +34,9 @@ export class UserService {
           HttpStatus.CONFLICT,
         );
       }
-      const dto = this.userMapper.dtoToEntity(createUserInput);
+      const createUserDto = this.userMapper.dtoToEntity(createUserInput);
       // Ensure the role is an array, as per the entity definition
-      const newUser = await this.userRepository.save(dto);
+      const newUser = await this.userRepository.save(createUserDto);
       // await this.userRepository.save(newUser);
       return newUser;
     } catch (error) {
@@ -171,12 +171,12 @@ export class UserService {
           HttpStatus.NOT_FOUND,
         );
       }
-      const dto = this.userMapper.dtoToEntityUpdate(
+      const updateUserDto = this.userMapper.dtoToEntityUpdate(
         existingUser,
         userUpdateInput,
       );
       // Update existing user
-      const updatedUser = await this.userRepository.save(dto);
+      const updatedUser = await this.userRepository.save(updateUserDto);
       const { user_sub, ...rest } = updatedUser;
 
       return {

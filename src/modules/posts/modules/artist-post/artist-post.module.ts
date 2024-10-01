@@ -8,6 +8,7 @@ import { ArtistPostMapper } from './dto/artist-post.mapper';
 import { ArtistPostUserModule } from '../artist-post-user/atrist-post-user.module';
 import { CommentsModule } from '../comments/comments.module';
 import { ReactionsModule } from '../reactions/reactions.module';
+import { InvitesController } from './controllers/invites.controller';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { ReactionsModule } from '../reactions/reactions.module';
     CommentsModule,
     ReactionsModule,
   ],
-  controllers: [ArtistPostController],
+  controllers: [ArtistPostController, InvitesController],
   providers: [ArtistPostService, ArtistPostMapper],
   exports: [ArtistPostService],
 })

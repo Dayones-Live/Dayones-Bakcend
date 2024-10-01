@@ -6,7 +6,7 @@ export class CreateArtistPostInput {
   userId: string;
 
   @IsOptional()
-  image_url: string;
+  imageUrl: string;
 
   @IsOptional()
   message: string;

@@ -23,8 +23,10 @@ export class SignatureService {
   ): Promise<Signatures> {
     try {
       // Use the upsert method
-      const dto = this.signatureMapper.dtoToEntity(createUserSignatureInput);
-      const signature = await this.signaturesRepository.save(dto);
+      const signatureDto = this.signatureMapper.dtoToEntity(
+        createUserSignatureInput,
+      );
+      const signature = await this.signaturesRepository.save(signatureDto);
       return signature;
     } catch (error) {
       console.error(

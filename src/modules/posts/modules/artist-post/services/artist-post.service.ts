@@ -16,6 +16,7 @@ import { addMinutesToDate } from '../utils';
 import { User } from '@app/modules/user/entities/user.entity';
 import { ArtistPostUser } from '@artist-post-user/entities/artist-post-user.entity';
 import { AllUserDataObject } from '../../artist-post-user/dto/types';
+import { Post_Message } from '../constants';
 
 @Injectable()
 export class ArtistPostService {
@@ -36,9 +37,12 @@ export class ArtistPostService {
     createArtistPostInput: CreateArtistPostInput,
   ): Promise<ArtistPostObject> {
     try {
-      const dto = this.artistPostMapper.dtoToEntity(createArtistPostInput);
+      const artistPostDto = this.artistPostMapper.dtoToEntity({
+        ...createArtistPostInput,
+        message: Post_Message,
+      });
       // Use the upsert method
-      const artistPost = await this.artistPostRepository.save(dto);
+      const artistPost = await this.artistPostRepository.save(artistPostDto);
       const users = await this.userService.fetchUsersByRole(Roles.USER);
       // Loop on users and add it in artist post user
       for (const user of users) {
@@ -157,7 +161,7 @@ export class ArtistPostService {
    * @param user_id
    * @returns {ArtistPostObject[]}
    */
-  async fetchArtistPostById(
+  async fetchPostDataById(
     user: User,
     postId: string,
   ): Promise<ArtistPostObject[] | ArtistPostUser[]> {
@@ -172,12 +176,16 @@ export class ArtistPostService {
             ],
             where: {
               user_id: user?.id,
+              id: postId,
             },
           });
         return artistPosts;
       } else {
         const comments: ArtistPostUser[] =
-          await this.artistPostUserService.fetchComments(user?.id);
+          await this.artistPostUserService.fetchUserCommentsAndReaction(
+            user?.id,
+            postId,
+          );
         return comments;
       }
     } catch (error) {
@@ -191,7 +199,7 @@ export class ArtistPostService {
 
   /**
    * Service to fetch all User data
-   * @param user_id
+   * @param user
    * @returns {ArtistPostObject[]}
    */
   async fetchAllUserPostsData(
@@ -214,7 +222,7 @@ export class ArtistPostService {
       } else {
         //Fetch the Post for which user accepts the invites plus comments and likes
         const artistPostUser: ArtistPostUser[] =
-          await this.artistPostUserService.fetchInvitesByStatus(
+          await this.artistPostUserService.fetchUserInvitesByStatus(
             user?.id,
             Invite_Status.ACCEPT,
           );
@@ -223,7 +231,7 @@ export class ArtistPostService {
       }
     } catch (error) {
       console.error(
-        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllArtistPost ~ error:',
+        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllUserPostsData ~ error:',
         error,
       );
       throw error;

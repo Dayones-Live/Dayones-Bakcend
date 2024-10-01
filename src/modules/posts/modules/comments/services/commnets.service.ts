@@ -20,7 +20,7 @@ export class CommentsService {
    * @param Create Comment
    * @returns {Comments}
    */
-  async createComment(
+  async commentAPost(
     createCommentInput: CreateCommentInput,
     postId: string,
     userId: string,
@@ -30,9 +30,9 @@ export class CommentsService {
       const artistPostUser =
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
       createCommentInput.artistPostUserId = artistPostUser?.id;
-      const dto = this.commentsMapper.dtoToEntity(createCommentInput);
+      const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
       // Use the upsert method
-      const comment = await this.commentsRepository.save(dto);
+      const comment = await this.commentsRepository.save(commentDto);
       return comment;
     } catch (error) {
       console.error(
@@ -62,14 +62,15 @@ export class CommentsService {
       if (!existingComment) {
         throw new HttpException(`Comment not found`, HttpStatus.NOT_FOUND);
       }
-      const updateDto = this.commentsMapper.dtoToEntityUpdate(
+      const commentUpdateDto = this.commentsMapper.dtoToEntityUpdate(
         existingComment,
         updateCommentInput,
       );
       // Update the post using save (this will update only the changed fields)
-      const updateComment = await this.commentsRepository.save(updateDto);
+      const updatedComment =
+        await this.commentsRepository.save(commentUpdateDto);
       // Exclude user_id and cast the result to exclude TypeORM methods
-      return updateComment;
+      return updatedComment;
     } catch (error) {
       console.error(
         '🚀 ~ file:comments.service.ts:96 ~ CommentsService ~ updateComment ~ error:',

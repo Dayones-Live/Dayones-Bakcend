@@ -20,7 +20,7 @@ export class ReactionService {
    * @param Creation
    * @returns {Reactions}
    */
-  async createReaction(
+  async likeAPost(
     createReactionInput: CreateReactionInput,
     postId: string,
     userId: string,
@@ -30,9 +30,9 @@ export class ReactionService {
       const artistPostUser =
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
       createReactionInput.artistPostUserId = artistPostUser?.id;
-      const dto = this.reactionsMapper.dtoToEntity(createReactionInput);
+      const reactionDto = this.reactionsMapper.dtoToEntity(createReactionInput);
       // Use the upsert method
-      const reaction = await this.reactionsRepository.save(dto);
+      const reaction = await this.reactionsRepository.save(reactionDto);
       return reaction;
     } catch (error) {
       console.error(

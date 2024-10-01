@@ -27,11 +27,12 @@ export class ArtistPostUserService {
     createArtistPostUserInput: CreateArtistPostUserInput,
   ): Promise<ArtistPostUser> {
     try {
-      const dto = this.artistPostUserMapper.dtoToEntity(
+      const artistPostUserDto = this.artistPostUserMapper.dtoToEntity(
         createArtistPostUserInput,
       );
       // Use the upsert method
-      const artistPostUser = await this.artistPostUserRepository.save(dto);
+      const artistPostUser =
+        await this.artistPostUserRepository.save(artistPostUserDto);
       return artistPostUser;
     } catch (error) {
       console.error(
@@ -58,7 +59,7 @@ export class ArtistPostUserService {
         .andWhere('artistPostUser.id = :id', {
           id: updateArtistPostUserInput?.id,
         })
-        .andWhere('artistPost.user_id = :user_id', {
+        .andWhere('artistPostUser.user_id = :user_id', {
           user_id: updateArtistPostUserInput?.userId,
         }) // Filter by user_id
         .getOne();
@@ -149,7 +150,7 @@ export class ArtistPostUserService {
   /**
    * Fetch all ArtistPostUser records where valid_till is greater than current date
    */
-  async fetchInvitesByStatus(
+  async fetchUserInvitesByStatus(
     user_id: string,
     status: InviteStatus,
   ): Promise<ArtistPostUser[]> {
@@ -176,7 +177,10 @@ export class ArtistPostUserService {
   /**
    * Fetch all User comments
    */
-  async fetchComments(user_id: string): Promise<ArtistPostUser[]> {
+  async fetchUserCommentsAndReaction(
+    user_id: string,
+    postId: string,
+  ): Promise<ArtistPostUser[]> {
     try {
       const artistValidInvites = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
@@ -186,7 +190,8 @@ export class ArtistPostUserService {
         .where('artistPostUser.status = :status', {
           status: Invite_Status.ACCEPT,
         })
-        .andWhere('artistPostUser.user_id = :user_id', { user_id }) // Filter by user_id
+        .andWhere('artistPostUser.user_id = :user_id', { user_id })
+        .andWhere('artistPost.id =: postId', { postId }) // Filter by user_id
         .getMany();
 
       return artistValidInvites;
