@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Comments } from '../entities/comments.entity';
 import { CommentsMapper } from '../dto/comments.mapper';
 import { CreateCommentInput, UpdateCommentInput } from '../dto/types';
+import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
 
 @Injectable()
 export class CommentsService {
@@ -11,6 +12,7 @@ export class CommentsService {
     @InjectRepository(Comments)
     private commentsRepository: Repository<Comments>,
     private commentsMapper: CommentsMapper,
+    private artistPostUserService: ArtistPostUserService,
   ) {}
 
   /**
@@ -20,8 +22,14 @@ export class CommentsService {
    */
   async createComment(
     createCommentInput: CreateCommentInput,
+    postId: string,
+    userId: string,
   ): Promise<Comments> {
     try {
+      // Fetch the artistPostUserId through user id and artistPost
+      const artistPostUser =
+        await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      createCommentInput.artistPostUserId = artistPostUser?.id;
       const dto = this.commentsMapper.dtoToEntity(createCommentInput);
       // Use the upsert method
       const comment = await this.commentsRepository.save(dto);

@@ -6,6 +6,7 @@ import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
 import { GlobalServiceResponse } from '@app/shared/types/types';
 import { User } from '../entities/user.entity';
 import { UserMapper } from '../dto/user.mapper';
+import { Roles } from '@app/shared/constants/constants';
 
 @Injectable()
 export class UserService {
@@ -238,6 +239,28 @@ export class UserService {
         `User update error: ${error?.message}`,
         HttpStatus.BAD_REQUEST,
       );
+    }
+  }
+
+  /**
+   * Fetch users by role
+   *
+   * @param {Roles} role
+   * @returns {User[]}
+   */
+  async fetchUsersByRole(role: Roles): Promise<User[]> {
+    try {
+      const users = await this.userRepository
+        .createQueryBuilder('user')
+        .where(':role = ANY(user.role)', { role })
+        .getMany();
+      return users;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts ~ UserService ~ fetchUsersByRole ~ error:',
+        error,
+      );
+      throw error;
     }
   }
 }

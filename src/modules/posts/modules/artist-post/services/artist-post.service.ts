@@ -8,6 +8,14 @@ import {
   UpdateArtistPostInput,
 } from '../dto/types';
 import { ArtistPostMapper } from '../dto/artist-post.mapper';
+import { UserService } from '@app/modules/user/services/user.service';
+import { Roles } from '@app/shared/constants/constants';
+import { ArtistPostUserService } from '@artist-post-user/services/artist-post-user.service';
+import { Invite_Status } from '../../artist-post-user/constants/constants';
+import { addMinutesToDate } from '../utils';
+import { User } from '@app/modules/user/entities/user.entity';
+import { ArtistPostUser } from '@artist-post-user/entities/artist-post-user.entity';
+import { AllUserDataObject } from '../../artist-post-user/dto/types';
 
 @Injectable()
 export class ArtistPostService {
@@ -15,6 +23,8 @@ export class ArtistPostService {
     @InjectRepository(ArtistPost)
     private artistPostRepository: Repository<ArtistPost>,
     private artistPostMapper: ArtistPostMapper,
+    private userService: UserService,
+    private artistPostUserService: ArtistPostUserService,
   ) {}
 
   /**
@@ -29,6 +39,16 @@ export class ArtistPostService {
       const dto = this.artistPostMapper.dtoToEntity(createArtistPostInput);
       // Use the upsert method
       const artistPost = await this.artistPostRepository.save(dto);
+      const users = await this.userService.fetchUsersByRole(Roles.USER);
+      // Loop on users and add it in artist post user
+      for (const user of users) {
+        await this.artistPostUserService.createArtistPostUser({
+          userId: user?.id,
+          artistPostId: artistPost?.id,
+          status: Invite_Status.PENDING,
+          validTill: addMinutesToDate(new Date(), 15),
+        });
+      }
       const { user_id, ...rest } = artistPost;
       return rest;
     } catch (error) {
@@ -123,6 +143,84 @@ export class ArtistPostService {
           },
         });
       return artistPosts;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllArtistPost ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Service to fetch all Artist post
+   * @param user_id
+   * @returns {ArtistPostObject[]}
+   */
+  async fetchArtistPostById(
+    user: User,
+    postId: string,
+  ): Promise<ArtistPostObject[] | ArtistPostUser[]> {
+    try {
+      if (user.role[0] === Roles.ARTIST) {
+        const artistPosts: ArtistPostObject[] =
+          await this.artistPostRepository.find({
+            relations: [
+              'artistPostUser',
+              'artistPostUser.comment',
+              'artistPostUser.reaction',
+            ],
+            where: {
+              user_id: user?.id,
+            },
+          });
+        return artistPosts;
+      } else {
+        const comments: ArtistPostUser[] =
+          await this.artistPostUserService.fetchComments(user?.id);
+        return comments;
+      }
+    } catch (error) {
+      console.error(
+        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllArtistPost ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Service to fetch all User data
+   * @param user_id
+   * @returns {ArtistPostObject[]}
+   */
+  async fetchAllUserPostsData(
+    user: User,
+  ): Promise<ArtistPostObject[] | AllUserDataObject> {
+    try {
+      if (user?.role[0] === Roles.ARTIST) {
+        const artistPosts: ArtistPostObject[] =
+          await this.artistPostRepository.find({
+            relations: [
+              'artistPostUser',
+              'artistPostUser.comment',
+              'artistPostUser.reaction',
+            ],
+            where: {
+              user_id: user?.id,
+            },
+          });
+        return artistPosts;
+      } else {
+        //Fetch the Post for which user accepts the invites plus comments and likes
+        const artistPostUser: ArtistPostUser[] =
+          await this.artistPostUserService.fetchInvitesByStatus(
+            user?.id,
+            Invite_Status.ACCEPT,
+          );
+
+        return { user: user, artistPostUser: artistPostUser };
+      }
     } catch (error) {
       console.error(
         '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllArtistPost ~ error:',

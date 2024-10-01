@@ -4,6 +4,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpException,
   HttpStatus,
   Param,
@@ -60,8 +61,9 @@ export class ArtistPostUserController {
     }
   }
 
-  @Patch()
+  @Patch('invite/:id')
   async updateArtistPostUser(
+    @Param('id') inviteId: string,
     @Body() updateArtistPostUserInput: UpdateArtistPostUserInput,
     @Res() res: Response,
     @Req() req: Request,
@@ -76,6 +78,7 @@ export class ArtistPostUserController {
       const response = await this.artistPostUserService.updateArtistPostUser({
         ...updateArtistPostUserInput,
         userId: user_id,
+        id: inviteId,
       });
       res
         .status(HttpStatus.CREATED)
@@ -111,6 +114,30 @@ export class ArtistPostUserController {
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostUserController ~ deleteArtistPostUser ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  @Get('invites/list')
+  async getAllInvitesOfArtist(@Res() res: Response, @Req() req: Request) {
+    try {
+      const { id: user_id } = await this.userService.findUserByUserSub(
+        req?.userSub || '',
+      );
+      if (!user_id) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      const response =
+        await this.artistPostUserService.fetchValidArtistInvites(user_id);
+      res.status(HttpStatus.CREATED).json({
+        message: 'Artist Valid Invites fetched Successful',
+        data: response,
+      });
+    } catch (error) {
+      console.error(
+        '🚀 ~ ArtistPostUserController ~ getAllInvitesOfArtist ~ error:',
         error,
       );
       throw error;

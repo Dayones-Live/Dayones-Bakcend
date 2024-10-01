@@ -26,8 +26,8 @@
       "@user/*": ["src/modules/user/*"],
       "@signature/*": ["src/modules/user/modules/signatures/*"],
       "@user-notifications/*": ["src/modules/user/modules/user-notifications/*"],
-      "@artist-post/*": ["src/modules/posts/artist-post/*"],
-      "@artist-post-user/*": ["src/modules/posts/artist-post-user/*"],
+      "@artist-post/*": ["src/modules/posts/modules/artist-post/*"],
+      "@artist-post-user/*": ["src/modules/posts/modules/artist-post-user/*"],
     }
   }
 }

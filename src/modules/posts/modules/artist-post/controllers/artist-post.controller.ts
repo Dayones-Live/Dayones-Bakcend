@@ -18,28 +18,41 @@ import { ArtistPostService } from '../services/artist-post.service';
 import { CreateArtistPostInput, UpdateArtistPostInput } from '../dto/types';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { UserService } from '@user/services/user.service';
+import { Roles } from '@app/shared/constants/constants';
+import { CommentsService } from '../../comments/services/commnets.service';
+import { CreateCommentInput } from '../../comments/dto/types';
+import { ReactionService } from '../../reactions/services/reactions.service';
+import { CreateReactionInput } from '../../reactions/dto/types';
 
-@ApiTags('signature')
-@Controller('artist-post')
+@ApiTags('Artist-post')
+@Controller('post')
 @UseGuards(CognitoGuard)
 export class ArtistPostController {
   constructor(
     private artistPostService: ArtistPostService,
     private userService: UserService,
+    private commentService: CommentsService,
+    private reactionService: ReactionService,
   ) {}
 
-  @Post()
+  @Post('create')
   async createArtistPost(
     @Body() createArtistPostInput: CreateArtistPostInput,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
+      const { id: user_id, role } = await this.userService.findUserByUserSub(
         req?.userSub || '',
       );
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (role[0] !== Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Post Creation}`,
+          HttpStatus.FORBIDDEN,
+        );
       }
       const response = await this.artistPostService.createArtistPost({
         ...createArtistPostInput,
@@ -133,6 +146,116 @@ export class ArtistPostController {
         '🚀 ~ ArtistPostController ~ upsertUserSignature ~ error:',
         error,
       );
+      throw error;
+    }
+  }
+
+  @Get('/list')
+  async getAllUserPostsData(@Res() res: Response, @Req() req: Request) {
+    try {
+      const user = await this.userService.findUserByUserSub(req?.userSub || '');
+      if (!user?.id) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+
+      const response = await this.artistPostService.fetchAllUserPostsData(user);
+      res
+        .status(HttpStatus.OK)
+        .json({ message: 'Data Fetched Successfully', data: response });
+    } catch (error) {
+      console.error(
+        '🚀 ~ ArtistPostController ~ getAllUserPostsData ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  @Get('/:postId')
+  async getPostData(
+    @Param('id') postId: string,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const user = await this.userService.findUserByUserSub(req?.userSub || '');
+      if (!user?.id) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+
+      const response = await this.artistPostService.fetchArtistPostById(
+        user,
+        postId,
+      );
+      res
+        .status(HttpStatus.OK)
+        .json({ message: 'Data Fetched Successfully', data: response });
+    } catch (error) {
+      console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
+      throw error;
+    }
+  }
+
+  @Post('/:postId/comment')
+  async addCommentToPost(
+    @Param('postId') postId: string,
+    @Body() createCommentInput: CreateCommentInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const user = await this.userService.findUserByUserSub(req?.userSub || '');
+      if (!user?.id) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (user.role[0] === Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Post Creation}`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      const response = await this.commentService.createComment(
+        createCommentInput,
+        postId,
+        user?.id,
+      );
+      res
+        .status(HttpStatus.OK)
+        .json({ message: 'Data Fetched Successfully', data: response });
+    } catch (error) {
+      console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
+      throw error;
+    }
+  }
+
+  @Post('/:postId/likes')
+  async addLikeToPost(
+    @Param('postId') postId: string,
+    @Body() createReactionInput: CreateReactionInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const user = await this.userService.findUserByUserSub(req?.userSub || '');
+      if (!user?.id) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (user.role[0] === Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Post Creation}`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      const response = await this.reactionService.createReaction(
+        createReactionInput,
+        postId,
+        user?.id,
+      );
+      res
+        .status(HttpStatus.OK)
+        .json({ message: 'Data Fetched Successfully', data: response });
+    } catch (error) {
+      console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;
     }
   }

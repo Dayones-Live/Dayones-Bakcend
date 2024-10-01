@@ -5,8 +5,8 @@ export class CreateArtistPostInput {
   @IsOptional()
   userId: string;
 
-  @IsNotEmpty({ message: 'Image Url is required' })
-  imageUrl: string;
+  @IsOptional()
+  image_url: string;
 
   @IsOptional()
   message: string;

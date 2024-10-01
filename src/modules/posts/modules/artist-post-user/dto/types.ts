@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { Invite_Status } from '../constants/constants';
-
+import { ArtistPostUser } from '../entities/artist-post-user.entity';
+import { User } from '@user/entities/user.entity';
 export class CreateArtistPostUserInput {
   @IsOptional()
   userId: string;
@@ -16,8 +17,7 @@ export class CreateArtistPostUserInput {
 }
 
 export class UpdateArtistPostUserInput {
-  @IsNotEmpty({ message: 'Id is required' })
-  @IsUUID()
+  @IsOptional()
   id: string;
 
   @IsOptional()
@@ -29,6 +29,14 @@ export class UpdateArtistPostUserInput {
   @IsOptional()
   validTill: Date;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'Status is Required' })
   status: Invite_Status;
+}
+
+export class AllUserDataObject {
+  @IsOptional()
+  artistPostUser: ArtistPostUser[];
+
+  @IsOptional()
+  user: User;
 }
