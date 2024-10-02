@@ -65,7 +65,7 @@ export class InvitesController {
       const response =
         await this.artistPostUserService.fetchValidArtistInvites(user);
       res.status(HttpStatus.CREATED).json({
-        message: 'Artist Valid Invites fetched Successful',
+        message: 'Invites fetched Successful',
         data: response,
       });
     } catch (error) {
