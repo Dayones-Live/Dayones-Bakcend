@@ -224,7 +224,7 @@ export class ArtistPostService {
         const artistPostUser: ArtistPostUser[] =
           await this.artistPostUserService.fetchUserInvitesByStatus(
             user?.id,
-            Invite_Status.ACCEPT,
+            Invite_Status.ACCEPTED,
           );
 
         return { user: user, artistPostUser: artistPostUser };

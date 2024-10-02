@@ -9,6 +9,8 @@ import { ArtistPostUser } from '../entities/artist-post-user.entity';
 import { ArtistPostUserMapper } from '../dto/atrist-post-user.mapper';
 import { InviteStatus } from 'aws-sdk/clients/chime';
 import { Invite_Status } from '../constants/constants';
+import { User } from '@user/entities/user.entity';
+import { Roles } from '@app/shared/constants/constants';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -126,18 +128,28 @@ export class ArtistPostUserService {
   /**
    * Fetch all ArtistPostUser records where valid_till is greater than current date
    */
-  async fetchValidArtistInvites(user_id: string): Promise<ArtistPostUser[]> {
+  async fetchValidArtistInvites(user: User): Promise<ArtistPostUser[]> {
     try {
       const currentDate = new Date();
+      if (user.role[0] === Roles.ARTIST) {
+        const artistValidInvites = await this.artistPostUserRepository
+          .createQueryBuilder('artistPostUser')
+          .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
+          .where('artistPostUser.valid_till > :currentDate', { currentDate })
+          .andWhere('artistPost.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
+          .getMany();
 
-      const artistValidInvites = await this.artistPostUserRepository
-        .createQueryBuilder('artistPostUser')
-        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
-        .where('artistPostUser.valid_till > :currentDate', { currentDate })
-        .andWhere('artistPost.user_id = :user_id', { user_id }) // Filter by user_id
-        .getMany();
+        return artistValidInvites;
+      } else {
+        const artistValidInvites = await this.artistPostUserRepository
+          .createQueryBuilder('artistPostUser')
+          .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
+          .where('artistPostUser.valid_till > :currentDate', { currentDate })
+          .andWhere('artistPostUser.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
+          .getMany();
 
-      return artistValidInvites;
+        return artistValidInvites;
+      }
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ fetchValidArtistPostUsers ~ error:',
@@ -178,7 +190,7 @@ export class ArtistPostUserService {
    * Fetch all User comments
    */
   async fetchUserCommentsAndReaction(
-    user_id: string,
+    userId: string,
     postId: string,
   ): Promise<ArtistPostUser[]> {
     try {
@@ -188,10 +200,10 @@ export class ArtistPostUserService {
         .leftJoinAndSelect('artistPostUser.comment', 'comment')
         .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
         .where('artistPostUser.status = :status', {
-          status: Invite_Status.ACCEPT,
+          status: Invite_Status.ACCEPTED,
         })
-        .andWhere('artistPostUser.user_id = :user_id', { user_id })
-        .andWhere('artistPost.id =: postId', { postId }) // Filter by user_id
+        .andWhere('artistPostUser.user_id = :user_id', { user_id: userId })
+        .andWhere('artistPost.id = :postId', { postId: postId }) // Filter by user_id
         .getMany();
 
       return artistValidInvites;

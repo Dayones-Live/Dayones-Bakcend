@@ -56,16 +56,14 @@ export class InvitesController {
   }
 
   @Get()
-  async getAllInvitesOfArtist(@Res() res: Response, @Req() req: Request) {
+  async getAllInvitesOfUser(@Res() res: Response, @Req() req: Request) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
+      const user = await this.userService.findUserByUserSub(req?.userSub || '');
+      if (!user) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
       }
       const response =
-        await this.artistPostUserService.fetchValidArtistInvites(user_id);
+        await this.artistPostUserService.fetchValidArtistInvites(user);
       res.status(HttpStatus.CREATED).json({
         message: 'Artist Valid Invites fetched Successful',
         data: response,
