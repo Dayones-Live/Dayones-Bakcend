@@ -29,6 +29,14 @@ export class ReactionService {
       // Fetch the artistPostUserId through user id and artistPost
       const artistPostUser =
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      const isAlreadyLikes = await this.reactionsRepository.findOne({
+        where: {
+          artist_post_user_id: artistPostUser?.id,
+        },
+      });
+      if (isAlreadyLikes) {
+        throw new HttpException(`Post Already Liked!`, HttpStatus.CONFLICT);
+      }
       createReactionInput.artistPostUserId = artistPostUser?.id;
       const reactionDto = this.reactionsMapper.dtoToEntity(createReactionInput);
       // Use the upsert method
@@ -39,7 +47,10 @@ export class ReactionService {
         '🚀 ~ file:reaction.service.ts:96 ~ ReactionService ~ createReaction ~ error:',
         error,
       );
-      throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        ` ${error?.message}`,
+        error?.status || HttpStatus.BAD_REQUEST,
+      );
     }
   }
 

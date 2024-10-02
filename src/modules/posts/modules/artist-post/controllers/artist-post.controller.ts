@@ -50,7 +50,7 @@ export class ArtistPostController {
       }
       if (role[0] !== Roles.ARTIST) {
         throw new HttpException(
-          `Don't have access to Post Creation}`,
+          `Don't have access to Post Creation`,
           HttpStatus.FORBIDDEN,
         );
       }
@@ -107,11 +107,17 @@ export class ArtistPostController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
+      const { id: user_id, role } = await this.userService.findUserByUserSub(
         req?.userSub || '',
       );
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (role[0] !== Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Post Deletion`,
+          HttpStatus.FORBIDDEN,
+        );
       }
       const response = await this.artistPostService.deleteArtistPostById(
         id,
