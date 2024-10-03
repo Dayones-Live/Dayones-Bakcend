@@ -32,11 +32,3 @@ export class UpdateArtistPostUserInput {
   @IsNotEmpty({ message: 'Status is Required' })
   status: Invite_Status;
 }
-
-export class AllUserDataObject {
-  @IsOptional()
-  artistPostUser: ArtistPostUser[];
-
-  @IsOptional()
-  user: User;
-}

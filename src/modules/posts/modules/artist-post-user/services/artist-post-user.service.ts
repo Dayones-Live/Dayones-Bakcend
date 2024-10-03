@@ -11,6 +11,8 @@ import { InviteStatus } from 'aws-sdk/clients/chime';
 import { Invite_Status } from '../constants/constants';
 import { User } from '@user/entities/user.entity';
 import { Roles } from '@app/shared/constants/constants';
+import { ArtistPost } from '../../artist-post/entities/artist-post.entity';
+import { ArtistPostResponse } from '../../artist-post/dto/types';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -134,7 +136,7 @@ export class ArtistPostUserService {
       if (user.role[0] === Roles.ARTIST) {
         const artistValidInvites = await this.artistPostUserRepository
           .createQueryBuilder('artistPostUser')
-          .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
+          .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
           .where('artistPostUser.valid_till > :currentDate', { currentDate })
           .andWhere('artistPost.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
           .getMany();
@@ -143,7 +145,7 @@ export class ArtistPostUserService {
       } else {
         const artistValidInvites = await this.artistPostUserRepository
           .createQueryBuilder('artistPostUser')
-          .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
+          .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
           .where('artistPostUser.valid_till > :currentDate', { currentDate })
           .andWhere('artistPostUser.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
           .getMany();
@@ -162,21 +164,22 @@ export class ArtistPostUserService {
   /**
    * Fetch all ArtistPostUser records where valid_till is greater than current date
    */
-  async fetchUserInvitesByStatus(
+  async fetchUserPostsByInviteStatus(
     user_id: string,
     status: InviteStatus,
-  ): Promise<ArtistPostUser[]> {
+  ): Promise<ArtistPost[]> {
     try {
       const artistValidInvites = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
         .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
-        .leftJoinAndSelect('artistPostUser.comment', 'comment')
-        .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
         .where('artistPostUser.status = :status', { status })
         .andWhere('artistPostUser.user_id = :user_id', { user_id }) // Filter by user_id
         .getMany();
-
-      return artistValidInvites;
+      if (!artistValidInvites.length) {
+        throw new HttpException(`No Posts found `, HttpStatus.NOT_FOUND);
+      }
+      const artistPosts = artistValidInvites.map((invite) => invite.artistPost);
+      return artistPosts;
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ fetchValidArtistPostUsers ~ error:',
@@ -192,11 +195,11 @@ export class ArtistPostUserService {
   async fetchUserCommentsAndReaction(
     userId: string,
     postId: string,
-  ): Promise<ArtistPostUser[]> {
+  ): Promise<ArtistPostResponse> {
     try {
       const artistValidInvites = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
-        .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
+        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
         .leftJoinAndSelect('artistPostUser.comment', 'comment')
         .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
         .where('artistPostUser.status = :status', {
@@ -204,9 +207,20 @@ export class ArtistPostUserService {
         })
         .andWhere('artistPostUser.user_id = :user_id', { user_id: userId })
         .andWhere('artistPost.id = :postId', { postId: postId }) // Filter by user_id
-        .getMany();
-
-      return artistValidInvites;
+        .getOne();
+      if (!artistValidInvites) {
+        throw new HttpException(`Post not found`, HttpStatus.NOT_FOUND);
+      }
+      const comments =
+        artistValidInvites?.comment?.map(({ message }) => ({
+          userId: artistValidInvites?.user_id, // user_id from artistPostUser
+          message, // Message from comment
+        })) || [];
+      return {
+        post: artistValidInvites?.artistPost || null,
+        comments: comments,
+        reaction: artistValidInvites?.reaction ? 1 : 0,
+      };
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96  ~ fetchComments ~ error:',

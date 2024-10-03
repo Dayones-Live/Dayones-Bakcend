@@ -193,7 +193,7 @@ export class ArtistPostController {
       }
       if (user.role[0] === Roles.ARTIST) {
         throw new HttpException(
-          `Don't have access to Post Creation}`,
+          `Don't have access to Add a comment`,
           HttpStatus.FORBIDDEN,
         );
       }
@@ -239,6 +239,71 @@ export class ArtistPostController {
         .json({ message: 'Data Fetched Successfully', data: like });
     } catch (error) {
       console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
+      throw error;
+    }
+  }
+
+  @Delete('/:postId/comment/:id')
+  async deleteAComment(
+    @Param('id') id: string,
+    @Param('postId') postId: string,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const user = await this.userService.findUserByUserSub(req?.userSub || '');
+      if (!user) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (user.role[0] === Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Delete Comment`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      const response = await this.commentService.deleteCommentById(
+        id,
+        postId,
+        user,
+      );
+      res
+        .status(HttpStatus.OK)
+        .json({ message: 'Comment Delete Successful', data: response });
+    } catch (error) {
+      console.error('🚀 ~ CommentsController ~ updateComment ~ error:', error);
+      throw error;
+    }
+  }
+
+  @Delete('/:id/likes')
+  async deletePostReaction(
+    @Param('id') postId: string,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const user = await this.userService.findUserByUserSub(req?.userSub || '');
+      if (!user) {
+        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (user.role[0] === Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Delete Comment`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      const response = await this.reactionService.deleteReactionById(
+        postId,
+        user,
+      );
+      res
+        .status(HttpStatus.OK)
+        .json({ message: 'Reaction Delete Successful', data: response });
+    } catch (error) {
+      console.error(
+        '🚀 ~ CommentsController ~ deletePostReaction ~ error:',
+        error,
+      );
       throw error;
     }
   }

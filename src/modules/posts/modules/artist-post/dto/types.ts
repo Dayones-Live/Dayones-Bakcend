@@ -16,6 +16,15 @@ export class CreateArtistPostInput {
 
   @IsNotEmpty({ message: 'Type is required' })
   type: Post_Type;
+
+  @IsNotEmpty({ message: 'Longitude is required' })
+  longitude: string;
+
+  @IsNotEmpty({ message: 'Latitude is required' })
+  latitude: string;
+
+  @IsNotEmpty({ message: 'Locale is required' })
+  locale: string;
 }
 
 export class UpdateArtistPostInput {
@@ -37,6 +46,15 @@ export class UpdateArtistPostInput {
 
   @IsOptional()
   type: Post_Type;
+
+  @IsOptional()
+  longitude: string;
+
+  @IsOptional()
+  latitude: string;
+
+  @IsOptional()
+  locale: string;
 }
 
 export class ArtistPostObject {
@@ -55,4 +73,30 @@ export class ArtistPostObject {
 
   @IsOptional()
   type: Post_Type;
+
+  @IsOptional()
+  longitude: string;
+
+  @IsOptional()
+  latitude: string;
+
+  @IsOptional()
+  locale: string;
+}
+export class Comment {
+  @IsOptional()
+  userId: string; // User ID from artistPostUser
+
+  @IsOptional()
+  message: string; // Message from comment
+}
+export class ArtistPostResponse {
+  @IsOptional()
+  post?: ArtistPostObject | null;
+
+  @IsOptional()
+  comments?: Comment[];
+
+  @IsOptional()
+  reaction?: number;
 }
