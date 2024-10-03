@@ -1,3 +1,9 @@
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import { Meta, Paginate } from '@app/types';
+
+dayjs.extend(utc);
+
 /**
  * Maps Entity to Dto
  *
@@ -30,3 +36,27 @@ export const mapInputToEntity = <T>(
   });
   return entity;
 };
+
+export const getPaginated = (pageNo: number, pageSize: number): Paginate => {
+  return {
+    offset: (pageNo - 1) * pageSize,
+    limit: pageSize,
+    pageSize: pageSize,
+    pageNo: pageNo,
+  };
+};
+
+export const getPaginatedOutput = (
+  page: number,
+  pageSize: number,
+  count: number,
+): Meta => {
+  return {
+    count,
+    page: page ? Number(page) : 1,
+    size: pageSize ? Number(pageSize) : count,
+    pages: pageSize ? Math.ceil(count / pageSize) : 1,
+  };
+};
+
+export const getCurrentUtcTime = () => dayjs.utc().toDate();

@@ -11,6 +11,8 @@ import { UserNotificationModule } from '@user-notifications/user-notification.mo
 import { LibsModule } from '@app/modules/libs/libs.module';
 import { SignatureModule } from '@app/modules/user/modules/signatures/signatures.module';
 import { PostModule } from '@app/modules/posts/post.module';
+import { ChatModule } from '@app/modules/user/modules/chat/chat.module';
+import { SocketModule } from '@app/modules/user/modules/socket/socket.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { PostModule } from '@app/modules/posts/post.module';
     UserNotificationModule,
     SignatureModule,
     PostModule,
+    ChatModule,
+    SocketModule,
   ],
 })
 export class AppConfigModule {}
