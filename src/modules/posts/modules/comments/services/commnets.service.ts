@@ -5,6 +5,8 @@ import { Comments } from '../entities/comments.entity';
 import { CommentsMapper } from '../dto/comments.mapper';
 import { CreateCommentInput, UpdateCommentInput } from '../dto/types';
 import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
+import { User } from '@user/entities/user.entity';
+import { Invite_Status } from '../../artist-post-user/constants/constants';
 
 @Injectable()
 export class CommentsService {
@@ -29,6 +31,12 @@ export class CommentsService {
       // Fetch the artistPostUserId through user id and artistPost
       const artistPostUser =
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      if (artistPostUser.status !== Invite_Status.ACCEPTED) {
+        throw new HttpException(
+          `Not Allowed to comment on post user has not accepted the post invite`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
       createCommentInput.artistPostUserId = artistPostUser?.id;
       const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
       // Use the upsert method
@@ -85,13 +93,22 @@ export class CommentsService {
    * @param id
    * @returns {boolean}
    */
-  async deleteCommentById(id: string): Promise<boolean> {
+  async deleteCommentById(
+    id: string,
+    postId: string,
+    user: User,
+  ): Promise<boolean> {
     try {
+      const artistPostUser =
+        await this.artistPostUserService.getArtistPostByPostId(
+          user?.id,
+          postId,
+        );
       // Delete the signature based on both id and user_id
       const deleteResult = await this.commentsRepository.delete({
         id: id,
+        artist_post_user_id: artistPostUser.id,
       });
-
       // Check if any rows were affected (i.e., deleted)
       if (deleteResult.affected === 0) {
         throw new HttpException(
@@ -99,7 +116,6 @@ export class CommentsService {
           HttpStatus.NOT_FOUND,
         );
       }
-
       return true;
     } catch (err) {
       console.error(

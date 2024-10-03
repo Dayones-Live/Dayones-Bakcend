@@ -63,4 +63,19 @@ export class ArtistPost extends BaseEntity {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updated_at: Date;
+
+  @Column({ nullable: false })
+  @IsNotEmpty({ message: 'Longitude is required' })
+  @IsOptional()
+  longitude: string;
+
+  @Column({ nullable: false })
+  @IsNotEmpty({ message: 'Latitude is required' })
+  @IsOptional()
+  latitude: string;
+
+  @Column({ nullable: false })
+  @IsNotEmpty({ message: 'Locale is required' })
+  @IsOptional()
+  locale: string;
 }

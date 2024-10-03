@@ -5,6 +5,8 @@ import { Reactions } from '../entities/reaction.entity';
 import { ReactionsMapper } from '../dto/reaction.mapper';
 import { CreateReactionInput } from '../dto/types';
 import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
+import { User } from '@app/modules/user/entities/user.entity';
+import { Invite_Status } from '../../artist-post-user/constants/constants';
 
 @Injectable()
 export class ReactionService {
@@ -29,6 +31,12 @@ export class ReactionService {
       // Fetch the artistPostUserId through user id and artistPost
       const artistPostUser =
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      if (artistPostUser.status !== Invite_Status.ACCEPTED) {
+        throw new HttpException(
+          `Not Allowed to React on post user has not accepted the post invite`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
       const isAlreadyLikes = await this.reactionsRepository.findOne({
         where: {
           artist_post_user_id: artistPostUser?.id,
@@ -59,11 +67,13 @@ export class ReactionService {
    * @param id
    * @returns {boolean}
    */
-  async deleteReactionById(id: string): Promise<boolean> {
+  async deleteReactionById(id: string, user: User): Promise<boolean> {
     try {
+      const artistPostUser =
+        await this.artistPostUserService.getArtistPostByPostId(user?.id, id);
       // Delete the signature based on both id and user_id
       const deleteResult = await this.reactionsRepository.delete({
-        id: id,
+        artist_post_user_id: artistPostUser.id,
       });
 
       // Check if any rows were affected (i.e., deleted)

@@ -26,31 +26,4 @@ export class ReactionsController {
     private reactionService: ReactionService,
     private userService: UserService,
   ) {}
-
-  @Delete(':id')
-  async deleteReaction(
-    @Param('id') id: string,
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
-    try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      const response = await this.reactionService.deleteReactionById(id);
-      res.status(HttpStatus.CREATED).json({
-        message: 'React delete successful',
-        data: response,
-      });
-    } catch (error) {
-      console.error(
-        '🚀 ~ ReactionsController ~ deleteReaction ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
 }

@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { Post_Type } from '../constants';
+import { Comments } from '../../comments/entities/comments.entity';
 
 export class CreateArtistPostInput {
   @IsOptional()
@@ -16,9 +17,29 @@ export class CreateArtistPostInput {
 
   @IsNotEmpty({ message: 'Type is required' })
   type: Post_Type;
+
+  @IsNotEmpty({ message: 'Longitude is required' })
+  longitude: string;
+
+  @IsNotEmpty({ message: 'Latitude is required' })
+  latitude: string;
+
+  @IsNotEmpty({ message: 'Locale is required' })
+  locale: string;
 }
 
-export class UpdateArtistPostInput {
+export class Location {
+  @IsOptional()
+  longitude: string;
+
+  @IsOptional()
+  latitude: string;
+
+  @IsOptional()
+  locale: string;
+}
+
+export class UpdateArtistPostInput extends Location {
   @IsNotEmpty({ message: 'Id is required' })
   @IsUUID()
   id: string;
@@ -39,7 +60,7 @@ export class UpdateArtistPostInput {
   type: Post_Type;
 }
 
-export class ArtistPostObject {
+export class ArtistPostObject extends Location {
   @IsOptional()
   @IsUUID()
   id: string;
@@ -55,4 +76,15 @@ export class ArtistPostObject {
 
   @IsOptional()
   type: Post_Type;
+}
+
+export class ArtistPostResponse {
+  @IsOptional()
+  post?: ArtistPostObject | null;
+
+  @IsOptional()
+  comments?: Comments[];
+
+  @IsOptional()
+  reaction?: number;
 }

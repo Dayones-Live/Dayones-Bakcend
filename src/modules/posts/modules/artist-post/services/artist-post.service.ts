@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { ArtistPost } from '../entities/artist-post.entity';
 import {
   ArtistPostObject,
+  ArtistPostResponse,
   CreateArtistPostInput,
   UpdateArtistPostInput,
 } from '../dto/types';
@@ -15,7 +16,6 @@ import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { addMinutesToDate } from '../utils';
 import { User } from '@app/modules/user/entities/user.entity';
 import { ArtistPostUser } from '@artist-post-user/entities/artist-post-user.entity';
-import { AllUserDataObject } from '../../artist-post-user/dto/types';
 import { Post_Message } from '../constants';
 
 @Injectable()
@@ -164,29 +164,33 @@ export class ArtistPostService {
   async fetchPostDataById(
     user: User,
     postId: string,
-  ): Promise<ArtistPostObject[] | ArtistPostUser[]> {
+  ): Promise<ArtistPostResponse> {
     try {
       if (user.role[0] === Roles.ARTIST) {
-        const artistPosts: ArtistPostObject[] =
-          await this.artistPostRepository.find({
-            relations: [
-              'artistPostUser',
-              'artistPostUser.comment',
-              'artistPostUser.reaction',
-            ],
-            where: {
-              user_id: user?.id,
-              id: postId,
-            },
-          });
-        return artistPosts;
+        const artistPosts = await this.artistPostRepository
+          .createQueryBuilder('artistPost')
+          .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
+          .leftJoinAndSelect('artistPostUser.comment', 'comment')
+          .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+          .where('artistPost.user_id = :userId', { userId: user?.id })
+          .andWhere('artistPost.id = :postId', { postId })
+          .andWhere('artistPostUser.status = :status', {
+            status: Invite_Status.ACCEPTED,
+          }) // Filter for accepted status
+          .getOne();
+        if (!artistPosts) {
+          throw new HttpException(`Post not found`, HttpStatus.NOT_FOUND);
+        }
+        const formattedPostData =
+          this.artistPostMapper.processArtistPostData(artistPosts);
+        return formattedPostData;
       } else {
-        const comments: ArtistPostUser[] =
+        const userPost: ArtistPostResponse =
           await this.artistPostUserService.fetchUserCommentsAndReaction(
             user?.id,
             postId,
           );
-        return comments;
+        return userPost;
       }
     } catch (error) {
       console.error(
@@ -202,18 +206,11 @@ export class ArtistPostService {
    * @param user
    * @returns {ArtistPostObject[]}
    */
-  async fetchAllUserPostsData(
-    user: User,
-  ): Promise<ArtistPostObject[] | AllUserDataObject> {
+  async fetchAllUserPostsData(user: User): Promise<ArtistPostObject[]> {
     try {
       if (user?.role[0] === Roles.ARTIST) {
         const artistPosts: ArtistPostObject[] =
           await this.artistPostRepository.find({
-            relations: [
-              'artistPostUser',
-              'artistPostUser.comment',
-              'artistPostUser.reaction',
-            ],
             where: {
               user_id: user?.id,
             },
@@ -221,13 +218,12 @@ export class ArtistPostService {
         return artistPosts;
       } else {
         //Fetch the Post for which user accepts the invites plus comments and likes
-        const artistPostUser: ArtistPostUser[] =
-          await this.artistPostUserService.fetchUserInvitesByStatus(
+        const artistPostUser: ArtistPost[] =
+          await this.artistPostUserService.fetchUserPostsByInviteStatus(
             user?.id,
             Invite_Status.ACCEPTED,
           );
-
-        return { user: user, artistPostUser: artistPostUser };
+        return artistPostUser;
       }
     } catch (error) {
       console.error(
