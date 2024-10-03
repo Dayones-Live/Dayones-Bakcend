@@ -211,14 +211,9 @@ export class ArtistPostUserService {
       if (!artistValidInvites) {
         throw new HttpException(`Post not found`, HttpStatus.NOT_FOUND);
       }
-      const comments =
-        artistValidInvites?.comment?.map(({ message }) => ({
-          userId: artistValidInvites?.user_id, // user_id from artistPostUser
-          message, // Message from comment
-        })) || [];
       return {
         post: artistValidInvites?.artistPost || null,
-        comments: comments,
+        comments: artistValidInvites?.comment,
         reaction: artistValidInvites?.reaction ? 1 : 0,
       };
     } catch (err) {

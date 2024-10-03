@@ -33,7 +33,7 @@ export class CommentsService {
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
       if (artistPostUser.status !== Invite_Status.ACCEPTED) {
         throw new HttpException(
-          `Not Allowed to comment on post invite is not accepted`,
+          `Not Allowed to comment on post user has not accepted the post invite`,
           HttpStatus.FORBIDDEN,
         );
       }
