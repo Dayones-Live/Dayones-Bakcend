@@ -117,10 +117,7 @@ export class ArtistPostService {
 
       // Check if any rows were affected (i.e., deleted)
       if (deleteResult.affected === 0) {
-        throw new HttpException(
-          `Artist Post not found or already deleted`,
-          HttpStatus.NOT_FOUND,
-        );
+        throw new HttpException(`Artist Post not found `, HttpStatus.NOT_FOUND);
       }
 
       return true;

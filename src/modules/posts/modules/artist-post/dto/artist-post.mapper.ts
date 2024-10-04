@@ -27,7 +27,7 @@ export class ArtistPostMapper {
     artistPosts.artistPostUser?.forEach((userPost: any) => {
       // Count reactions if they exist
       if (userPost.reaction) {
-        totalReactions += userPost.reaction.length;
+        totalReactions += 1;
       }
       userPost.comment?.forEach((comment: any) => {
         userComments.push(comment);

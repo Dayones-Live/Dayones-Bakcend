@@ -40,8 +40,7 @@ export class Location {
 }
 
 export class UpdateArtistPostInput extends Location {
-  @IsNotEmpty({ message: 'Id is required' })
-  @IsUUID()
+  @IsOptional()
   id: string;
 
   @IsOptional()
