@@ -3,6 +3,7 @@
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
+    "esModuleInterop": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
@@ -25,9 +26,11 @@
       "@cognito/*": ["src/modules/libs/modules/aws/cognito/*"],
       "@user/*": ["src/modules/user/*"],
       "@signature/*": ["src/modules/user/modules/signatures/*"],
-      "@user-notifications/*": ["src/modules/user/modules/user-notifications/*"],
+      "@user-notifications/*": [
+        "src/modules/user/modules/user-notifications/*"
+      ],
       "@artist-post/*": ["src/modules/posts/modules/artist-post/*"],
-      "@artist-post-user/*": ["src/modules/posts/modules/artist-post-user/*"],
+      "@artist-post-user/*": ["src/modules/posts/modules/artist-post-user/*"]
     }
   }
 }

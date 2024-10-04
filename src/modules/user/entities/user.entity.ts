@@ -9,11 +9,13 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { IsEmail, IsNotEmpty, Length, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, Length } from 'class-validator';
 import { UserNotification } from '@user-notifications/entities/user-notifications.entity';
 import { Signatures } from '@signature/entities/signature.entity';
 import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
 import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
+import { Conversations } from '../modules/chat/conversations/entities/conversation.entity';
+import { Message } from '../modules/chat/messages/entities/message.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -71,6 +73,15 @@ export class User extends BaseEntity {
 
   @OneToOne(() => UserNotification, (userNotification) => userNotification.user)
   userNotification: UserNotification;
+
+  @OneToMany(() => Conversations, (Conversation) => Conversation.sender)
+  sentBy: Conversations[];
+
+  @OneToMany(() => Conversations, (Conversation) => Conversation.reciever)
+  recievedBy: Conversations[];
+
+  @OneToMany(() => Message, (Conversation) => Conversation.messageSender)
+  messageSentBy: Message[];
 
   @OneToMany(() => Signatures, (signature) => signature.user)
   signature?: Signatures[];

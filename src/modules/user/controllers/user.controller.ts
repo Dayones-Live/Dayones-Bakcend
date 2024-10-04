@@ -53,12 +53,10 @@ export class UserController {
         userLocationUpdateInput,
         req?.userSub || '',
       );
-      res
-        .status(HttpStatus.CREATED)
-        .json({
-          message: 'User Location is update successfully',
-          data: response,
-        });
+      res.status(HttpStatus.CREATED).json({
+        message: 'User Location is update successfully',
+        data: response,
+      });
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;
