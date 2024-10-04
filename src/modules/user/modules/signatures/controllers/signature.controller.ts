@@ -17,6 +17,7 @@ import { SignatureService } from '../services/signature.service';
 import { CreateUserSignatureInput } from '../dto/types';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { UserService } from '@user/services/user.service';
+import { Roles } from '@app/shared/constants/constants';
 
 @ApiTags('signature')
 @Controller('signature')
@@ -34,18 +35,24 @@ export class SignatureController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
+      const { id: user_id, role } = await this.userService.findUserByUserSub(
         req?.userSub || '',
       );
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (role[0] !== Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Signature Creation`,
+          HttpStatus.FORBIDDEN,
+        );
       }
       const response = await this.signatureService.createSignature({
         ...createUserSignatureInput,
         userId: user_id,
       });
       res.status(HttpStatus.CREATED).json({
-        message: 'User Signature creation successfull',
+        message: 'User Signature creation successful',
         data: response,
       });
     } catch (error) {
@@ -60,11 +67,17 @@ export class SignatureController {
   @Get()
   async getAllUserSignatures(@Res() res: Response, @Req() req: Request) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
+      const { id: user_id, role } = await this.userService.findUserByUserSub(
         req?.userSub || '',
       );
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (role[0] !== Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Fetch Signatures`,
+          HttpStatus.FORBIDDEN,
+        );
       }
       const response = await this.signatureService.fetchAllSignatures(user_id);
       res
@@ -86,11 +99,17 @@ export class SignatureController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
+      const { id: user_id, role } = await this.userService.findUserByUserSub(
         req?.userSub || '',
       );
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (role[0] !== Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Delete Signature `,
+          HttpStatus.FORBIDDEN,
+        );
       }
       const response = await this.signatureService.deleteSignatureById(
         id,

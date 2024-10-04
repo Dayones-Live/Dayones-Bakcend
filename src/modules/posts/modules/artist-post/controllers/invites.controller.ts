@@ -15,6 +15,7 @@ import { Request, Response } from 'express';
 import { UpdateArtistPostUserInput } from '../../artist-post-user/dto/types';
 import { UserService } from '@app/modules/user/services/user.service';
 import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
+import { Roles } from '@app/shared/constants/constants';
 
 @Controller('invites')
 @UseGuards(CognitoGuard)
@@ -32,11 +33,17 @@ export class InvitesController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
+      const { id: user_id, role } = await this.userService.findUserByUserSub(
         req?.userSub || '',
       );
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
+      }
+      if (role[0] === Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to update a comment`,
+          HttpStatus.FORBIDDEN,
+        );
       }
       const response = await this.artistPostUserService.updateArtistPostUser({
         ...updateArtistPostUserInput,

@@ -74,6 +74,9 @@ export class ArtistPostUserService {
           HttpStatus.NOT_FOUND,
         );
       }
+      if (existingInvite.status === Invite_Status.ACCEPTED) {
+        throw new HttpException(`Invite Already Accepted`, HttpStatus.CONFLICT);
+      }
       const updateDto = this.artistPostUserMapper.dtoToEntityUpdate(
         existingInvite,
         updateArtistPostUserInput,
@@ -111,10 +114,7 @@ export class ArtistPostUserService {
 
       // Check if any rows were affected (i.e., deleted)
       if (deleteResult.affected === 0) {
-        throw new HttpException(
-          `Artist Post not found or already deleted`,
-          HttpStatus.NOT_FOUND,
-        );
+        throw new HttpException(`Invite not found`, HttpStatus.NOT_FOUND);
       }
 
       return true;
@@ -138,6 +138,9 @@ export class ArtistPostUserService {
           .createQueryBuilder('artistPostUser')
           .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
           .where('artistPostUser.valid_till > :currentDate', { currentDate })
+          .where('artistPostUser.status = :status', {
+            status: Invite_Status.ACCEPTED,
+          })
           .andWhere('artistPost.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
           .getMany();
 
@@ -240,10 +243,7 @@ export class ArtistPostUserService {
         },
       });
       if (!artistPostUser) {
-        throw new HttpException(
-          `Artist Post not found or already deleted`,
-          HttpStatus.NOT_FOUND,
-        );
+        throw new HttpException(`Post not found`, HttpStatus.NOT_FOUND);
       }
       return artistPostUser;
     } catch (err) {

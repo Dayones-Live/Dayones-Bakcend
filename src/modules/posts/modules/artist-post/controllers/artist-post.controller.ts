@@ -71,19 +71,27 @@ export class ArtistPostController {
     }
   }
 
-  @Patch()
+  @Patch(':id')
   async updateArtistPost(
+    @Param('id') id: string,
     @Body() updateArtistPostInput: UpdateArtistPostInput,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
+      const { id: user_id, role } = await this.userService.findUserByUserSub(
         req?.userSub || '',
       );
       if (!user_id) {
         throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
       }
+      if (role[0] !== Roles.ARTIST) {
+        throw new HttpException(
+          `Don't have access to Post Update`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      updateArtistPostInput.id = id;
       const response = await this.artistPostService.updateArtistPost({
         ...updateArtistPostInput,
         userId: user_id,
@@ -288,7 +296,7 @@ export class ArtistPostController {
       }
       if (user.role[0] === Roles.ARTIST) {
         throw new HttpException(
-          `Don't have access to Delete Comment`,
+          `Don't have access to Dislike Post`,
           HttpStatus.FORBIDDEN,
         );
       }
