@@ -7,6 +7,7 @@ import { CreateCommentInput, UpdateCommentInput } from '../dto/types';
 import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
 import { User } from '@user/entities/user.entity';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
+import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 
 @Injectable()
 export class CommentsService {
@@ -33,7 +34,7 @@ export class CommentsService {
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
       if (artistPostUser.status !== Invite_Status.ACCEPTED) {
         throw new HttpException(
-          `Not Allowed to comment on post user has not accepted the post invite`,
+          ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
           HttpStatus.FORBIDDEN,
         );
       }
@@ -68,7 +69,10 @@ export class CommentsService {
       });
       // If no post is found, throw an error
       if (!existingComment) {
-        throw new HttpException(`Comment not found`, HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          ERROR_MESSAGES.COMMENT_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
       const commentUpdateDto = this.commentsMapper.dtoToEntityUpdate(
         existingComment,
@@ -112,7 +116,7 @@ export class CommentsService {
       // Check if any rows were affected (i.e., deleted)
       if (deleteResult.affected === 0) {
         throw new HttpException(
-          `Comment not found or already deleted`,
+          ERROR_MESSAGES.COMMENT_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }

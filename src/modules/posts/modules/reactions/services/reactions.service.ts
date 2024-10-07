@@ -7,6 +7,7 @@ import { CreateReactionInput } from '../dto/types';
 import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
 import { User } from '@app/modules/user/entities/user.entity';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
+import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 
 @Injectable()
 export class ReactionService {
@@ -33,7 +34,7 @@ export class ReactionService {
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
       if (artistPostUser.status !== Invite_Status.ACCEPTED) {
         throw new HttpException(
-          `Not Allowed to React on post user has not accepted the post invite`,
+          ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
           HttpStatus.FORBIDDEN,
         );
       }
@@ -79,7 +80,7 @@ export class ReactionService {
       // Check if any rows were affected (i.e., deleted)
       if (deleteResult.affected === 0) {
         throw new HttpException(
-          `Reaction not found or already deleted`,
+          ERROR_MESSAGES.REACTION_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }

@@ -14,6 +14,10 @@ import { signupUserAttributes } from '../dto/constants';
 import { SignInUserInput, UserSignUpInput } from '../dto/types';
 import { GlobalServiceResponse } from '@app/shared/types/types';
 import { UserService } from '@user/services/user.service';
+import {
+  ERROR_MESSAGES,
+  SUCCESS_MESSAGES,
+} from '@app/shared/constants/constants';
 
 @Injectable()
 export class CognitoService {
@@ -63,7 +67,7 @@ export class CognitoService {
       });
       const { user_sub, ...extractedUserData } = newUser;
       return {
-        message: 'User Creation Successful!',
+        message: SUCCESS_MESSAGES.USER_SIGNUP_SUCCESS,
         statusCode: 200,
         data: { ...extractedUserData, role: extractedUserData?.role[0] },
       };
@@ -100,7 +104,7 @@ export class CognitoService {
       // Check if the response is successful (HTTP 200)
       if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
         return {
-          message: 'User confirmation is successful',
+          message: SUCCESS_MESSAGES.USER_CONFIRMATION_CODE_SUCCESS,
           statusCode: result['$metadata'].httpStatusCode,
         };
       }
@@ -138,7 +142,7 @@ export class CognitoService {
       const result = await this.cognitoClient.send(command);
       if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
         return {
-          message: 'Confirmation email sent successful',
+          message: SUCCESS_MESSAGES.USER_CONFIRMATION_EMAIL_SUCCESS,
           statusCode: result['$metadata'].httpStatusCode,
           data: {
             attribute_name: result?.CodeDeliveryDetails?.AttributeName,
@@ -157,7 +161,7 @@ export class CognitoService {
     } catch (error) {
       console.error('error resending registration code', error);
       throw new HttpException(
-        `Verification Code Email failed to send: ${error.message}`,
+        `${ERROR_MESSAGES.USER_CONFIRMATION_EMAIL_FAILED}  ${error.message}`,
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -202,7 +206,7 @@ export class CognitoService {
         );
         return {
           statusCode: result['$metadata'].httpStatusCode,
-          message: 'User Sign in Successful',
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
           data: {
             access_token: result?.AuthenticationResult?.AccessToken,
             expires_in: result?.AuthenticationResult?.ExpiresIn,
@@ -240,7 +244,7 @@ export class CognitoService {
       const result = await this.cognitoClient.send(command);
       if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
         return {
-          message: 'User Signed Out successful',
+          message: SUCCESS_MESSAGES.MESSAGE_SENT_SUCCESS,
           statusCode: result['$metadata'].httpStatusCode,
           data: '',
         };
@@ -263,15 +267,15 @@ export class CognitoService {
 
   /**
    *
-   * @param user
-   * @returns
+   * @param id
+   * @returns {GlobalServiceResponse}
    */
-  async getUser(user: string): Promise<GlobalServiceResponse> {
+  async getUser(id: string): Promise<GlobalServiceResponse> {
     try {
-      const response = await this.userService.findUserByUserSub(user);
+      const response = await this.userService.findUserById(id);
       if (response) {
         return {
-          message: 'User Fetched Successful!',
+          message: SUCCESS_MESSAGES.USER_FETCH_SUCCESS,
           statusCode: 200,
           data: { ...response, role: response?.role[0] },
         };

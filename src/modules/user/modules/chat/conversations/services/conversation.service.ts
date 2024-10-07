@@ -41,17 +41,10 @@ export class ConversationService {
    */
   async createConversation(
     userId: string,
-    role: Roles[],
     req: CreateConversationInput,
   ): Promise<Conversations> {
     try {
       const { lastMessage, recieverId } = req;
-      if (role[0] !== Roles.ARTIST) {
-        throw new HttpException(
-          ` ${ERROR_MESSAGES.UNABLE_TO_PERFORM_ACTION}`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       const dto = this.conversationMapper.dtoToEntity({
         lastMessage,
         recieverId,
@@ -164,14 +157,8 @@ export class ConversationService {
    * @throws {HttpException} Throws an HTTP exception with NOT_FOUND status if:
    *         - The conversation with the given ID does not exist in the database.
    */
-  async deleteConversation(id: string, role: Roles[]): Promise<boolean> {
+  async deleteConversation(id: string): Promise<boolean> {
     try {
-      if (role[0] !== Roles.ARTIST) {
-        throw new HttpException(
-          ` ${ERROR_MESSAGES.UNABLE_TO_PERFORM_ACTION}`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       const conversation = await this.conversationRepository.findOne({
         where: { id: id },
       });

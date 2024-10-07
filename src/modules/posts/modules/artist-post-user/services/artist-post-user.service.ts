@@ -10,7 +10,7 @@ import { ArtistPostUserMapper } from '../dto/atrist-post-user.mapper';
 import { InviteStatus } from 'aws-sdk/clients/chime';
 import { Invite_Status } from '../constants/constants';
 import { User } from '@user/entities/user.entity';
-import { Roles } from '@app/shared/constants/constants';
+import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { ArtistPost } from '../../artist-post/entities/artist-post.entity';
 import { ArtistPostResponse } from '../../artist-post/dto/types';
 
@@ -70,7 +70,7 @@ export class ArtistPostUserService {
       // If no post is found, throw an error
       if (!existingInvite) {
         throw new HttpException(
-          `No Existing Invite found`,
+          ERROR_MESSAGES.INVITE_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -179,7 +179,10 @@ export class ArtistPostUserService {
         .andWhere('artistPostUser.user_id = :user_id', { user_id }) // Filter by user_id
         .getMany();
       if (!artistValidInvites.length) {
-        throw new HttpException(`No Posts found `, HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
       const artistPosts = artistValidInvites.map((invite) => invite.artistPost);
       return artistPosts;
@@ -212,7 +215,10 @@ export class ArtistPostUserService {
         .andWhere('artistPost.id = :postId', { postId: postId }) // Filter by user_id
         .getOne();
       if (!artistValidInvites) {
-        throw new HttpException(`Post not found`, HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
       return {
         post: artistValidInvites?.artistPost || null,
@@ -243,7 +249,10 @@ export class ArtistPostUserService {
         },
       });
       if (!artistPostUser) {
-        throw new HttpException(`Post not found`, HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
       return artistPostUser;
     } catch (err) {

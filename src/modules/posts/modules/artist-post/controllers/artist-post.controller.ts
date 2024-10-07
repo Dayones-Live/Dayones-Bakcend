@@ -18,11 +18,17 @@ import { ArtistPostService } from '../services/artist-post.service';
 import { CreateArtistPostInput, UpdateArtistPostInput } from '../dto/types';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { UserService } from '@user/services/user.service';
-import { Roles } from '@app/shared/constants/constants';
+import {
+  ERROR_MESSAGES,
+  Roles,
+  SUCCESS_MESSAGES,
+} from '@app/shared/constants/constants';
 import { CommentsService } from '../../comments/services/commnets.service';
 import { CreateCommentInput } from '../../comments/dto/types';
 import { ReactionService } from '../../reactions/services/reactions.service';
 import { CreateReactionInput } from '../../reactions/dto/types';
+import { Role } from '@app/modules/auth/decorators/roles.decorator';
+import { User } from '@user/entities/user.entity';
 
 @ApiTags('Artist-post')
 @Controller('post')
@@ -36,30 +42,19 @@ export class ArtistPostController {
   ) {}
 
   @Post()
+  @Role(Roles.ARTIST)
   async createArtistPost(
     @Body() createArtistPostInput: CreateArtistPostInput,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id, role } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      if (role[0] !== Roles.ARTIST) {
-        throw new HttpException(
-          `Don't have access to Post Creation`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
       const artistPost = await this.artistPostService.createArtistPost({
         ...createArtistPostInput,
-        userId: user_id,
+        userId: req?.user?.id || '',
       });
       res.status(HttpStatus.CREATED).json({
-        message: 'Artist post creation successfully',
+        message: SUCCESS_MESSAGES.POST_CREATED_SUCCESS,
         data: artistPost,
       });
     } catch (error) {
@@ -72,6 +67,7 @@ export class ArtistPostController {
   }
 
   @Patch(':id')
+  @Role(Roles.ARTIST)
   async updateArtistPost(
     @Param('id') id: string,
     @Body() updateArtistPostInput: UpdateArtistPostInput,
@@ -79,26 +75,15 @@ export class ArtistPostController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id, role } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      if (role[0] !== Roles.ARTIST) {
-        throw new HttpException(
-          `Don't have access to Post Update`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
       updateArtistPostInput.id = id;
       const response = await this.artistPostService.updateArtistPost({
         ...updateArtistPostInput,
-        userId: user_id,
+        userId: req?.user?.id || '',
       });
-      res
-        .status(HttpStatus.CREATED)
-        .json({ message: 'Artist Post update Successful', data: response });
+      res.status(HttpStatus.CREATED).json({
+        message: SUCCESS_MESSAGES.POST_UPDATED_SUCCESS,
+        data: response,
+      });
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostController ~ updateArtistPost ~ error:',
@@ -109,31 +94,21 @@ export class ArtistPostController {
   }
 
   @Delete(':id')
+  @Role(Roles.ARTIST)
   async deleteArtistPost(
     @Param('id') id: string,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id, role } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      if (role[0] !== Roles.ARTIST) {
-        throw new HttpException(
-          `Don't have access to Post Deletion`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
       const response = await this.artistPostService.deleteArtistPostById(
         id,
-        user_id,
+        req?.user?.id || '',
       );
-      res
-        .status(HttpStatus.CREATED)
-        .json({ message: 'Artist Post delete successful', data: response });
+      res.status(HttpStatus.CREATED).json({
+        message: SUCCESS_MESSAGES.POST_DELETED_SUCCESS,
+        data: response,
+      });
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostController ~ upsertUserSignature ~ error:',
@@ -146,16 +121,13 @@ export class ArtistPostController {
   @Get()
   async getAllUserPostsData(@Res() res: Response, @Req() req: Request) {
     try {
-      const user = await this.userService.findUserByUserSub(req?.userSub || '');
-      if (!user?.id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-
-      const postsData =
-        await this.artistPostService.fetchAllUserPostsData(user);
-      res
-        .status(HttpStatus.OK)
-        .json({ message: 'Data Fetched Successfully', data: postsData });
+      const postsData = await this.artistPostService.fetchAllUserPostsData(
+        req?.user as User,
+      );
+      res.status(HttpStatus.OK).json({
+        message: SUCCESS_MESSAGES.POSTS_FETCHED_SUCCESS,
+        data: postsData,
+      });
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostController ~ getAllUserPostsData ~ error:',
@@ -172,15 +144,14 @@ export class ArtistPostController {
     @Req() req: Request,
   ) {
     try {
-      const user = await this.userService.findUserByUserSub(req?.userSub || '');
-      if (!user?.id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-
-      const response = await this.artistPostService.fetchPostDataById(user, id);
-      res
-        .status(HttpStatus.OK)
-        .json({ message: 'Data Fetched Successfully', data: response });
+      const response = await this.artistPostService.fetchPostDataById(
+        req?.user as User,
+        id,
+      );
+      res.status(HttpStatus.OK).json({
+        message: SUCCESS_MESSAGES.POST_FETCHED_SUCCESS,
+        data: response,
+      });
     } catch (error) {
       console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;
@@ -188,6 +159,7 @@ export class ArtistPostController {
   }
 
   @Post('/:id/comment')
+  @Role(Roles.USER)
   async CommentAPost(
     @Param('id') id: string,
     @Body() createCommentInput: CreateCommentInput,
@@ -195,24 +167,15 @@ export class ArtistPostController {
     @Req() req: Request,
   ) {
     try {
-      const user = await this.userService.findUserByUserSub(req?.userSub || '');
-      if (!user?.id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      if (user.role[0] === Roles.ARTIST) {
-        throw new HttpException(
-          `Don't have access to Add a comment`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
       const comment = await this.commentService.commentAPost(
         createCommentInput,
         id,
-        user?.id,
+        req?.user?.id || '',
       );
-      res
-        .status(HttpStatus.OK)
-        .json({ message: 'Data Fetched Successfully', data: comment });
+      res.status(HttpStatus.OK).json({
+        message: SUCCESS_MESSAGES.COMMENT_CREATED_SUCCESS,
+        data: comment,
+      });
     } catch (error) {
       console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;
@@ -220,6 +183,7 @@ export class ArtistPostController {
   }
 
   @Post('/:id/likes')
+  @Role(Roles.USER)
   async likeAPost(
     @Param('id') id: string,
     @Body() createReactionInput: CreateReactionInput,
@@ -227,24 +191,14 @@ export class ArtistPostController {
     @Req() req: Request,
   ) {
     try {
-      const user = await this.userService.findUserByUserSub(req?.userSub || '');
-      if (!user?.id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      if (user.role[0] === Roles.ARTIST) {
-        throw new HttpException(
-          `Don't have access to Post Creation}`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
       const like = await this.reactionService.likeAPost(
         createReactionInput,
         id,
-        user?.id,
+        req?.user?.id || '',
       );
       res
         .status(HttpStatus.OK)
-        .json({ message: 'Data Fetched Successfully', data: like });
+        .json({ message: SUCCESS_MESSAGES.LIKE_ADDED_SUCCESS, data: like });
     } catch (error) {
       console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;
@@ -252,6 +206,7 @@ export class ArtistPostController {
   }
 
   @Delete('/:postId/comment/:id')
+  @Role(Roles.USER)
   async deleteAComment(
     @Param('id') id: string,
     @Param('postId') postId: string,
@@ -259,24 +214,15 @@ export class ArtistPostController {
     @Req() req: Request,
   ) {
     try {
-      const user = await this.userService.findUserByUserSub(req?.userSub || '');
-      if (!user) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      if (user.role[0] === Roles.ARTIST) {
-        throw new HttpException(
-          `Don't have access to Delete Comment`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
       const response = await this.commentService.deleteCommentById(
         id,
         postId,
-        user,
+        req?.user as User,
       );
-      res
-        .status(HttpStatus.OK)
-        .json({ message: 'Comment Delete Successful', data: response });
+      res.status(HttpStatus.OK).json({
+        message: SUCCESS_MESSAGES.COMMENT_DELETED_SUCCESS,
+        data: response,
+      });
     } catch (error) {
       console.error('🚀 ~ CommentsController ~ updateComment ~ error:', error);
       throw error;
@@ -284,29 +230,21 @@ export class ArtistPostController {
   }
 
   @Delete('/:id/likes')
+  @Role(Roles.USER)
   async deletePostReaction(
     @Param('id') postId: string,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      const user = await this.userService.findUserByUserSub(req?.userSub || '');
-      if (!user) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
-      if (user.role[0] === Roles.ARTIST) {
-        throw new HttpException(
-          `Don't have access to Dislike Post`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
       const response = await this.reactionService.deleteReactionById(
         postId,
-        user,
+        req?.user as User,
       );
-      res
-        .status(HttpStatus.OK)
-        .json({ message: 'Reaction Delete Successful', data: response });
+      res.status(HttpStatus.OK).json({
+        message: SUCCESS_MESSAGES.LIKE_DELETED_SUCCESS,
+        data: response,
+      });
     } catch (error) {
       console.error(
         '🚀 ~ CommentsController ~ deletePostReaction ~ error:',

@@ -18,6 +18,7 @@ import {
   UserSignUpInput,
 } from '@cognito/dto/types';
 import { Token } from '@auth/decorators/auth.decorator';
+import { Public } from '../decorators/public.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -25,6 +26,7 @@ export class AuthController {
   constructor(private cognitoService: CognitoService) {}
 
   @Post('signup')
+  @Public()
   async userSignUp(
     @Body()
     userSignUpInput: UserSignUpInput,
@@ -82,6 +84,7 @@ export class AuthController {
   }
 
   @Post('signin')
+  @Public()
   async signIn(@Body() signInUserInput: SignInUserInput, @Res() res: Response) {
     const { username, password } = signInUserInput;
     try {
@@ -113,7 +116,7 @@ export class AuthController {
   @Post('me')
   async getCognitoUser(@Res() res: Response, @Req() req: Request) {
     try {
-      const result = await this.cognitoService.getUser(req?.userSub || '');
+      const result = await this.cognitoService.getUser(req?.user?.id || '');
       res
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });
