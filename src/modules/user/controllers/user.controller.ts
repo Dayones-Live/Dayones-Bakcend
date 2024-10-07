@@ -12,6 +12,7 @@ import { Response, Request } from 'express';
 import { UserService } from '../services/user.service';
 import { CognitoGuard } from '../../auth/guards/aws.cognito.guard';
 import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
+import { SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 
 @ApiTags('user')
 @Controller('user')
@@ -29,11 +30,12 @@ export class UserController {
     try {
       const response = await this.userService.updateUser(
         userUpdateInput,
-        req?.userSub || '',
+        req?.user?.id || '',
       );
-      res
-        .status(HttpStatus.CREATED)
-        .json({ message: 'User is update successfully', data: response });
+      res.status(HttpStatus.CREATED).json({
+        message: SUCCESS_MESSAGES.USER_UPDATED_SUCCESS,
+        data: response,
+      });
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;
@@ -51,10 +53,10 @@ export class UserController {
     try {
       const response = await this.userService.updateUserLocation(
         userLocationUpdateInput,
-        req?.userSub || '',
+        req?.user?.id || '',
       );
       res.status(HttpStatus.CREATED).json({
-        message: 'User Location is update successfully',
+        message: SUCCESS_MESSAGES.USER_LOCATION_UPDATE_SUCCESS,
         data: response,
       });
     } catch (error) {

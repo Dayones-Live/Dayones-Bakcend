@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import {
   createParamDecorator,
   ExecutionContext,
@@ -15,7 +16,10 @@ export const Token = createParamDecorator(
         : null;
 
     if (!token) {
-      throw new HttpException('Token is required', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        ERROR_MESSAGES.ACCESS_TOKEN_NOT_FOUND,
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return token;
   },

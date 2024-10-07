@@ -33,16 +33,10 @@ export class UserNotificationController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(`User not found}`, HttpStatus.NOT_FOUND);
-      }
       const response =
         await this.userNotificationService.upsertUserNotification({
           ...upsertUserNotificationInput,
-          userId: user_id,
+          userId: req?.user?.id || '',
         });
       res.status(HttpStatus.CREATED).json({
         message: 'User Notification is update successfully',

@@ -38,19 +38,9 @@ export class MessageController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-
-      if (!user_id) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
       const response = await this.messageService.sendMessage(
         sendMessageInput,
-        user_id,
+        req?.user?.id || '',
       );
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.MESSAGE_SENT_SUCCESS,
@@ -64,17 +54,9 @@ export class MessageController {
   @Post('disconnect')
   async disconnectSocket(@Res() res: Response, @Req() req: Request) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
+      const response = await this.messageService.disconnectSocket(
+        req?.user?.id || '',
       );
-
-      if (!user_id) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      const response = await this.messageService.disconnectSocket(user_id);
       res.status(HttpStatus.OK).json({
         message: SUCCESS_MESSAGES.DISCONNECT_SOCKET_SUCCESS,
         data: response,
@@ -93,15 +75,6 @@ export class MessageController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
       const response = await this.messageService.getMessagesByConversationId({
         pageNo,
         pageSize,
@@ -123,16 +96,10 @@ export class MessageController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
+      const response = await this.messageService.deleteMessage(
+        id,
+        req?.user?.id || '',
       );
-      if (!user_id) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      const response = await this.messageService.deleteMessage(id, user_id);
       res.status(HttpStatus.OK).json({
         message: SUCCESS_MESSAGES.MESSAGE_DELETED_SUCCESS,
         data: response,

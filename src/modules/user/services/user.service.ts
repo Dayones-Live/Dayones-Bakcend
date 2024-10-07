@@ -6,7 +6,7 @@ import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
 import { GlobalServiceResponse } from '@app/shared/types/types';
 import { User } from '../entities/user.entity';
 import { UserMapper } from '../dto/user.mapper';
-import { Roles } from '@app/shared/constants/constants';
+import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 
 @Injectable()
 export class UserService {
@@ -57,7 +57,10 @@ export class UserService {
     try {
       const users: User[] = await this.userRepository.find();
       if (users.length == 0) {
-        throw new HttpException('No Users found', HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          ERROR_MESSAGES.USER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
       return users;
     } catch (error) {
@@ -82,7 +85,7 @@ export class UserService {
       });
       if (!user) {
         throw new HttpException(
-          `User with user_sub : ${id} not found`,
+          ERROR_MESSAGES.USER_NOT_FOUND,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -108,7 +111,10 @@ export class UserService {
         where: { id: id },
       });
       if (!user) {
-        throw new HttpException(`User not found`, HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          ERROR_MESSAGES.USER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
       await this.userRepository.delete({
         id: id,
@@ -157,17 +163,17 @@ export class UserService {
    */
   async updateUser(
     userUpdateInput: UserUpdateInput,
-    userSub: string,
+    id: string,
   ): Promise<GlobalServiceResponse> {
     try {
       // Check if the user already exists
       const existingUser = await this.userRepository.findOne({
-        where: { user_sub: userSub }, // Check based on the user sub id
+        where: { id: id }, // Check based on the user sub id
       });
 
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${userSub} does not exist`,
+          `User with ID: ${id} does not exist`,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -203,17 +209,17 @@ export class UserService {
    */
   async updateUserLocation(
     updateUserLocationInput: UpdateUserLocationInput,
-    userSub: string,
+    userId: string,
   ): Promise<GlobalServiceResponse> {
     try {
       // Check if the user already exists
       const existingUser = await this.userRepository.findOne({
-        where: { user_sub: userSub }, // Check based on the user sub id
+        where: { id: userId }, // Check based on the user sub id
       });
 
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${userSub} does not exist`,
+          `User with ID: ${userId} does not exist`,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -258,6 +264,33 @@ export class UserService {
     } catch (error) {
       console.error(
         '🚀 ~ file: user.service.ts ~ UserService ~ fetchUsersByRole ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch a user for the given Id
+   *
+   * @param id
+   * @returns {User}
+   */
+  async findUserById(id: string): Promise<User> {
+    try {
+      const user: User | null = await this.userRepository.findOne({
+        where: { id: id },
+      });
+      if (!user) {
+        throw new HttpException(
+          `User with id : ${id} not found`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      return user;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts ~ UserService ~ findUserById ~ error:',
         error,
       );
       throw error;

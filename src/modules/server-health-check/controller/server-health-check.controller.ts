@@ -1,12 +1,6 @@
-import {
-  Controller,
-  Get,
-  HttpException,
-  HttpStatus,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ServerHealthCheckService } from '../services/server-health-check.services';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags('health')
 @Controller('health')
@@ -26,13 +20,6 @@ export class ServerHealthController {
    * Response: "Server is healthy"
    */
   @Get()
-  @ApiOperation({ summary: 'Get server health status' })
-  @ApiOkResponse({
-    description: 'The server is healthy.',
-    schema: {
-      example: 'Server is healthy', // Example response
-    },
-  })
   getServerStatus(): string {
     return this.serverHealthCheckService.getServerStatus();
   }

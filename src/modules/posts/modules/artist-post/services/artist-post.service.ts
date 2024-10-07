@@ -10,7 +10,7 @@ import {
 } from '../dto/types';
 import { ArtistPostMapper } from '../dto/artist-post.mapper';
 import { UserService } from '@app/modules/user/services/user.service';
-import { Roles } from '@app/shared/constants/constants';
+import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { ArtistPostUserService } from '@artist-post-user/services/artist-post-user.service';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { addMinutesToDate } from '../utils';
@@ -82,7 +82,10 @@ export class ArtistPostService {
       });
       // If no post is found, throw an error
       if (!existingPost) {
-        throw new HttpException(`Artist post not found`, HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
       // Update the post using save (this will update only the changed fields)
       const updatedPost = await this.artistPostRepository.save({
@@ -117,7 +120,10 @@ export class ArtistPostService {
 
       // Check if any rows were affected (i.e., deleted)
       if (deleteResult.affected === 0) {
-        throw new HttpException(`Artist Post not found `, HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
 
       return true;
@@ -176,7 +182,10 @@ export class ArtistPostService {
           }) // Filter for accepted status
           .getOne();
         if (!artistPosts) {
-          throw new HttpException(`Post not found`, HttpStatus.NOT_FOUND);
+          throw new HttpException(
+            ERROR_MESSAGES.POST_NOT_FOUND,
+            HttpStatus.NOT_FOUND,
+          );
         }
         const formattedPostData =
           this.artistPostMapper.processArtistPostData(artistPosts);

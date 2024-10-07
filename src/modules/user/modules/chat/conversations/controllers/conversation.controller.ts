@@ -6,6 +6,7 @@ import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { ConversationService } from '../services/conversation.service';
 import {
   ERROR_MESSAGES,
+  Roles,
   SUCCESS_MESSAGES,
 } from '@app/shared/constants/constants';
 import {
@@ -22,6 +23,7 @@ import {
   HttpStatus,
   HttpException,
 } from '@nestjs/common';
+import { Role } from '@app/modules/auth/decorators/roles.decorator';
 
 @ApiTags('conversation')
 @Controller('conversation')
@@ -42,25 +44,15 @@ export class ConversationController {
    * @throws HttpException if the user is not found.
    */
   @Post()
+  @Role(Roles.ARTIST)
   async createConversation(
     @Body() createConversationInput: CreateConversationInput,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id, role } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-
-      if (!user_id) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
       const response = await this.conversationService.createConversation(
-        user_id,
-        role,
+        req?.user?.id || '',
         createConversationInput,
       );
       res.status(HttpStatus.CREATED).json({
@@ -90,18 +82,9 @@ export class ConversationController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
       const response = await this.conversationService.fetchAllConversations(
         { pageNo, pageSize },
-        user_id,
+        req?.user?.id || '',
       );
       res.status(HttpStatus.OK).json({
         message: SUCCESS_MESSAGES.CONVERSATION_FETCHED_SUCCESS,
@@ -122,25 +105,14 @@ export class ConversationController {
    * @throws HttpException if the user is not found.
    */
   @Delete(':id')
+  @Role(Roles.ARTIST)
   async deleteConversation(
     @Param('id') id: string,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id, role } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      const response = await this.conversationService.deleteConversation(
-        id,
-        role,
-      );
+      const response = await this.conversationService.deleteConversation(id);
       res.status(HttpStatus.OK).json({
         message: SUCCESS_MESSAGES.CONVERSATION_DELETED_SUCCESS,
         data: response,
@@ -157,18 +129,9 @@ export class ConversationController {
     @Req() req: Request,
   ) {
     try {
-      const { id: user_id } = await this.userService.findUserByUserSub(
-        req?.userSub || '',
-      );
-      if (!user_id) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
       const response = await this.conversationService.getConversationDetails(
         id,
-        user_id,
+        req?.user?.id || '',
       );
       res.status(HttpStatus.OK).json({
         message: SUCCESS_MESSAGES.CONVERSATION_DELETED_SUCCESS,
