@@ -2,7 +2,11 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserInput } from '@cognito/dto/types';
-import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
+import {
+  FetchNearByUsersInput,
+  UpdateUserLocationInput,
+  UserUpdateInput,
+} from '../dto/types';
 import { GlobalServiceResponse } from '@app/shared/types/types';
 import { User } from '../entities/user.entity';
 import { UserMapper } from '../dto/user.mapper';
@@ -158,6 +162,46 @@ export class UserService {
 
   /**
    * Service to update the user
+   * @param userSub
+   * @returns {GlobalServiceResponse}
+   */
+  async updateIsConfirmed(id: string): Promise<GlobalServiceResponse> {
+    try {
+      // Check if the user already exists
+      const existingUser = await this.userRepository.findOne({
+        where: { user_sub: id }, // Check based on the user sub id
+      });
+
+      if (!existingUser) {
+        throw new HttpException(
+          `User with ID: ${id} does not exist`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      existingUser.is_confirmed = true;
+      // Update existing user
+      const updatedUser = await this.userRepository.save(existingUser);
+      const { user_sub, ...rest } = updatedUser;
+
+      return {
+        statusCode: 200,
+        message: 'User Update Successful',
+        data: { ...rest, role: rest.role[0] },
+      };
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts:96 ~ UserService ~ updateUser ~ error:',
+        error,
+      );
+      throw new HttpException(
+        `User update error: ${error?.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  /**
+   * Service to update the user
    * @param userUpdateInput
    * @returns
    */
@@ -293,6 +337,47 @@ export class UserService {
         '🚀 ~ file: user.service.ts ~ UserService ~ findUserById ~ error:',
         error,
       );
+      throw error;
+    }
+  }
+
+  /**
+   * Fetches the Users near the given coordinates within the given radius.
+   *
+   * @param fetchNearByUsersInput
+   * @returns {FetchNearByStoresResponse[]}
+   */
+  async fetchNearByUsers(
+    fetchNearByUsersInput: FetchNearByUsersInput,
+  ): Promise<any> {
+    try {
+      const { latitude, longitude, radiusInMeters } = fetchNearByUsersInput;
+      const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+      const query = queryBuilder
+        .select([
+          '"user".*',
+          `ST_Distance(
+      ST_SetSRID(ST_MakePoint(CAST(user.longitude AS DOUBLE PRECISION), CAST(user.latitude AS DOUBLE PRECISION)), 2100),
+      ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 2100)
+    ) AS distance_in_meters`,
+        ])
+        .where(`"user"."latitude" <> ''`)
+        .andWhere(`"user"."longitude" <> ''`)
+
+        .andWhere(':role = ANY(user.role)', { role: Roles.USER })
+        .andWhere(
+          `ST_Distance(
+    ST_SetSRID(ST_MakePoint(CAST("user"."longitude" AS DOUBLE PRECISION), CAST("user"."latitude" AS DOUBLE PRECISION)), 2100),
+    ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 2100)
+  ) <= ${radiusInMeters}`,
+        )
+        .orderBy(`distance_in_meters`, 'ASC');
+
+      const res = await query.getRawMany();
+      return res;
+    } catch (error) {
+      console.error('🚀 ~ FedexApiService ~ fetchNearByStores ~ error:', error);
       throw error;
     }
   }
