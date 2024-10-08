@@ -3,14 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Paginate, PaginationDto } from '@app/types';
 import { ConversationMapper } from '../dto/conversation.mapper';
 import { Conversations } from '../entities/conversation.entity';
+import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import {
   AllConversationResponse,
   CreateConversationInput,
   UpdateConversationInput,
 } from '../dto/types';
+import { MessageService } from '../../messages/services/message.service';
 
 @Injectable()
 export class ConversationService {
@@ -18,6 +19,7 @@ export class ConversationService {
     @InjectRepository(Conversations)
     private conversationRepository: Repository<Conversations>,
     private conversationMapper: ConversationMapper,
+    private messageService: MessageService,
   ) {}
 
   /**
@@ -169,6 +171,10 @@ export class ConversationService {
           HttpStatus.NOT_FOUND,
         );
       }
+
+      await this.messageService.deleteAllMessagesByConversationId(
+        conversation.id,
+      );
       const deleteResult = await this.conversationRepository.delete({
         id: id,
       });

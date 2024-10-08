@@ -3,12 +3,9 @@ import { Response, Request } from 'express';
 import { CreateConversationInput } from '../dto/types';
 import { UserService } from '@user/services/user.service';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
+import { Role } from '@app/modules/auth/decorators/roles.decorator';
 import { ConversationService } from '../services/conversation.service';
-import {
-  ERROR_MESSAGES,
-  Roles,
-  SUCCESS_MESSAGES,
-} from '@app/shared/constants/constants';
+import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import {
   Get,
   Body,
@@ -21,9 +18,7 @@ import {
   UseGuards,
   Controller,
   HttpStatus,
-  HttpException,
 } from '@nestjs/common';
-import { Role } from '@app/modules/auth/decorators/roles.decorator';
 
 @ApiTags('conversation')
 @Controller('conversation')
@@ -106,11 +101,7 @@ export class ConversationController {
    */
   @Delete(':id')
   @Role(Roles.ARTIST)
-  async deleteConversation(
-    @Param('id') id: string,
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
+  async deleteConversation(@Param('id') id: string, @Res() res: Response) {
     try {
       const response = await this.conversationService.deleteConversation(id);
       res.status(HttpStatus.OK).json({

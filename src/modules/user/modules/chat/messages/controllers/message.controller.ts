@@ -4,10 +4,7 @@ import { SendMessageInput } from '../dto/types';
 import { MessageService } from '../services/message.service';
 import { UserService } from '@app/modules/user/services/user.service';
 import { CognitoGuard } from '@app/modules/auth/guards/aws.cognito.guard';
-import {
-  ERROR_MESSAGES,
-  SUCCESS_MESSAGES,
-} from '@app/shared/constants/constants';
+import { SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import {
   Body,
   Req,
@@ -16,7 +13,6 @@ import {
   UseGuards,
   Controller,
   HttpStatus,
-  HttpException,
   Get,
   Query,
   Param,
@@ -72,7 +68,6 @@ export class MessageController {
     @Query('pageSize') pageSize: number = 15,
     @Query('conversationId') conversationId: string,
     @Res() res: Response,
-    @Req() req: Request,
   ) {
     try {
       const response = await this.messageService.getMessagesByConversationId({

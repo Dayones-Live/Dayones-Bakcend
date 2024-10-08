@@ -18,6 +18,7 @@ export class CognitoGuard implements CanActivate {
 
   constructor(
     private reflector: Reflector,
+    @Inject(forwardRef(() => UserService))
     private userService: UserService,
   ) {
     this.verifier = cognitoJwtVerify;

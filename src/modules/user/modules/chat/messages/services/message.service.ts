@@ -6,7 +6,13 @@ import { MessageMapper } from '../dto/message.mapper';
 import { SocketInitializer } from '../../../socket/socket';
 import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { ConversationService } from '../../conversations/services/conversation.service';
 import {
   SendMessageInput,
@@ -20,7 +26,9 @@ export class MessageService {
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
     private messageMapper: MessageMapper,
+    @Inject(forwardRef(() => SocketInitializer))
     private socketInitializer: SocketInitializer,
+    @Inject(forwardRef(() => ConversationService))
     private conversationService: ConversationService,
   ) {}
 
@@ -182,5 +190,21 @@ export class MessageService {
     } catch (error) {
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }
+  }
+
+  async deleteAllMessagesByConversationId(
+    conversationId: string,
+  ): Promise<boolean> {
+    const messages = await this.messageRepository.find({
+      where: {
+        conversation_id: conversationId,
+      },
+    });
+
+    const messageIds = messages.map((message) => message.id);
+
+    const deletedMessage = await this.messageRepository.delete(messageIds);
+
+    return deletedMessage.affected ? true : false;
   }
 }
