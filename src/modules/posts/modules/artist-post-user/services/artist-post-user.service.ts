@@ -12,7 +12,12 @@ import { Invite_Status } from '../constants/constants';
 import { User } from '@user/entities/user.entity';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { ArtistPost } from '../../artist-post/entities/artist-post.entity';
-import { ArtistPostResponse } from '../../artist-post/dto/types';
+import {
+  AllPostsResponse,
+  ArtistPostResponse,
+} from '../../artist-post/dto/types';
+import { Paginate, PaginationDto } from '@app/types';
+import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -170,14 +175,21 @@ export class ArtistPostUserService {
   async fetchUserPostsByInviteStatus(
     user_id: string,
     status: InviteStatus,
-  ): Promise<ArtistPost[]> {
+    req: PaginationDto,
+  ): Promise<AllPostsResponse> {
     try {
-      const artistValidInvites = await this.artistPostUserRepository
+      const paginate: Paginate = getPaginated(
+        req.pageNo || 1,
+        req.pageSize || 0,
+      );
+      const [artistValidInvites, count] = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
         .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
         .where('artistPostUser.status = :status', { status })
         .andWhere('artistPostUser.user_id = :user_id', { user_id }) // Filter by user_id
-        .getMany();
+        .skip(paginate.offset) // Apply offset for pagination
+        .take(paginate.limit) // Apply limit for pagination
+        .getManyAndCount();
       if (!artistValidInvites.length) {
         throw new HttpException(
           ERROR_MESSAGES.POST_NOT_FOUND,
@@ -185,7 +197,12 @@ export class ArtistPostUserService {
         );
       }
       const artistPosts = artistValidInvites.map((invite) => invite.artistPost);
-      return artistPosts;
+      const meta = getPaginatedOutput(
+        paginate.pageNo,
+        paginate.pageSize,
+        count,
+      );
+      return { posts: artistPosts, meta };
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ fetchValidArtistPostUsers ~ error:',

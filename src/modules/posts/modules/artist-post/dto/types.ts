@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { Post_Type } from '../constants';
 import { Comments } from '../../comments/entities/comments.entity';
+import { PaginationResponse } from '@app/types';
 
 export class CreateArtistPostInput {
   @IsOptional()
@@ -75,6 +76,11 @@ export class ArtistPostObject extends Location {
 
   @IsOptional()
   type: Post_Type;
+}
+
+export class AllPostsResponse extends PaginationResponse {
+  @IsOptional()
+  posts: ArtistPostObject[];
 }
 
 export class ArtistPostResponse {
