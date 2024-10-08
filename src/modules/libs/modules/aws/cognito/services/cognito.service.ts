@@ -201,15 +201,6 @@ export class CognitoService {
         const user = await this.userService.findUserByUserSub(
           payload?.username,
         );
-        let response;
-        if (!user.is_confirmed) {
-          response = await this.userService.updateUser(
-            {
-              isConfirmed: true,
-            },
-            user?.id,
-          );
-        }
         return {
           statusCode: result['$metadata'].httpStatusCode,
           message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -219,7 +210,7 @@ export class CognitoService {
             refresh_token: result?.AuthenticationResult?.RefreshToken,
             token_type: result?.AuthenticationResult?.TokenType,
             user: {
-              ...response?.data || user, // spread the existing user data
+              ...user, // spread the existing user data
               role: user?.role?.[0] || null, // set role as the first element in the array, or null if undefined
             },
           },

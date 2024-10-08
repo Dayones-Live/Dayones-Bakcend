@@ -377,7 +377,7 @@ export class UserService {
       const res = await query.getRawMany();
       return res;
     } catch (error) {
-      console.error('🚀 ~ FedexApiService ~ fetchNearByStores ~ error:', error);
+      console.error('🚀 ~ UserService ~ fetchNearByUsers ~ error:', error);
       throw error;
     }
   }

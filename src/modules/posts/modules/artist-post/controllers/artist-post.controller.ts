@@ -11,6 +11,7 @@ import {
   Res,
   UseGuards,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
@@ -119,10 +120,16 @@ export class ArtistPostController {
   }
 
   @Get()
-  async getAllUserPostsData(@Res() res: Response, @Req() req: Request) {
+  async getAllUserPostsData(
+    @Res() res: Response,
+    @Req() req: Request,
+    @Query('pageNo') pageNo: number = 1,
+    @Query('pageSize') pageSize: number = 10,
+  ) {
     try {
       const postsData = await this.artistPostService.fetchAllUserPostsData(
         req?.user as User,
+        { pageNo, pageSize },
       );
       res.status(HttpStatus.OK).json({
         message: SUCCESS_MESSAGES.POSTS_FETCHED_SUCCESS,
