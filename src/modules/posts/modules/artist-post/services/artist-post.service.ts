@@ -43,7 +43,12 @@ export class ArtistPostService {
       });
       // Use the upsert method
       const artistPost = await this.artistPostRepository.save(artistPostDto);
-      const users = await this.userService.fetchUsersByRole(Roles.USER);
+      const users = await this.userService.fetchNearByUsers({
+        radiusInMeters: createArtistPostInput.range,
+        longitude: Number(createArtistPostInput.longitude),
+        latitude: Number(createArtistPostInput.latitude),
+      });
+      //const users = await this.userService.fetchUsersByRole(Roles.USER);
       // Loop on users and add it in artist post user
       for (const user of users) {
         await this.artistPostUserService.createArtistPostUser({
