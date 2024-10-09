@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { initializeApp, credential } from 'firebase-admin';
-import * as Account from '../../../../../../daysone-firebase-adminsdk.json';
 
 @Injectable()
+/**
+ * FirebaseService is responsible for handling Firebase-related operations, such as sending notifications.
+ */
 export class FirebaseService {
   private readonly app;
 
   constructor() {
-    // Initialize Firebase app with service account
     const serviceAccount = {
-      projectId: Account.project_id,
-      clientEmail: Account.client_email,
-      privateKey: Account.private_key.replace(/\\n/g, '\n'), // Handle newline characters
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     };
 
     this.app = initializeApp({
@@ -19,6 +20,13 @@ export class FirebaseService {
     });
   }
 
+  /**
+   * Sends a notification to the specified device tokens.
+   *
+   * @param deviceTokens - An array of device tokens to send the notification to.
+   * @param payload - The notification payload to be sent.
+   * @returns A promise that resolves to `true` if the notification is sent successfully, or `false` if an error occurs.
+   */
   async sendNotification(
     deviceTokens: string[],
     payload: any,

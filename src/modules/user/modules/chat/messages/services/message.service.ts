@@ -192,6 +192,18 @@ export class MessageService {
     }
   }
 
+  /**
+   * Deletes all messages associated with a specific conversation.
+   *
+   * This function retrieves all messages for a given conversation ID,
+   * extracts their IDs, and then deletes them from the repository.
+   *
+   * @param {string} conversationId - The unique identifier of the conversation
+   *                                  whose messages are to be deleted.
+   * @returns {Promise<boolean>} A promise that resolves to:
+   *                             - true if one or more messages were deleted
+   *                             - false if no messages were deleted or if the deletion failed
+   */
   async deleteAllMessagesByConversationId(
     conversationId: string,
   ): Promise<boolean> {
