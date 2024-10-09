@@ -44,6 +44,7 @@ export class AuthController {
   }
 
   @Post('verify')
+  @Public()
   async verifyUser(
     @Body() userConfirmationInput: UserConfirmationInput,
     @Res() res: Response,
@@ -64,6 +65,7 @@ export class AuthController {
   }
 
   @Post('resend-confirm-email')
+  @Public()
   async resendConfirmationCode(
     @Body() resendConfirmationCodeInput: ResendConfirmationCodeInput,
     @Res() res: Response,

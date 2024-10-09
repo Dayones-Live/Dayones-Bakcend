@@ -1,9 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { ServerHealthCheckService } from '../services/server-health-check.services';
 import { ApiTags } from '@nestjs/swagger';
+import { Public } from '@app/modules/auth/decorators/public.decorator';
 
 @ApiTags('health')
 @Controller('health')
+@Public()
 export class ServerHealthController {
   constructor(private serverHealthCheckService: ServerHealthCheckService) {}
 
