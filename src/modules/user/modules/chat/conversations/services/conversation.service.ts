@@ -54,6 +54,14 @@ export class ConversationService {
         senderRecieverCode: `${userId}_${recieverId}`,
       });
       const conversation = await this.conversationRepository.save(dto);
+
+      await this.messageService.sendMessage(
+        {
+          conversationId: conversation.id,
+          message: lastMessage,
+        },
+        userId,
+      );
       return conversation;
     } catch (error) {
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
