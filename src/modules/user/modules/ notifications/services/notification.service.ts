@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { initializeApp, credential } from 'firebase-admin';
+import admin, { credential } from 'firebase-admin';
 
 @Injectable()
 /**
@@ -15,7 +15,7 @@ export class FirebaseService {
       privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     };
 
-    this.app = initializeApp({
+    this.app = admin.initializeApp({
       credential: credential.cert(serviceAccount),
     });
   }
