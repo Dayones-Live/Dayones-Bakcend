@@ -23,6 +23,8 @@ export enum ERROR_MESSAGES {
   INVITE_NOT_ACCEPTED = 'Not Allowed to comment on post user has not accepted the post invite',
   COMMENT_NOT_FOUND = 'Comment not found',
   REACTION_NOT_FOUND = 'Reaction not found',
+  NOTIFICATION_NOT_FOUND = 'Notification not found',
+  USER_NOTIFICATION_TOKEN_NOT_FOUND = 'User notification token not found',
 }
 
 export enum SUCCESS_MESSAGES {
