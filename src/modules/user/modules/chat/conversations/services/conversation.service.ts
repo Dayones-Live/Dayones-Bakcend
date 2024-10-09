@@ -139,25 +139,22 @@ export class ConversationService {
   }
 
   /**
-   * Deletes a conversation from the database.
+   * Deletes a conversation and its associated messages from the database.
    *
-   * This function attempts to delete a conversation with the given ID. It first checks
-   * if the user has the 'ARTIST' role, then verifies if the conversation exists,
-   * and finally attempts to delete it.
+   * This function attempts to delete a conversation by its ID. It first checks if the
+   * conversation exists, then deletes all associated messages, and finally removes
+   * the conversation itself from the database.
    *
    * @param id - The unique identifier of the conversation to be deleted.
-   * @param role - An array of roles associated with the user. The first role is checked
-   *               to ensure it's 'ARTIST'.
    *
    * @returns A Promise that resolves to a boolean:
    *          - true if the conversation was successfully deleted
-   *          - false if the deletion was unsuccessful (e.g., no rows affected)
+   *          - false if the deletion operation did not affect any rows
    *
-   * @throws {HttpException} Throws an HTTP exception with BAD_REQUEST status if:
-   *         - The user's role is not 'ARTIST'.
-   *         - Any error occurs during the deletion process.
-   * @throws {HttpException} Throws an HTTP exception with NOT_FOUND status if:
-   *         - The conversation with the given ID does not exist in the database.
+   * @throws {HttpException} Throws an HTTP exception with NOT_FOUND status if the
+   *         conversation with the given ID does not exist in the database.
+   * @throws {HttpException} Throws an HTTP exception with BAD_REQUEST status if any
+   *         other error occurs during the deletion process.
    */
   async deleteConversation(id: string): Promise<boolean> {
     try {
@@ -211,6 +208,24 @@ export class ConversationService {
     return conversation;
   }
 
+  /**
+   * Retrieves detailed information about a specific conversation for a given user.
+   *
+   * This function fetches a conversation by its ID, ensuring that the specified user
+   * is either the sender or receiver of the conversation. It includes related entities
+   * such as sender, receiver, and messages in the returned data.
+   *
+   * @param conversationId - The unique identifier of the conversation to retrieve.
+   * @param userId - The ID of the user requesting the conversation details.
+   *                 This user must be either the sender or receiver of the conversation.
+   *
+   * @returns A Promise that resolves to the Conversations entity with related data.
+   *
+   * @throws {HttpException} Throws an HTTP exception with NOT_FOUND status if the
+   *         conversation doesn't exist or the user is not a participant.
+   * @throws {HttpException} Throws an HTTP exception with BAD_REQUEST status if any
+   *         other error occurs during the retrieval process.
+   */
   async getConversationDetails(
     conversationId: string,
     userId: string,
