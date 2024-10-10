@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Reactions } from './entities/reaction.entity';
 import { UserModule } from '@app/modules/user/user.module';
@@ -9,7 +9,7 @@ import { ArtistPostUserModule } from '../artist-post-user/atrist-post-user.modul
 @Module({
   imports: [
     TypeOrmModule.forFeature([Reactions]),
-    UserModule,
+    forwardRef(() => UserModule),
     ArtistPostUserModule,
   ],
   controllers: [ReactionsController],

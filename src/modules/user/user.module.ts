@@ -6,12 +6,16 @@ import { UserController } from './controllers/user.controller';
 import { CognitoModule } from '../libs/modules/aws/cognito/cognito.module';
 import { UserMapper } from './dto/user.mapper';
 import { ChatModule } from './modules/chat/chat.module';
+import { ArtistPostModule } from '../posts/modules/artist-post/artist-post.module';
+import { ArtistPostUserModule } from '../posts/modules/artist-post-user/atrist-post-user.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     forwardRef(() => CognitoModule),
     ChatModule,
+    ArtistPostModule,
+    ArtistPostUserModule,
   ],
   controllers: [UserController],
   providers: [UserService, UserMapper],
