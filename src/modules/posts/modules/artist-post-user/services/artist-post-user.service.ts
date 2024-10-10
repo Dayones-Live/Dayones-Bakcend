@@ -280,4 +280,45 @@ export class ArtistPostUserService {
       throw err;
     }
   }
+
+  /**
+   * Service to delete the artist post invites that are no longer valid or
+   * rejected by the user
+   *
+   * @returns {boolean}
+   * */
+
+  async deleteRejectedOrStaleInvites(): Promise<boolean> {
+    const now = new Date();
+
+    try {
+      const artistPostUsersDelete = await this.artistPostUserRepository
+        .createQueryBuilder('artistPostUser')
+        .where(
+          'artistPostUser.status = :rejected OR artistPostUser.valid_till < :now',
+          {
+            rejected: Invite_Status.REJECT,
+            now,
+          },
+        )
+        .getMany();
+
+      if (artistPostUsersDelete?.length > 0) {
+        // Delete the invites
+        const deletedInvites = await this.artistPostUserRepository.remove(
+          artistPostUsersDelete,
+        );
+
+        console.log(`${artistPostUsersDelete.length} invites deleted.`);
+        return deletedInvites?.length > 0;
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        '🚀 ~ ArtistPostUserService ~ deleteRejectedOrStaleInvites ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
 }
