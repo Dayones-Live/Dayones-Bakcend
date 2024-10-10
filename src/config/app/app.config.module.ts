@@ -14,9 +14,11 @@ import { PostModule } from '@app/modules/posts/post.module';
 import { ChatModule } from '@app/modules/user/modules/chat/chat.module';
 import { SocketModule } from '@app/modules/user/modules/socket/socket.module';
 import { FirebaseModule } from '@app/modules/user/modules/ notifications/notification.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     NestConfigModule,
     TypeOrmModule.forRoot(databaseConfig),
     ServerHealthCheckModule,

@@ -18,6 +18,7 @@ import {
 } from '../../artist-post/dto/types';
 import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -287,10 +288,9 @@ export class ArtistPostUserService {
    *
    * @returns {boolean}
    * */
-
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
   async deleteRejectedOrStaleInvites(): Promise<boolean> {
     const now = new Date();
-
     try {
       const artistPostUsersDelete = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
@@ -308,8 +308,6 @@ export class ArtistPostUserService {
         const deletedInvites = await this.artistPostUserRepository.remove(
           artistPostUsersDelete,
         );
-
-        console.log(`${artistPostUsersDelete.length} invites deleted.`);
         return deletedInvites?.length > 0;
       }
       return true;
