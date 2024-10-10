@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { UserNotification } from '@user-notifications/entities/user-notifications.entity';
 import { UpsertUserNotificationInput } from '@user-notifications/dto/types';
 import { UserNotificationMapper } from '../dto/user-notification.mapper';
+import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 
 @Injectable()
 export class UserNotificationService {
@@ -42,13 +43,43 @@ export class UserNotificationService {
       return await this.userNotificationRepository.save(userNotificationDto);
     } catch (error) {
       console.error(
-        '🚀 ~ file: user-notification.service.ts:96 ~ UserService ~ upsertUserNotification ~ error:',
+        '🚀 ~ file: user-notification.service.ts:96 ~ UserNotificationService ~ upsertUserNotification ~ error:',
         error,
       );
       throw new HttpException(
         `User Notification Token update error: ${error?.message}`,
         HttpStatus.BAD_REQUEST,
       );
+    }
+  }
+
+  /**
+   *
+   * @param userId
+   * @returns
+   */
+  async getUserNotificationTokenByUserId(
+    userId: string,
+  ): Promise<UserNotification> {
+    try {
+      const token = await this.userNotificationRepository.findOne({
+        where: {
+          user_id: userId,
+        },
+      });
+      if (!token) {
+        throw new HttpException(
+          ERROR_MESSAGES.USER_NOTIFICATION_TOKEN_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      return token;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file:user-notification.service.ts:96 ~ UserNotificationService ~ error:',
+        error,
+      );
+      throw error;
     }
   }
 }
