@@ -364,8 +364,8 @@ export class UserService {
         ])
         .where(`"user"."latitude" <> ''`)
         .andWhere(`"user"."longitude" <> ''`)
-
         .andWhere(':role = ANY(user.role)', { role: Roles.USER })
+        .andWhere('"user"."notifications_enabled" = :status', { status: true }) // Added condition for notification_status
         .andWhere(
           `ST_Distance(
     ST_SetSRID(ST_MakePoint(CAST("user"."longitude" AS DOUBLE PRECISION), CAST("user"."latitude" AS DOUBLE PRECISION)), 2100),

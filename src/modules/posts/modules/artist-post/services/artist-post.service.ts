@@ -17,7 +17,7 @@ import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { addMinutesToDate } from '../utils';
 import { User } from '@app/modules/user/entities/user.entity';
 import { ArtistPostUser } from '@artist-post-user/entities/artist-post-user.entity';
-import { Post_Message } from '../constants';
+import { Post_Message, Post_Type } from '../constants';
 import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 
@@ -51,14 +51,17 @@ export class ArtistPostService {
         longitude: Number(createArtistPostInput.longitude),
         latitude: Number(createArtistPostInput.latitude),
       });
-      //const users = await this.userService.fetchUsersByRole(Roles.USER);
+      const minutesToAdd = artistPost.type === Post_Type.INVITE_PHOTO ? 15 : 5;
       // Loop on users and add it in artist post user
       for (const user of users) {
         await this.artistPostUserService.createArtistPostUser({
           userId: user?.id,
           artistPostId: artistPost?.id,
           status: Invite_Status.PENDING,
-          validTill: addMinutesToDate(new Date(), 15),
+          validTill: addMinutesToDate(
+            new Date(artistPost.created_at),
+            minutesToAdd,
+          ),
         });
       }
       const { user_id, ...rest } = artistPost;

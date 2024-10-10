@@ -72,6 +72,17 @@ export class User extends BaseEntity {
   })
   updated_at: Date;
 
+  @Column({ nullable: false, default: true })
+  @Index()
+  notifications_enabled: boolean;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  notification_status_valid_till: Date;
+
   @OneToOne(() => UserNotification, (userNotification) => userNotification.user)
   userNotification: UserNotification;
 
