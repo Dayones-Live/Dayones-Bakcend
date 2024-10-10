@@ -388,10 +388,9 @@ export class UserService {
    *
    * @returns {Promise<void>}
    */
-  @Cron(CronExpression.EVERY_5_MINUTES)
+  @Cron('*/2 * * * *') // Every 2 minutes
   async disableUserNotificationStatus(): Promise<void> {
     try {
-      console.log('cron called');
       const currentTime = new Date();
       const queryBuilder = this.userRepository.createQueryBuilder('user');
 
@@ -404,9 +403,7 @@ export class UserService {
           currentTime,
         });
 
-      const response = await query.execute();
-
-      console.log('cron response', response);
+      await query.execute();
     } catch (error) {
       console.error(
         '🚀 ~ UserService ~ disableUserNotificationStatus ~ error:',
