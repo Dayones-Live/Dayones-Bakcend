@@ -18,6 +18,7 @@ import {
 } from '../../artist-post/dto/types';
 import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -278,6 +279,44 @@ export class ArtistPostUserService {
         err,
       );
       throw err;
+    }
+  }
+
+  /**
+   * Service to delete the artist post invites that are no longer valid or
+   * rejected by the user
+   *
+   * @returns {boolean}
+   * */
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  async deleteRejectedOrStaleInvites(): Promise<boolean> {
+    const now = new Date();
+    try {
+      const artistPostUsersDelete = await this.artistPostUserRepository
+        .createQueryBuilder('artistPostUser')
+        .where(
+          'artistPostUser.status = :rejected OR artistPostUser.valid_till < :now',
+          {
+            rejected: Invite_Status.REJECT,
+            now,
+          },
+        )
+        .getMany();
+
+      if (artistPostUsersDelete?.length > 0) {
+        // Delete the invites
+        const deletedInvites = await this.artistPostUserRepository.remove(
+          artistPostUsersDelete,
+        );
+        return deletedInvites?.length > 0;
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        '🚀 ~ ArtistPostUserService ~ deleteRejectedOrStaleInvites ~ error:',
+        error,
+      );
+      throw error;
     }
   }
 }

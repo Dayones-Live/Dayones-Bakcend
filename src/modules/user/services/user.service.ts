@@ -23,6 +23,7 @@ import { ArtistPostService } from '@app/modules/posts/modules/artist-post/servic
 import { Post_Type } from '@app/modules/posts/modules/artist-post/constants';
 import { ArtistPostUserService } from '@app/modules/posts/modules/artist-post-user/services/artist-post-user.service';
 import { Invite_Status } from '@app/modules/posts/modules/artist-post-user/constants/constants';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class UserService {
@@ -463,6 +464,33 @@ export class UserService {
         `User update error: ${error?.message}`,
         HttpStatus.BAD_REQUEST,
       );
+
+   * Disable users notification status having notification_status_valid_till less than current time
+   *
+   * @returns {Promise<void>}
+   */
+  @Cron('*/2 * * * *') // Every 2 minutes
+  async disableUserNotificationStatus(): Promise<void> {
+    try {
+      const currentTime = new Date();
+      const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+      const query = queryBuilder
+        .update(User)
+        .set({ notifications_enabled: false })
+        .where('role @> :role', { role: [Roles.USER] })
+        .andWhere('"user"."notifications_enabled" = :status', { status: true })
+        .andWhere('"user"."notification_status_valid_till" < :currentTime', {
+          currentTime,
+        });
+
+      await query.execute();
+    } catch (error) {
+      console.error(
+        '🚀 ~ UserService ~ disableUserNotificationStatus ~ error:',
+        error,
+      );
+      throw error;
     }
   }
 }
