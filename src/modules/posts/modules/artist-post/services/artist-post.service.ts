@@ -286,13 +286,26 @@ export class ArtistPostService {
       const artistPosts = await this.artistPostRepository
         .createQueryBuilder('artistPost')
         .leftJoin('artistPost.artistPostUser', 'artistPostUser')
+        .leftJoin('artistPost.user', 'user') // Join the user table
+        // Filter recent posts based on the interval
         .andWhere(
           `artistPost.created_at >= NOW() - INTERVAL '${interval} minutes'`,
         )
+        // Ensure no entry for the given userId in artistPostUser
         .andWhere(
           'artistPostUser.user_id IS NULL OR artistPostUser.user_id != :userId',
           { userId },
-        ) // Ensure no entry for the given userId
+        )
+        .andWhere(`"artistPost"."latitude" <> ''`)
+        .andWhere(`"artistPost"."longitude" <> ''`)
+        .andWhere('"user"."id" = :userId', { userId }) // Filter by userId
+        // Check if the post is within the user's range
+        .andWhere(
+          `ST_Distance(
+      ST_SetSRID(ST_MakePoint(CAST(artistPost.longitude AS DOUBLE PRECISION), CAST(artistPost.latitude AS DOUBLE PRECISION)), 2100),
+      ST_SetSRID(ST_MakePoint(CAST(user.longitude AS DOUBLE PRECISION), CAST(user.latitude AS DOUBLE PRECISION)), 2100)
+    ) <= artistPost.range`,
+        )
         .getMany();
       return artistPosts;
     } catch (error) {

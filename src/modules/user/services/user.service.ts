@@ -396,38 +396,6 @@ export class UserService {
     }
   }
 
-  async verifyTheUserLocationAgainstPost(
-    fetchNearByUsersInput: FetchNearByUsersInput,
-    userId: string, // Add userId as a parameter
-  ): Promise<any> {
-    try {
-      const { latitude, longitude, radiusInMeters } = fetchNearByUsersInput;
-      const queryBuilder = this.userRepository.createQueryBuilder('user');
-
-      const query = queryBuilder
-        .where(`"user"."latitude" <> ''`)
-        .andWhere(`"user"."longitude" <> ''`)
-        .andWhere(':role = ANY(user.role)', { role: Roles.USER })
-        .andWhere('"user"."notifications_enabled" = :status', { status: true }) // Check for notification_status
-        .andWhere('"user"."id" = :userId', { userId }) // Filter by userId
-        .andWhere(
-          `ST_Distance(
-      ST_SetSRID(ST_MakePoint(CAST("user"."longitude" AS DOUBLE PRECISION), CAST("user"."latitude" AS DOUBLE PRECISION)), 2100),
-      ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 2100)
-    ) <= ${radiusInMeters}`,
-        );
-
-      const res = await query.getOne();
-      return res;
-    } catch (error) {
-      console.error(
-        '🚀 ~ UserService ~ verifyTheUserLocationAgainstPost ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
-
   /**
    * Service to update the user
    * @param UpdateUserLocationInput
@@ -463,26 +431,13 @@ export class UserService {
       );
       // Filter posts on basis of location
       for (const post of posts) {
-        const user = await this.verifyTheUserLocationAgainstPost(
-          {
-            longitude: Number(post.longitude),
-            latitude: Number(post.latitude),
-            radiusInMeters: post.range,
-          },
-          updatedUser?.id,
-        );
-        if (user) {
-          const minutesToAdd = post.type === Post_Type.INVITE_PHOTO ? 15 : 5;
-          await this.artistPostUserService.createArtistPostUser({
-            userId: user?.id,
-            artistPostId: post?.id,
-            status: Invite_Status.PENDING,
-            validTill: addMinutesToDate(
-              new Date(post.created_at),
-              minutesToAdd,
-            ),
-          });
-        }
+        const minutesToAdd = post.type === Post_Type.INVITE_PHOTO ? 15 : 5;
+        await this.artistPostUserService.createArtistPostUser({
+          userId: updatedUser?.id,
+          artistPostId: post?.id,
+          status: Invite_Status.PENDING,
+          validTill: addMinutesToDate(new Date(post.created_at), minutesToAdd),
+        });
       }
       return {
         statusCode: 200,

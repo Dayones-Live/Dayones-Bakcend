@@ -81,8 +81,8 @@ export class UserController {
           userLocationUpdateInput,
           req?.user?.id || '',
         );
-      res.status(HttpStatus.CREATED).json({
-        message: SUCCESS_MESSAGES.USER_LOCATION_UPDATE_SUCCESS,
+      res.status(HttpStatus.OK).json({
+        message: response?.message,
         data: response,
       });
     } catch (error) {
