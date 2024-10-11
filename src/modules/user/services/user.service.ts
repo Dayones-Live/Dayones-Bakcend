@@ -464,8 +464,10 @@ export class UserService {
         `User update error: ${error?.message}`,
         HttpStatus.BAD_REQUEST,
       );
+    }
+  }
 
-   * Disable users notification status having notification_status_valid_till less than current time
+  /* Disable users notification status having notification_status_valid_till less than current time
    *
    * @returns {Promise<void>}
    */
