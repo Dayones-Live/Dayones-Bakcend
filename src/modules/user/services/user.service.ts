@@ -436,8 +436,15 @@ export class UserService {
           15,
           updatedUser?.id,
         );
+        const filteredPosts = posts.filter((post) => {
+          // Check if artistPostUser array doesn't contain current user and post status is not null
+          const hasCurrentUser = post.artistPostUser?.some(
+            (apu) => apu.user_id === updatedUser?.id,
+          );
+          return !hasCurrentUser;
+        });
         // Filter posts on basis of location
-        for (const post of posts) {
+        for (const post of filteredPosts) {
           const minutesToAdd = post.type === Post_Type.INVITE_PHOTO ? 15 : 5;
           await this.artistPostUserService.createArtistPostUser({
             userId: updatedUser?.id,

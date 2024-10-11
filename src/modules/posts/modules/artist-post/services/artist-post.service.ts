@@ -295,20 +295,17 @@ export class ArtistPostService {
     try {
       const artistPosts = await this.artistPostRepository
         .createQueryBuilder('artistPost')
-        .leftJoin('artistPost.artistPostUser', 'artistPostUser')
-        .leftJoin('artistPost.user', 'user') // Join the user table
+        .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
+        .leftJoinAndSelect('artistPost.user', 'user') // Join the user table
         // Filter recent posts based on the interval
         .andWhere(
           `artistPost.created_at >= NOW() - INTERVAL '${interval} minutes'`,
         )
         // Ensure no entry for the given userId in artistPostUser
-        .andWhere(
-          'artistPostUser.user_id IS NULL OR artistPostUser.user_id != :userId',
-          { userId },
-        )
+        // .andWhere('artistPostUser.user_id <> :userId', { userId })
+        // .orWhere('artistPostUser.status <> :status', { status: null })
         .andWhere(`"artistPost"."latitude" <> ''`)
         .andWhere(`"artistPost"."longitude" <> ''`)
-        .andWhere('"user"."id" = :userId', { userId }) // Filter by userId
         // Check if the post is within the user's range
         .andWhere(
           `ST_Distance(
