@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { CreateUserInput } from '@cognito/dto/types';
 import {
   FetchNearByUsersInput,
+  UpdateUserLocationAndNotificationInput,
   UpdateUserLocationInput,
   UserUpdateInput,
 } from '../dto/types';
@@ -402,7 +403,7 @@ export class UserService {
    * @returns
    */
   async updateNotificationStatusAndLocation(
-    updateUserLocationInput: UpdateUserLocationInput,
+    updateUserLocationAndNotificationInput: UpdateUserLocationAndNotificationInput,
     userId: string,
   ): Promise<GlobalServiceResponse> {
     try {
@@ -420,24 +421,33 @@ export class UserService {
       // Update existing user
       const updatedUser = await this.userRepository.save({
         ...existingUser, // Retain existing properties
-        ...updateUserLocationInput, // Overwrite with new values from body
-        notifications_enabled: true,
-        notification_status_valid_till: addMinutesToDate(new Date(), 20),
+        notifications_enabled:
+          updateUserLocationAndNotificationInput.notificationsEnabled,
+        ...updateUserLocationAndNotificationInput, // Overwrite with new values from body
+        notification_status_valid_till:
+          updateUserLocationAndNotificationInput.notificationsEnabled
+            ? addMinutesToDate(new Date(), 20)
+            : new Date(),
       });
-      // Fetch the posts that are within the range and send the invites.
-      const posts = await this.artistPostService.fetchAllRecentArtistPost(
-        15,
-        updatedUser?.id,
-      );
-      // Filter posts on basis of location
-      for (const post of posts) {
-        const minutesToAdd = post.type === Post_Type.INVITE_PHOTO ? 15 : 5;
-        await this.artistPostUserService.createArtistPostUser({
-          userId: updatedUser?.id,
-          artistPostId: post?.id,
-          status: Invite_Status.PENDING,
-          validTill: addMinutesToDate(new Date(post.created_at), minutesToAdd),
-        });
+      if (updateUserLocationAndNotificationInput?.notificationsEnabled) {
+        // Fetch the posts that are within the range and send the invites.
+        const posts = await this.artistPostService.fetchAllRecentArtistPost(
+          15,
+          updatedUser?.id,
+        );
+        // Filter posts on basis of location
+        for (const post of posts) {
+          const minutesToAdd = post.type === Post_Type.INVITE_PHOTO ? 15 : 5;
+          await this.artistPostUserService.createArtistPostUser({
+            userId: updatedUser?.id,
+            artistPostId: post?.id,
+            status: Invite_Status.PENDING,
+            validTill: addMinutesToDate(
+              new Date(post.created_at),
+              minutesToAdd,
+            ),
+          });
+        }
       }
       return {
         statusCode: 200,

@@ -11,7 +11,11 @@ import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { UserService } from '../services/user.service';
 import { CognitoGuard } from '../../auth/guards/aws.cognito.guard';
-import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
+import {
+  UpdateUserLocationAndNotificationInput,
+  UpdateUserLocationInput,
+  UserUpdateInput,
+} from '../dto/types';
 import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import { Role } from '@app/modules/auth/decorators/roles.decorator';
 
@@ -71,14 +75,14 @@ export class UserController {
   @Role(Roles.USER)
   async updateUserNotificationStatus(
     @Body()
-    userLocationUpdateInput: UpdateUserLocationInput,
+    updateUserLocationAndNotificationInput: UpdateUserLocationAndNotificationInput,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
       const response =
         await this.userService.updateNotificationStatusAndLocation(
-          userLocationUpdateInput,
+          updateUserLocationAndNotificationInput,
           req?.user?.id || '',
         );
       res.status(HttpStatus.OK).json({
