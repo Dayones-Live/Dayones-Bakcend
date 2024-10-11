@@ -49,4 +49,24 @@ export class ArtistPostMapper {
       reaction: totalReactions,
     };
   }
+  processArtistPostsData(artistPosts: ArtistPost[]) {
+    return artistPosts.map((artistPost) => {
+      let commentsCount = 0;
+      let totalReactions = 0;
+      artistPost.artistPostUser?.forEach((userPost: any) => {
+        // Count reactions if they exist
+        if (userPost.reaction) {
+          totalReactions += 1;
+        }
+        commentsCount += userPost.comment?.length || 0;
+      });
+      // Destructure artistPost and add commentsCount and reactionCount
+      const { artistPostUser, ...rest } = artistPost;
+      return {
+        ...rest,
+        commentsCount, // Total comments count (user + artist)
+        reactionCount: totalReactions, // Total reactions count
+      };
+    });
+  }
 }

@@ -252,27 +252,51 @@ export class ArtistPostService {
         );
         const [artistPosts, count] =
           await this.artistPostRepository.findAndCount({
+            relations: [
+              'artistPostUser',
+              'artistPostUser.user',
+              'artistPostUser.comment',
+              'artistPostUser.reaction',
+            ],
             where: {
               user_id: user?.id,
             },
             skip: paginate.offset,
             take: paginate.limit,
           });
+        const formattedPosts =
+          this.artistPostMapper.processArtistPostsData(artistPosts);
         const meta = getPaginatedOutput(
           paginate.pageNo,
           paginate.pageSize,
           count,
         );
-        return { posts: artistPosts, meta };
+        return { posts: formattedPosts, meta };
       } else {
+        const paginate: Paginate = getPaginated(
+          req.pageNo || 1,
+          req.pageSize || 0,
+        );
         //Fetch the Post for which user accepts the invites plus comments and likes
-        const userPosts =
-          await this.artistPostUserService.fetchUserPostsByInviteStatus(
-            user?.id,
-            Invite_Status.ACCEPTED,
-            req,
-          );
-        return userPosts;
+        const acceptedPostIds =
+          await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
+        const [artistPosts, count] = await this.artistPostRepository
+          .createQueryBuilder('artistPost')
+          .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
+          .leftJoinAndSelect('artistPostUser.comment', 'comment')
+          .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+          .where('artistPost.id IN (:...acceptedPostIds)', { acceptedPostIds }) // Filter by artistPostIds
+          .skip(paginate.offset) // Apply pagination offset
+          .take(paginate.limit) // Apply pagination limit
+          .getManyAndCount();
+        const formattedPosts =
+          this.artistPostMapper.processArtistPostsData(artistPosts);
+        const meta = getPaginatedOutput(
+          paginate.pageNo,
+          paginate.pageSize,
+          count,
+        );
+        return { posts: formattedPosts, meta };
       }
     } catch (error) {
       console.error(
