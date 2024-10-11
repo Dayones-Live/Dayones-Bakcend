@@ -20,6 +20,8 @@ export class AddNotificationInput {
   @IsNotEmpty({ message: 'data is required' })
   isRead: boolean;
 
-  @IsEnum(NOTIFICATION_TYPE, { message: 'Role must be one of:  USER, ARTIST' })
+  @IsEnum(NOTIFICATION_TYPE, {
+    message: 'Notification must be one of:  REACTION, COMMENT, INVITE, MESSAGE',
+  })
   type: NOTIFICATION_TYPE;
 }

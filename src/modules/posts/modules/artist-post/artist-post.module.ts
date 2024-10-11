@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ArtistPostController } from './controllers/artist-post.controller';
 import { ArtistPostService } from './services/artist-post.service';
@@ -13,7 +13,7 @@ import { InvitesController } from './controllers/invites.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([ArtistPost]),
-    UserModule,
+    forwardRef(() => UserModule),
     ArtistPostUserModule,
     CommentsModule,
     ReactionsModule,

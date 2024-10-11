@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ArtistPost } from '../entities/artist-post.entity';
@@ -27,6 +33,7 @@ export class ArtistPostService {
     @InjectRepository(ArtistPost)
     private artistPostRepository: Repository<ArtistPost>,
     private artistPostMapper: ArtistPostMapper,
+    @Inject(forwardRef(() => UserService))
     private userService: UserService,
     private artistPostUserService: ArtistPostUserService,
   ) {}
@@ -260,6 +267,50 @@ export class ArtistPostService {
     } catch (error) {
       console.error(
         '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllUserPostsData ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Service to fetch all Recent Artist post
+   * @param
+   * @returns {ArtistPost[]}
+   */
+  async fetchAllRecentArtistPost(
+    interval: number,
+    userId: string,
+  ): Promise<ArtistPost[]> {
+    try {
+      const artistPosts = await this.artistPostRepository
+        .createQueryBuilder('artistPost')
+        .leftJoin('artistPost.artistPostUser', 'artistPostUser')
+        .leftJoin('artistPost.user', 'user') // Join the user table
+        // Filter recent posts based on the interval
+        .andWhere(
+          `artistPost.created_at >= NOW() - INTERVAL '${interval} minutes'`,
+        )
+        // Ensure no entry for the given userId in artistPostUser
+        .andWhere(
+          'artistPostUser.user_id IS NULL OR artistPostUser.user_id != :userId',
+          { userId },
+        )
+        .andWhere(`"artistPost"."latitude" <> ''`)
+        .andWhere(`"artistPost"."longitude" <> ''`)
+        .andWhere('"user"."id" = :userId', { userId }) // Filter by userId
+        // Check if the post is within the user's range
+        .andWhere(
+          `ST_Distance(
+      ST_SetSRID(ST_MakePoint(CAST(artistPost.longitude AS DOUBLE PRECISION), CAST(artistPost.latitude AS DOUBLE PRECISION)), 2100),
+      ST_SetSRID(ST_MakePoint(CAST(user.longitude AS DOUBLE PRECISION), CAST(user.latitude AS DOUBLE PRECISION)), 2100)
+    ) <= artistPost.range`,
+        )
+        .getMany();
+      return artistPosts;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllArtistPost ~ error:',
         error,
       );
       throw error;

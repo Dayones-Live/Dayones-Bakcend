@@ -1,9 +1,16 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserInput } from '@cognito/dto/types';
 import {
   FetchNearByUsersInput,
+  UpdateUserLocationAndNotificationInput,
   UpdateUserLocationInput,
   UserUpdateInput,
 } from '../dto/types';
@@ -11,6 +18,11 @@ import { GlobalServiceResponse } from '@app/shared/types/types';
 import { User } from '../entities/user.entity';
 import { UserMapper } from '../dto/user.mapper';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
+import { addMinutesToDate } from '@app/modules/posts/modules/artist-post/utils';
+import { ArtistPostService } from '@app/modules/posts/modules/artist-post/services/artist-post.service';
+import { Post_Type } from '@app/modules/posts/modules/artist-post/constants';
+import { ArtistPostUserService } from '@app/modules/posts/modules/artist-post-user/services/artist-post-user.service';
+import { Invite_Status } from '@app/modules/posts/modules/artist-post-user/constants/constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -19,6 +31,9 @@ export class UserService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private userMapper: UserMapper,
+    @Inject(forwardRef(() => ArtistPostService))
+    private artistPostService: ArtistPostService,
+    private artistPostUserService: ArtistPostUserService,
   ) {}
 
   /**
@@ -384,6 +399,72 @@ export class UserService {
   }
 
   /**
+   * Service to update the user
+   * @param UpdateUserLocationInput
+   * @returns
+   */
+  async updateNotificationStatusAndLocation(
+    updateUserLocationAndNotificationInput: UpdateUserLocationAndNotificationInput,
+    userId: string,
+  ): Promise<GlobalServiceResponse> {
+    try {
+      // Check if the user already exists
+      const existingUser = await this.userRepository.findOne({
+        where: { id: userId }, // Check based on the user sub id
+      });
+
+      if (!existingUser) {
+        throw new HttpException(
+          `User with ID: ${userId} does not exist`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      // Update existing user
+      const updatedUser = await this.userRepository.save({
+        ...existingUser, // Retain existing properties
+        notifications_enabled:
+          updateUserLocationAndNotificationInput.notificationsEnabled,
+        ...updateUserLocationAndNotificationInput, // Overwrite with new values from body
+        notification_status_valid_till:
+          updateUserLocationAndNotificationInput.notificationsEnabled
+            ? addMinutesToDate(new Date(), 20)
+            : new Date(),
+      });
+      if (updateUserLocationAndNotificationInput?.notificationsEnabled) {
+        // Fetch the posts that are within the range and send the invites.
+        const posts = await this.artistPostService.fetchAllRecentArtistPost(
+          15,
+          updatedUser?.id,
+        );
+        // Filter posts on basis of location
+        for (const post of posts) {
+          const minutesToAdd = post.type === Post_Type.INVITE_PHOTO ? 15 : 5;
+          await this.artistPostUserService.createArtistPostUser({
+            userId: updatedUser?.id,
+            artistPostId: post?.id,
+            status: Invite_Status.PENDING,
+            validTill: addMinutesToDate(
+              new Date(post.created_at),
+              minutesToAdd,
+            ),
+          });
+        }
+      }
+      return {
+        statusCode: 200,
+        message: 'User Location and invite status update Successful',
+        data: '',
+      };
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts:96 ~ UserService ~ updateUser ~ error:',
+        error,
+      );
+      throw new HttpException(
+        `User update error: ${error?.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+
    * Disable users notification status having notification_status_valid_till less than current time
    *
    * @returns {Promise<void>}

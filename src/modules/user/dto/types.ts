@@ -37,3 +37,14 @@ export class FetchNearByUsersInput {
   @IsNotEmpty({ message: 'Radius in meter is required' })
   radiusInMeters: number;
 }
+
+export class UpdateUserLocationAndNotificationInput {
+  @IsNotEmpty({ message: 'latitude is required' })
+  latitude: string;
+
+  @IsNotEmpty({ message: 'longitude is required' })
+  longitude: string;
+
+  @IsNotEmpty({ message: 'Notification enabled is required' })
+  notificationsEnabled: boolean;
+}

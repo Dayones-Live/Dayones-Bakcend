@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { Roles } from '@app/shared/constants/constants';
@@ -25,6 +31,14 @@ export class RolesGuard implements CanActivate {
       return true;
     }
     const { user } = context.switchToHttp().getRequest();
-    return requiredRoles.some((role) => user.role?.includes(role));
+    if (!requiredRoles.some((role) => user.role?.includes(role))) {
+      throw new HttpException(
+        user?.role[0] === Roles.ARTIST
+          ? 'Artist does not have access to this resource'
+          : 'User does not have access to this resource',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    return true;
   }
 }

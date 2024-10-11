@@ -11,8 +11,13 @@ import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { UserService } from '../services/user.service';
 import { CognitoGuard } from '../../auth/guards/aws.cognito.guard';
-import { UpdateUserLocationInput, UserUpdateInput } from '../dto/types';
-import { SUCCESS_MESSAGES } from '@app/shared/constants/constants';
+import {
+  UpdateUserLocationAndNotificationInput,
+  UpdateUserLocationInput,
+  UserUpdateInput,
+} from '../dto/types';
+import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
+import { Role } from '@app/modules/auth/decorators/roles.decorator';
 
 @ApiTags('user')
 @Controller('user')
@@ -57,6 +62,31 @@ export class UserController {
       );
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.USER_LOCATION_UPDATE_SUCCESS,
+        data: response,
+      });
+    } catch (error) {
+      console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
+      throw error;
+    }
+  }
+
+  @UseGuards(CognitoGuard)
+  @Post('update-notification-status')
+  @Role(Roles.USER)
+  async updateUserNotificationStatus(
+    @Body()
+    updateUserLocationAndNotificationInput: UpdateUserLocationAndNotificationInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const response =
+        await this.userService.updateNotificationStatusAndLocation(
+          updateUserLocationAndNotificationInput,
+          req?.user?.id || '',
+        );
+      res.status(HttpStatus.OK).json({
+        message: response?.message,
         data: response,
       });
     } catch (error) {
