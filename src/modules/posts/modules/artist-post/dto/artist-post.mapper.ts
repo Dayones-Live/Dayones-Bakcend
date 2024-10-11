@@ -2,6 +2,7 @@ import { mapInputToEntity } from '@app/shared/utils';
 import { CreateArtistPostInput, UpdateArtistPostInput } from './types';
 import { ArtistPost } from '../entities/artist-post.entity';
 import { Comments } from '../../comments/entities/comments.entity';
+import { Roles } from '@app/shared/constants/constants';
 
 export class ArtistPostMapper {
   dtoToEntity(createArtistPostInput: CreateArtistPostInput): ArtistPost {
@@ -23,20 +24,28 @@ export class ArtistPostMapper {
 
   processArtistPostData(artistPosts: ArtistPost) {
     const userComments: Comments[] = [];
+    const artistComments: Comments[] = [];
     let totalReactions = 0;
     artistPosts.artistPostUser?.forEach((userPost: any) => {
       // Count reactions if they exist
       if (userPost.reaction) {
         totalReactions += 1;
       }
-      userPost.comment?.forEach((comment: any) => {
-        userComments.push(comment);
-      });
+      if (userPost?.user?.role[0] === Roles.USER) {
+        userPost.comment?.forEach((comment: any) => {
+          userComments.push(comment);
+        });
+      } else if (userPost?.user?.role[0] === Roles.ARTIST) {
+        userPost.comment?.forEach((comment: any) => {
+          artistComments.push(comment);
+        });
+      }
     });
     const { artistPostUser, ...artistPostWithoutUsers } = artistPosts;
     return {
       post: artistPostWithoutUsers,
       comments: userComments,
+      artistComments: artistComments,
       reaction: totalReactions,
     };
   }

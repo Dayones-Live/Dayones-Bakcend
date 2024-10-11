@@ -92,4 +92,7 @@ export class ArtistPostResponse {
 
   @IsOptional()
   reaction?: number;
+
+  @IsOptional()
+  artistComments?: Comments[];
 }

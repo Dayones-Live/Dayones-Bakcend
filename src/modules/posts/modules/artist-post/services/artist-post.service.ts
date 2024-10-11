@@ -71,6 +71,15 @@ export class ArtistPostService {
           ),
         });
       }
+      await this.artistPostUserService.createArtistPostUser({
+        userId: createArtistPostInput?.userId,
+        artistPostId: artistPost?.id,
+        status: Invite_Status.NULL,
+        validTill: addMinutesToDate(
+          new Date(artistPost.created_at),
+          minutesToAdd,
+        ),
+      });
       const { user_id, ...rest } = artistPost;
       return rest;
     } catch (error) {
@@ -191,12 +200,13 @@ export class ArtistPostService {
         const artistPosts = await this.artistPostRepository
           .createQueryBuilder('artistPost')
           .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
+          .leftJoinAndSelect('artistPostUser.user', 'user')
           .leftJoinAndSelect('artistPostUser.comment', 'comment')
           .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
           .where('artistPost.user_id = :userId', { userId: user?.id })
           .andWhere('artistPost.id = :postId', { postId })
-          .andWhere('artistPostUser.status = :status', {
-            status: Invite_Status.ACCEPTED,
+          .andWhere('artistPostUser.status IN (:...statuses)', {
+            statuses: [Invite_Status.ACCEPTED, Invite_Status.NULL], // Filter for both ACCEPTED and NULL statuses
           }) // Filter for accepted status
           .getOne();
         if (!artistPosts) {

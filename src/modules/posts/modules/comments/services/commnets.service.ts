@@ -7,7 +7,7 @@ import { CreateCommentInput, UpdateCommentInput } from '../dto/types';
 import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
 import { User } from '@user/entities/user.entity';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
-import { ERROR_MESSAGES } from '@app/shared/constants/constants';
+import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 
 @Injectable()
 export class CommentsService {
@@ -32,7 +32,10 @@ export class CommentsService {
       // Fetch the artistPostUserId through user id and artistPost
       const artistPostUser =
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      if (artistPostUser.status !== Invite_Status.ACCEPTED) {
+      if (
+        artistPostUser.status !== Invite_Status.ACCEPTED &&
+        artistPostUser?.user?.role[0] !== Roles.ARTIST
+      ) {
         throw new HttpException(
           ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
           HttpStatus.FORBIDDEN,

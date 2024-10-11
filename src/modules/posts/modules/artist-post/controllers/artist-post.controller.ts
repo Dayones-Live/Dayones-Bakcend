@@ -166,7 +166,6 @@ export class ArtistPostController {
   }
 
   @Post('/:id/comment')
-  @Role(Roles.USER)
   async CommentAPost(
     @Param('id') id: string,
     @Body() createCommentInput: CreateCommentInput,
@@ -213,7 +212,6 @@ export class ArtistPostController {
   }
 
   @Delete('/:postId/comment/:id')
-  @Role(Roles.USER)
   async deleteAComment(
     @Param('id') id: string,
     @Param('postId') postId: string,

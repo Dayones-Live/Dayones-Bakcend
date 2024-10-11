@@ -226,23 +226,25 @@ export class ArtistPostUserService {
         .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
         .leftJoinAndSelect('artistPostUser.comment', 'comment')
         .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
-        .where('artistPostUser.status = :status', {
-          status: Invite_Status.ACCEPTED,
+        .leftJoinAndSelect('artistPostUser.user', 'user')
+        .andWhere('artistPostUser.status IN (:...statuses)', {
+          statuses: [Invite_Status.ACCEPTED, Invite_Status.NULL], // Filter for both ACCEPTED and NULL statuses
         })
-        .andWhere('artistPostUser.user_id = :user_id', { user_id: userId })
+        .andWhere(
+          '(artistPostUser.user_id = :currentUserId OR artistPost.user_id = artistPostUser.user_id)',
+          { currentUserId: userId },
+        ) // Fetch for current user or artistPost's user
         .andWhere('artistPost.id = :postId', { postId: postId }) // Filter by user_id
-        .getOne();
+        .getMany();
       if (!artistValidInvites) {
         throw new HttpException(
           ERROR_MESSAGES.POST_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
-      return {
-        post: artistValidInvites?.artistPost || null,
-        comments: artistValidInvites?.comment,
-        reaction: artistValidInvites?.reaction ? 1 : 0,
-      };
+      const formattedInvites =
+        this.artistPostUserMapper.processArtistValidInvites(artistValidInvites);
+      return formattedInvites;
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96  ~ fetchComments ~ error:',
@@ -261,6 +263,7 @@ export class ArtistPostUserService {
   ): Promise<ArtistPostUser> {
     try {
       const artistPostUser = await this.artistPostUserRepository.findOne({
+        relations: ['user', 'artistPost', 'artistPost.user'],
         where: {
           artist_post_id: postId,
           user_id: userId,
