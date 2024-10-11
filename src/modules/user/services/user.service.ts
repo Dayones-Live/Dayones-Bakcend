@@ -11,6 +11,7 @@ import { GlobalServiceResponse } from '@app/shared/types/types';
 import { User } from '../entities/user.entity';
 import { UserMapper } from '../dto/user.mapper';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class UserService {
@@ -378,6 +379,36 @@ export class UserService {
       return res;
     } catch (error) {
       console.error('🚀 ~ UserService ~ fetchNearByUsers ~ error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Disable users notification status having notification_status_valid_till less than current time
+   *
+   * @returns {Promise<void>}
+   */
+  @Cron('*/2 * * * *') // Every 2 minutes
+  async disableUserNotificationStatus(): Promise<void> {
+    try {
+      const currentTime = new Date();
+      const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+      const query = queryBuilder
+        .update(User)
+        .set({ notifications_enabled: false })
+        .where('role @> :role', { role: [Roles.USER] })
+        .andWhere('"user"."notifications_enabled" = :status', { status: true })
+        .andWhere('"user"."notification_status_valid_till" < :currentTime', {
+          currentTime,
+        });
+
+      await query.execute();
+    } catch (error) {
+      console.error(
+        '🚀 ~ UserService ~ disableUserNotificationStatus ~ error:',
+        error,
+      );
       throw error;
     }
   }
