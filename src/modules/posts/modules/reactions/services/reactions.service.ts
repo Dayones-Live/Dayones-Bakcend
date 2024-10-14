@@ -8,6 +8,9 @@ import { ArtistPostUserService } from '../../artist-post-user/services/artist-po
 import { User } from '@app/modules/user/entities/user.entity';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { ERROR_MESSAGES } from '@app/shared/constants/constants';
+import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
+import { AddNotificationInput } from '@app/modules/user/modules/ notifications/dto/types';
+import { NOTIFICATION_TYPE } from '@app/modules/user/modules/ notifications/constants';
 
 @Injectable()
 export class ReactionService {
@@ -16,6 +19,7 @@ export class ReactionService {
     private reactionsRepository: Repository<Reactions>,
     private reactionsMapper: ReactionsMapper,
     private artistPostUserService: ArtistPostUserService,
+    private readonly firebaseService: FirebaseService,
   ) {}
 
   /**
@@ -50,6 +54,23 @@ export class ReactionService {
       const reactionDto = this.reactionsMapper.dtoToEntity(createReactionInput);
       // Use the upsert method
       const reaction = await this.reactionsRepository.save(reactionDto);
+
+      // Sending and saving notifications of reactions
+      try {
+        const notification: AddNotificationInput = {
+          data: 'Like',
+          title: 'Like',
+          isRead: false,
+          fromId: userId,
+          message: 'Someone like your post',
+          type: NOTIFICATION_TYPE.REACTION,
+          toId: artistPostUser?.artistPost?.user_id,
+        };
+        await this.firebaseService.addNotification(notification);
+      } catch (err) {
+        console.error('🚀 ~ Sending/Saving Reaction Notificaiton ~ err:', err);
+      }
+
       return reaction;
     } catch (error) {
       console.error(

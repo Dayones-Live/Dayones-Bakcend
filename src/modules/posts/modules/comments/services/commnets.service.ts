@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Comments } from '../entities/comments.entity';
@@ -8,6 +14,8 @@ import { ArtistPostUserService } from '../../artist-post-user/services/artist-po
 import { User } from '@user/entities/user.entity';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
+import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
+import { NOTIFICATION_TYPE } from '@app/modules/user/modules/ notifications/constants';
 
 @Injectable()
 export class CommentsService {
@@ -16,6 +24,8 @@ export class CommentsService {
     private commentsRepository: Repository<Comments>,
     private commentsMapper: CommentsMapper,
     private artistPostUserService: ArtistPostUserService,
+    @Inject(forwardRef(() => FirebaseService))
+    private firebaseService: FirebaseService,
   ) {}
 
   /**
@@ -45,6 +55,22 @@ export class CommentsService {
       const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
       // Use the upsert method
       const comment = await this.commentsRepository.save(commentDto);
+
+      // send and save notification
+      try {
+        await this.firebaseService.addNotification({
+          isRead: false,
+          fromId: userId,
+          title: 'Comment',
+          type: NOTIFICATION_TYPE.COMMENTS,
+          data: createCommentInput?.message,
+          message: createCommentInput?.message,
+          toId: artistPostUser?.artistPost?.user_id,
+        });
+      } catch (err) {
+        console.error('🚀 ~ Sending/Saving Notification ~ err:', err);
+      }
+
       return comment;
     } catch (error) {
       console.error(

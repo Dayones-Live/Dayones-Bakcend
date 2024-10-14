@@ -19,6 +19,8 @@ import {
   GetAllMessagesDto,
   AllMessageResponse,
 } from '../dto/types';
+import { FirebaseService } from '../../../ notifications/services/notification.service';
+import { NOTIFICATION_TYPE } from '../../../ notifications/constants';
 
 @Injectable()
 export class MessageService {
@@ -30,6 +32,7 @@ export class MessageService {
     private socketInitializer: SocketInitializer,
     @Inject(forwardRef(() => ConversationService))
     private conversationService: ConversationService,
+    private firebaseSerivce: FirebaseService,
   ) {}
 
   /**
@@ -113,6 +116,26 @@ export class MessageService {
           message.conversation_id,
           message,
         );
+      }
+
+      // get receiver id
+      const toId =
+        isMember?.sender_id === userId
+          ? isMember?.reciever_id
+          : isMember?.sender_id;
+
+      try {
+        await this.firebaseSerivce.addNotification({
+          toId: toId,
+          isRead: false,
+          fromId: userId,
+          title: 'Message',
+          data: req?.message,
+          message: req?.message,
+          type: NOTIFICATION_TYPE.MESSAGE,
+        });
+      } catch (err) {
+        console.error('🚀 ~ Sending/Saving message notification ~ err:', err);
       }
 
       return message;
