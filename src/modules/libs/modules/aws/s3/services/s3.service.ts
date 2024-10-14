@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { S3 } from '@aws-sdk/client-s3';
-import * as fs from 'fs';
+import { createFileReadStream } from '@app/shared/utils';
 
 @Injectable()
 export class S3Service {
@@ -29,7 +29,7 @@ export class S3Service {
     fileMimeType: string,
   ): Promise<string> {
     try {
-      const fileStream = fs.createReadStream(filePath);
+      const fileStream = createFileReadStream(filePath);
       const uploadParams = {
         Bucket: process.env.AWS_S3_BUCKET_NAME,
         Key: key,
@@ -37,7 +37,7 @@ export class S3Service {
         ContentType: fileMimeType || 'application/octet-stream',
       };
 
-      const upload = await this.s3Client.putObject(uploadParams);
+      await this.s3Client.putObject(uploadParams);
       return `https://${this.bucketName}.s3.amazonaws.com/${key}`;
     } catch (error) {
       console.error('S3Service ~ uploadFile error:', error);
@@ -60,8 +60,7 @@ export class S3Service {
         Key: key,
       };
 
-      const data = await this.s3Client.deleteObject(deleteParams);
-      console.log(`S3Service ~ deleteFile: File deleted successfully: ${key}`);
+      await this.s3Client.deleteObject(deleteParams);
     } catch (error) {
       console.error('S3Service ~ deleteFile error:', error);
       throw new HttpException(
