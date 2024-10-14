@@ -25,6 +25,7 @@ export enum ERROR_MESSAGES {
   REACTION_NOT_FOUND = 'Reaction not found',
   NOTIFICATION_NOT_FOUND = 'Notification not found',
   USER_NOTIFICATION_TOKEN_NOT_FOUND = 'User notification token not found',
+  SIGNATURE_NOT_FOUND = 'Signature not found',
 }
 
 export enum SUCCESS_MESSAGES {
