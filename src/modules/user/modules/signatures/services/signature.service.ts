@@ -9,6 +9,8 @@ import * as fs from 'fs';
 const heicConvert = require('heic-convert');
 import { rembg } from '@remove-background-ai/rembg.js';
 import { S3Service } from '@app/modules/libs/modules/aws/s3/services/s3.service';
+import { ERROR_MESSAGES } from '@app/shared/constants/constants';
+import { extractS3KeyFromUrl } from '../utils';
 var mime = require('mime-types');
 
 @Injectable()
@@ -63,12 +65,25 @@ export class SignatureService {
   async deleteSignatureById(id: string, user_id: string): Promise<boolean> {
     try {
       // Delete the signature based on both id and user_id
+      const signature = await this.signaturesRepository.findOne({
+        where: {
+          id,
+          user_id,
+        },
+      });
+      if (!signature) {
+        throw new HttpException(
+          ERROR_MESSAGES.SIGNATURE_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
       const deleteResult = await this.signaturesRepository.delete({
         id: id,
         user_id: user_id,
       });
-
-      // Check if any rows were affected (i.e., deleted)
+      const key = extractS3KeyFromUrl(signature?.url);
+      const signatureDelete = await this.s3Service.deleteFile(key);
+      //Check if any rows were affected (i.e., deleted)
       if (deleteResult.affected === 0) {
         throw new HttpException(
           `Signature not found or already deleted`,

@@ -47,4 +47,27 @@ export class S3Service {
       );
     }
   }
+
+  /**
+   * Deletes a file from S3
+   * @param key - S3 object key (filename in S3)
+   * @returns {Promise<void>}
+   */
+  async deleteFile(key: string): Promise<void> {
+    try {
+      const deleteParams = {
+        Bucket: this.bucketName,
+        Key: key,
+      };
+
+      const data = await this.s3Client.deleteObject(deleteParams);
+      console.log(`S3Service ~ deleteFile: File deleted successfully: ${key}`);
+    } catch (error) {
+      console.error('S3Service ~ deleteFile error:', error);
+      throw new HttpException(
+        `File Deletion Failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }
