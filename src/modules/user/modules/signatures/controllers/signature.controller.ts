@@ -10,6 +10,8 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
@@ -19,6 +21,7 @@ import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { UserService } from '@user/services/user.service';
 import { Roles } from '@app/shared/constants/constants';
 import { Role } from '@app/modules/auth/decorators/roles.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('signature')
 @Controller('signature')
@@ -30,17 +33,29 @@ export class SignatureController {
   ) {}
 
   @Post('create')
+  @UseInterceptors(FileInterceptor('file'))
   @Role(Roles.ARTIST)
   async createUserSignature(
-    @Body() createUserSignatureInput: CreateUserSignatureInput,
+    @UploadedFile() file: Express.Multer.File,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      const response = await this.signatureService.createSignature({
-        ...createUserSignatureInput,
-        userId: req?.user?.id || '',
-      });
+      if (!file) {
+        throw new HttpException(
+          `Missing required fields: file`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const buffer = file.buffer;
+      const response = await this.signatureService.createSignature(
+        {
+          userId: req?.user?.id || '',
+          url: '',
+        },
+        buffer,
+        file.originalname,
+      );
       res.status(HttpStatus.CREATED).json({
         message: 'User Signature creation successful',
         data: response,
