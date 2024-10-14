@@ -1,5 +1,9 @@
 import { mapInputToEntity } from '@app/shared/utils';
-import { CreateArtistPostInput, UpdateArtistPostInput } from './types';
+import {
+  ArtistPostWithCounts,
+  CreateArtistPostInput,
+  UpdateArtistPostInput,
+} from './types';
 import { ArtistPost } from '../entities/artist-post.entity';
 import { Comments } from '../../comments/entities/comments.entity';
 import { Roles } from '@app/shared/constants/constants';
@@ -49,7 +53,7 @@ export class ArtistPostMapper {
       reaction: totalReactions,
     };
   }
-  processArtistPostsData(artistPosts: ArtistPost[]) {
+  processArtistPostsData(artistPosts: ArtistPost[]): ArtistPostWithCounts[] {
     return artistPosts.map((artistPost) => {
       let commentsCount = 0;
       let totalReactions = 0;

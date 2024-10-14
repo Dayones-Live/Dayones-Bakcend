@@ -12,6 +12,7 @@ import {
   AllPostsResponse,
   ArtistPostObject,
   ArtistPostResponse,
+  ArtistPostWithCounts,
   CreateArtistPostInput,
   UpdateArtistPostInput,
 } from '../dto/types';
@@ -278,24 +279,31 @@ export class ArtistPostService {
           req.pageNo || 1,
           req.pageSize || 0,
         );
+        let formattedPosts: ArtistPostWithCounts[] = [];
+        let postCount = 0;
         //Fetch the Post for which user accepts the invites plus comments and likes
         const acceptedPostIds =
           await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
-        const [artistPosts, count] = await this.artistPostRepository
-          .createQueryBuilder('artistPost')
-          .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
-          .leftJoinAndSelect('artistPostUser.comment', 'comment')
-          .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
-          .where('artistPost.id IN (:...acceptedPostIds)', { acceptedPostIds }) // Filter by artistPostIds
-          .skip(paginate.offset) // Apply pagination offset
-          .take(paginate.limit) // Apply pagination limit
-          .getManyAndCount();
-        const formattedPosts =
-          this.artistPostMapper.processArtistPostsData(artistPosts);
+        if (acceptedPostIds.length) {
+          const [artistPosts, count] = await this.artistPostRepository
+            .createQueryBuilder('artistPost')
+            .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
+            .leftJoinAndSelect('artistPostUser.comment', 'comment')
+            .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+            .where('artistPost.id IN (:...acceptedPostIds)', {
+              acceptedPostIds,
+            }) // Filter by artistPostIds
+            .skip(paginate.offset) // Apply pagination offset
+            .take(paginate.limit) // Apply pagination limit
+            .getManyAndCount();
+          formattedPosts =
+            this.artistPostMapper.processArtistPostsData(artistPosts);
+          postCount = count;
+        }
         const meta = getPaginatedOutput(
           paginate.pageNo,
           paginate.pageSize,
-          count,
+          postCount,
         );
         return { posts: formattedPosts, meta };
       }
