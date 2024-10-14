@@ -92,4 +92,15 @@ export class ArtistPostResponse {
 
   @IsOptional()
   reaction?: number;
+
+  @IsOptional()
+  artistComments?: Comments[];
+}
+
+export class ArtistPostWithCounts extends ArtistPostObject {
+  @IsOptional()
+  commentsCount: number;
+
+  @IsOptional()
+  reactionCount: number;
 }

@@ -4,6 +4,19 @@ import { Repository } from 'typeorm';
 import { CreateUserSignatureInput } from '../dto/types';
 import { Signatures } from '../entities/signature.entity';
 import { SignatureMapper } from '../dto/signature.mapper';
+import * as path from 'path';
+import { S3Service } from '@app/modules/libs/modules/aws/s3/services/s3.service';
+import { ERROR_MESSAGES } from '@app/shared/constants/constants';
+import { extractS3KeyFromUrl } from '../utils';
+import {
+  convertHeicToPng,
+  ensureDirectoryExists,
+  readImage,
+  removeDirectory,
+  removeImageBackground,
+  saveFile,
+} from '@app/shared/utils';
+var mime = require('mime-types');
 
 @Injectable()
 export class SignatureService {
@@ -11,6 +24,7 @@ export class SignatureService {
     @InjectRepository(Signatures)
     private signaturesRepository: Repository<Signatures>,
     private signatureMapper: SignatureMapper,
+    private s3Service: S3Service,
   ) {}
 
   /**
@@ -20,6 +34,8 @@ export class SignatureService {
    */
   async createSignature(
     createUserSignatureInput: CreateUserSignatureInput,
+    buffer: Buffer,
+    originalname: string,
   ): Promise<Signatures> {
     try {
       // Use the upsert method
@@ -27,6 +43,14 @@ export class SignatureService {
         createUserSignatureInput,
       );
       const signature = await this.signaturesRepository.save(signatureDto);
+      const uploadUrl = await this.saveUserSignature(
+        createUserSignatureInput.userId,
+        buffer,
+        originalname,
+        signature?.id,
+      );
+      signature.url = uploadUrl;
+      await this.signaturesRepository.save(signatureDto);
       return signature;
     } catch (error) {
       console.error(
@@ -46,12 +70,25 @@ export class SignatureService {
   async deleteSignatureById(id: string, user_id: string): Promise<boolean> {
     try {
       // Delete the signature based on both id and user_id
+      const signature = await this.signaturesRepository.findOne({
+        where: {
+          id,
+          user_id,
+        },
+      });
+      if (!signature) {
+        throw new HttpException(
+          ERROR_MESSAGES.SIGNATURE_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
       const deleteResult = await this.signaturesRepository.delete({
         id: id,
         user_id: user_id,
       });
-
-      // Check if any rows were affected (i.e., deleted)
+      const key = extractS3KeyFromUrl(signature?.url);
+      await this.s3Service.deleteFile(key);
+      //Check if any rows were affected (i.e., deleted)
       if (deleteResult.affected === 0) {
         throw new HttpException(
           `Signature not found or already deleted`,
@@ -89,5 +126,42 @@ export class SignatureService {
       );
       throw error;
     }
+  }
+
+  async saveUserSignature(
+    userId: string,
+    fileBuffer: Buffer,
+    fileName: string,
+    signatureId: string,
+  ) {
+    const tempDir = path.join(__dirname, '..', 'temp'); // Create temp directory path
+    const tempFilePath = path.join(
+      tempDir,
+      fileName.replace(/\.heic$/i, '.png'),
+    ); // Full path for the temp file
+
+    ensureDirectoryExists(tempDir);
+    saveFile(tempFilePath, fileBuffer);
+
+    let imagePath = tempFilePath;
+    // If the file is in HEIC format, convert it to PNG
+    if (fileName.toLowerCase().endsWith('.heic')) {
+      const buffer = await convertHeicToPng(fileBuffer, fileName);
+      fileBuffer = buffer; // Replace the file buffer with the converted PNG buffer
+      saveFile(tempFilePath, fileBuffer);
+    }
+    const processedImagePath = await removeImageBackground(imagePath);
+
+    saveFile(tempFilePath, readImage(processedImagePath || ''));
+
+    const s3Key = `${userId}/signatures/${signatureId}.png`; // Replace HEIC extension with PNG if necessary
+    const fileMimeType = mime.lookup(fileName.replace(/\.heic$/i, '.png'));
+    const uploadUrl = await this.s3Service.uploadFile(
+      tempFilePath,
+      s3Key,
+      fileMimeType,
+    );
+    removeDirectory(tempDir);
+    return uploadUrl;
   }
 }

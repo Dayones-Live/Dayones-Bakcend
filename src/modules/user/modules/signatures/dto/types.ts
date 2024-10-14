@@ -4,6 +4,6 @@ export class CreateUserSignatureInput {
   @IsOptional()
   userId: string;
 
-  @IsNotEmpty({ message: 'Url is required' })
+  @IsOptional()
   url: string;
 }

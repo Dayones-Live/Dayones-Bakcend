@@ -46,7 +46,9 @@ export class SocketInitializer {
    */
   private async handleConnection(socket: Socket): Promise<void> {
     try {
-      const { token, conversationId } = socket.handshake.auth;
+      // const { token, conversationId } = socket.handshake.auth; // for prod
+      const { token, conversationid: conversationId } = socket.request // for dev only
+        .headers as { token: string; conversationid: string };
 
       if (token && conversationId) {
         const payload = await this.verifier.verify(token, {
