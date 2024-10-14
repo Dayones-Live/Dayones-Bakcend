@@ -26,6 +26,7 @@ import { ArtistPostUser } from '@artist-post-user/entities/artist-post-user.enti
 import { Post_Message, Post_Type } from '../constants';
 import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
+import { UpdateUserLocationAndNotificationInput } from '@app/modules/user/dto/types';
 
 @Injectable()
 export class ArtistPostService {
@@ -314,28 +315,24 @@ export class ArtistPostService {
    */
   async fetchAllRecentArtistPost(
     interval: number,
-    userId: string,
+    updateUserLocationAndNotificationInput: UpdateUserLocationAndNotificationInput,
   ): Promise<ArtistPost[]> {
     try {
+      const { longitude, latitude } = updateUserLocationAndNotificationInput;
       const artistPosts = await this.artistPostRepository
         .createQueryBuilder('artistPost')
         .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
-        .leftJoinAndSelect('artistPost.user', 'user') // Join the user table
         // Filter recent posts based on the interval
         .andWhere(
           `artistPost.created_at >= NOW() - INTERVAL '${interval} minutes'`,
         )
-        // Ensure no entry for the given userId in artistPostUser
-        // .andWhere('artistPostUser.user_id <> :userId', { userId })
-        // .orWhere('artistPostUser.status <> :status', { status: null })
         .andWhere(`"artistPost"."latitude" <> ''`)
         .andWhere(`"artistPost"."longitude" <> ''`)
-        // Check if the post is within the user's range
         .andWhere(
-          `ST_Distance(
-      ST_SetSRID(ST_MakePoint(CAST(artistPost.longitude AS DOUBLE PRECISION), CAST(artistPost.latitude AS DOUBLE PRECISION)), 2100),
-      ST_SetSRID(ST_MakePoint(CAST(user.longitude AS DOUBLE PRECISION), CAST(user.latitude AS DOUBLE PRECISION)), 2100)
-    ) <= artistPost.range`,
+          `ST_DistanceSphere(
+            ST_MakePoint(CAST(artistPost.longitude AS DOUBLE PRECISION), CAST(artistPost.latitude AS DOUBLE PRECISION)),
+            ST_MakePoint(${longitude}, ${latitude})
+          ) <= artistPost.range`, // This checks if users are within the radius
         )
         .getMany();
       return artistPosts;

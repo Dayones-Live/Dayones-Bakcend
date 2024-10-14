@@ -433,7 +433,7 @@ export class UserService {
         // Fetch the posts that are within the range and send the invites.
         const posts = await this.artistPostService.fetchAllRecentArtistPost(
           15,
-          updatedUser?.id,
+          updateUserLocationAndNotificationInput,
         );
         const filteredPosts = posts.filter((post) => {
           // Check if artistPostUser array doesn't contain current user and post status is not null
