@@ -60,19 +60,13 @@ export class UserNotificationService {
    */
   async getUserNotificationTokenByUserId(
     userId: string,
-  ): Promise<UserNotification> {
+  ): Promise<UserNotification | null> {
     try {
       const token = await this.userNotificationRepository.findOne({
         where: {
           user_id: userId,
         },
       });
-      if (!token) {
-        throw new HttpException(
-          ERROR_MESSAGES.USER_NOTIFICATION_TOKEN_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
       return token;
     } catch (error) {
       console.error(

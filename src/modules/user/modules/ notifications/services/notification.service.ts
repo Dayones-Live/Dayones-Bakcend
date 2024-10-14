@@ -7,8 +7,8 @@ import { Repository } from 'typeorm';
 import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { NotificationMapper } from '../dto/notifications.mapper';
 import { AddNotificationInput } from '../dto/types';
-import { NOTIFICATION_TYPE } from '../constants';
 import { UserNotificationService } from '../../user-notifications/services/user-notification.service';
+import { MulticastMessage } from 'firebase-admin/lib/messaging/messaging-api';
 
 @Injectable()
 /**
@@ -36,26 +36,52 @@ export class FirebaseService {
   }
 
   /**
+   * Creates a Firebase Cloud Messaging (FCM) payload from a notification entity.
+   *
+   * @param notification - The notification entity containing details such as title, message,
+   *                       sender ID, receiver ID, notification type, and relevant timestamps.
+   * @param tokens - An array of device tokens to which the notification will be sent.
+   * @returns {MulticastMessage} object representing the formatted FCM payload, including
+   *          both `tokens` and structured `notification` and `data` fields, ready for dispatch through FCM.
+   */
+
+  createFcmMulticastPayload(
+    notification: Notifications,
+    tokens: string[],
+  ): MulticastMessage {
+    return {
+      tokens: tokens,
+      notification: {
+        title: notification.title,
+        body: notification.message,
+      },
+      data: {
+        id: notification.id,
+        from_id: notification.from_id,
+        to_id: notification.to_id,
+        type: notification.type,
+        is_read: notification.is_read ? 'true' : 'false',
+        created_at: notification.created_at.toISOString(),
+        updated_at: notification.updated_at.toISOString(),
+      },
+    };
+  }
+
+  /**
    * Sends a notification to the specified device tokens.
    *
    * @param deviceTokens - An array of device tokens to send the notification to.
    * @param payload - The notification payload to be sent.
    * @returns A promise that resolves to `true` if the notification is sent successfully, or `false` if an error occurs.
    */
-  async sendNotification(
-    deviceTokens: string[],
-    payload: any,
-  ): Promise<boolean> {
-    const notificationOptions = {
-      priority: 'high',
-      contentAvailable: true,
-    };
-
+  async sendNotification(payload: MulticastMessage): Promise<boolean> {
     try {
-      if (deviceTokens.length) {
-        await this.app
-          .messaging()
-          .sendToDevice(deviceTokens, payload, notificationOptions);
+      if (payload?.tokens.length) {
+        await this.app.messaging().sendEachForMulticast({
+          tokens: payload?.tokens,
+          notification: payload?.notification,
+          data: payload?.data,
+        });
       }
       return true;
     } catch (err) {
@@ -139,7 +165,17 @@ export class FirebaseService {
         await this.userNotificationTokenService.getUserNotificationTokenByUserId(
           addNotificationInput.toId,
         );
-      //await this.sendNotification([userToken.notification_token], notification);
+      if (userToken) {
+        try {
+          const payload = this.createFcmMulticastPayload(notification, [
+            userToken.notification_token,
+          ]);
+          await this.sendNotification(payload);
+        } catch (e) {
+          console.error('🚀 ~ FirebaseService ~ e:', e);
+        }
+      }
+
       return notification;
     } catch (error) {
       console.error(

@@ -261,6 +261,7 @@ export class ArtistPostUserService {
   ): Promise<ArtistPostUser> {
     try {
       const artistPostUser = await this.artistPostUserRepository.findOne({
+        relations: ['artistPost'],
         where: {
           artist_post_id: postId,
           user_id: userId,
