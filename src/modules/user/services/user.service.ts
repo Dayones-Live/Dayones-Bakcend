@@ -369,24 +369,23 @@ export class UserService {
     try {
       const { latitude, longitude, radiusInMeters } = fetchNearByUsersInput;
       const queryBuilder = this.userRepository.createQueryBuilder('user');
-
       const query = queryBuilder
         .select([
           '"user".*',
-          `ST_Distance(
-      ST_SetSRID(ST_MakePoint(CAST(user.longitude AS DOUBLE PRECISION), CAST(user.latitude AS DOUBLE PRECISION)), 2100),
-      ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 2100)
-    ) AS distance_in_meters`,
+          `ST_DistanceSphere(
+            ST_MakePoint(CAST(user.longitude AS DOUBLE PRECISION), CAST(user.latitude AS DOUBLE PRECISION)),
+            ST_MakePoint(${longitude}, ${latitude})
+          ) AS distance_in_meters`,
         ])
         .where(`"user"."latitude" <> ''`)
         .andWhere(`"user"."longitude" <> ''`)
         .andWhere(':role = ANY(user.role)', { role: Roles.USER })
-        .andWhere('"user"."notifications_enabled" = :status', { status: true }) // Added condition for notification_status
+        .andWhere('"user"."notifications_enabled" = :status', { status: true })
         .andWhere(
-          `ST_Distance(
-    ST_SetSRID(ST_MakePoint(CAST("user"."longitude" AS DOUBLE PRECISION), CAST("user"."latitude" AS DOUBLE PRECISION)), 2100),
-    ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 2100)
-  ) <= ${radiusInMeters}`,
+          `ST_DistanceSphere(
+            ST_MakePoint(CAST(user.longitude AS DOUBLE PRECISION), CAST(user.latitude AS DOUBLE PRECISION)),
+            ST_MakePoint(${longitude}, ${latitude})
+          ) <= ${radiusInMeters}`, // This checks if users are within the radius
         )
         .orderBy(`distance_in_meters`, 'ASC');
 
@@ -493,7 +492,7 @@ export class UserService {
           currentTime,
         });
 
-      await query.execute();
+      //await query.execute();
     } catch (error) {
       console.error(
         '🚀 ~ UserService ~ disableUserNotificationStatus ~ error:',
