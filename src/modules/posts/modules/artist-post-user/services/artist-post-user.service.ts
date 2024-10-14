@@ -173,37 +173,20 @@ export class ArtistPostUserService {
   /**
    * Fetch all ArtistPostUser records where valid_till is greater than current date
    */
-  async fetchUserPostsByInviteStatus(
-    user_id: string,
-    status: InviteStatus,
-    req: PaginationDto,
-  ): Promise<AllPostsResponse> {
+  async fetchAcceptedPostsIds(user_id: string): Promise<any> {
     try {
-      const paginate: Paginate = getPaginated(
-        req.pageNo || 1,
-        req.pageSize || 0,
-      );
-      const [artistValidInvites, count] = await this.artistPostUserRepository
+      const acceptedInviteArtistPostIds = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
-        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
-        .where('artistPostUser.status = :status', { status })
+        .where('artistPostUser.status = :status', {
+          status: Invite_Status.ACCEPTED, // Filter for ACCEPTED status
+        })
         .andWhere('artistPostUser.user_id = :user_id', { user_id }) // Filter by user_id
-        .skip(paginate.offset) // Apply offset for pagination
-        .take(paginate.limit) // Apply limit for pagination
-        .getManyAndCount();
-      if (!artistValidInvites.length) {
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      const artistPosts = artistValidInvites.map((invite) => invite.artistPost);
-      const meta = getPaginatedOutput(
-        paginate.pageNo,
-        paginate.pageSize,
-        count,
+        .getMany();
+
+      const artistPostIds = acceptedInviteArtistPostIds.map(
+        (invite) => invite.artist_post_id,
       );
-      return { posts: artistPosts, meta };
+      return artistPostIds;
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ fetchValidArtistPostUsers ~ error:',
