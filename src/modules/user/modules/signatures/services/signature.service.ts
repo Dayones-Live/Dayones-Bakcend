@@ -16,7 +16,7 @@ import {
   removeImageBackground,
   saveFile,
 } from '@app/shared/utils';
-var mime = require('mime-types');
+import mime from 'mime-types';
 
 @Injectable()
 export class SignatureService {
@@ -163,5 +163,19 @@ export class SignatureService {
     );
     removeDirectory(tempDir);
     return uploadUrl;
+  }
+
+  async generateUploadSignedUrl(
+    userId: string,
+  ): Promise<{ signedUrl: string; signatureId: string }> {
+    const signature = await this.signaturesRepository.save({
+      url: '',
+      user_id: userId,
+    });
+    const s3Key = `${userId}/signatures/${signature?.id}.png`; // Replace HEIC extension with PNG if necessary
+    const signedUrl = await this.s3Service.getSignedUrl(s3Key, 'image/png');
+    const unsignedUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${s3Key}`;
+    await this.signaturesRepository.update(signature.id, { url: unsignedUrl });
+    return { signedUrl: signedUrl, signatureId: signature?.id };
   }
 }
