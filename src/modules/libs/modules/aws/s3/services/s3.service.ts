@@ -1,5 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { PutObjectCommand, S3 } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3 } from '@aws-sdk/client-s3';
 import { createFileReadStream } from '@app/shared/utils';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -77,7 +77,11 @@ export class S3Service {
    * @param fileMimeType - File MIME type
    * @returns {Promise<string>} - Signed URL
    */
-  async getSignedUrl(key: string, fileMimeType: string): Promise<string> {
+  async getSignedUrl(
+    key: string,
+    fileMimeType: string,
+    isUpload: boolean,
+  ): Promise<string> {
     try {
       const params = {
         Bucket: this.bucketName,
@@ -86,7 +90,9 @@ export class S3Service {
       };
 
       // Create a command to sign the URL
-      const command = new PutObjectCommand(params);
+      const command = isUpload
+        ? new PutObjectCommand(params)
+        : new GetObjectCommand(params);
 
       // Generate a signed URL valid for 15 minutes
       const signedUrl = await getSignedUrl(this.s3Client, command, {

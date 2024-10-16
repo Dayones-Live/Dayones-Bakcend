@@ -31,29 +31,17 @@ export class SignatureController {
     private userService: UserService,
   ) {}
 
-  @Post('create')
-  @UseInterceptors(FileInterceptor('file'))
+  @Post()
   @Role(Roles.ARTIST)
   async createUserSignature(
-    @UploadedFile() file: Express.Multer.File,
+    @Body() url: string,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      if (!file) {
-        throw new HttpException(
-          `Missing required fields: file`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const buffer = file.buffer;
       const response = await this.signatureService.createSignature(
-        {
-          userId: req?.user?.id || '',
-          url: '',
-        },
-        buffer,
-        file.originalname,
+        req?.user?.id || '',
+        url,
       );
       res.status(HttpStatus.CREATED).json({
         message: 'User Signature creation successful',
@@ -105,61 +93,6 @@ export class SignatureController {
     } catch (error) {
       console.error(
         '🚀 ~ SignatureController ~ upsertUserSignature ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
-
-  @Get('upload')
-  @Role(Roles.ARTIST)
-  async createSignatureWithUploadUrl(
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
-    try {
-      const userId = req?.user?.id || '';
-      // Create a new record in the DB with an empty URL
-      const signUrlResponse =
-        await this.signatureService.generateUploadSignedUrl(userId);
-      return res.status(HttpStatus.CREATED).json({
-        message: 'Signed URL created successfully',
-        data: {
-          signedUrl: signUrlResponse.signedUrl,
-          signatureId: signUrlResponse.signatureId,
-        },
-      });
-    } catch (error) {
-      console.error(
-        'SignatureController ~ createSignatureWithUploadUrl ~ error:',
-        error,
-      );
-      throw error;
-    }
-  }
-
-  @Post('upload/sucsess')
-  @Role(Roles.ARTIST)
-  async uploadFileSuccessfully(
-    @Body() body: { signatureId: string },
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
-    try {
-      const { signatureId } = body;
-      const userId = req?.user?.id || '';
-
-      const response = await this?.signatureService?.removeBackgroundFromImage(
-        signatureId,
-        userId,
-      );
-      res.status(HttpStatus.CREATED).json({
-        message: 'User Signature updated successully',
-        data: response,
-      });
-    } catch (error) {
-      console.error(
-        '🚀 ~ SignatureController ~ removeBackgroundImage ~  error:',
         error,
       );
       throw error;

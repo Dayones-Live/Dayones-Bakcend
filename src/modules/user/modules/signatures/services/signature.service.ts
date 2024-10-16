@@ -33,26 +33,13 @@ export class SignatureService {
    * @param createUserSignatureInput
    * @returns {Signatures}
    */
-  async createSignature(
-    createUserSignatureInput: CreateUserSignatureInput,
-    buffer: Buffer,
-    originalname: string,
-  ): Promise<Signatures> {
+  async createSignature(userId: string, url: string): Promise<Signatures> {
     try {
-      // Use the upsert method
-      const signatureDto = this.signatureMapper.dtoToEntity(
-        createUserSignatureInput,
-      );
-      const signature = await this.signaturesRepository.save(signatureDto);
-      const uploadUrl = await this.saveUserSignature(
-        createUserSignatureInput.userId,
-        buffer,
-        originalname,
-        signature?.id,
-      );
-      signature.url = uploadUrl;
-      await this.signaturesRepository.save(signatureDto);
-      return signature;
+      const response = await this.signaturesRepository.save({
+        user_id: userId,
+        url,
+      });
+      return response;
     } catch (error) {
       console.error(
         '🚀 ~ file:signature.service.ts:96 ~ NotificationService ~ upsertSignatureNotification ~ error:',
@@ -227,19 +214,5 @@ export class SignatureService {
       removeDirectory(tempDir);
       throw error;
     }
-  }
-
-  async generateUploadSignedUrl(
-    userId: string,
-  ): Promise<{ signedUrl: string; signatureId: string }> {
-    const signature = await this.signaturesRepository.save({
-      url: '',
-      user_id: userId,
-    });
-    const s3Key = `${userId}/signatures/${signature?.id}.png`; // Replace HEIC extension with PNG if necessary
-    const signedUrl = await this.s3Service.getSignedUrl(s3Key, 'image/png');
-    const unsignedUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${s3Key}`;
-    await this.signaturesRepository.update(signature.id, { url: unsignedUrl });
-    return { signedUrl: signedUrl, signatureId: signature?.id };
   }
 }
