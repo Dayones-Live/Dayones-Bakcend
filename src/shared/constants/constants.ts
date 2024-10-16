@@ -55,4 +55,5 @@ export enum SUCCESS_MESSAGES {
   LIKE_ADDED_SUCCESS = 'Reaction added successfully',
   LIKE_DELETED_SUCCESS = 'Reaction deleted successfully',
   INVITES_FETCH_SUCCESS = 'Invites Fetch Successfully',
+  SIGNED_URL_SUCCESS = 'Signed URL Created Successfully',
 }
