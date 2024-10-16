@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import { Meta, Paginate } from '@app/types';
 import * as fs from 'fs';
-import * as path from 'path';
+import axios from 'axios';
 import heicConvert from 'heic-convert';
 import { rembg } from '@remove-background-ai/rembg.js';
 
@@ -151,3 +151,34 @@ export function createFileReadStream(filePath: string): fs.ReadStream {
   }
   return fs.createReadStream(filePath);
 }
+
+/**
+ * Downloads an image from a specified URL and saves it to a given file path.
+ * @param url - The URL of the image to download
+ * @param savePath - The local path where the image will be saved
+ * @returns {Promise<string>} - A promise that resolves to the path of the saved image
+ * @throws {Error} - Throws an error if the download fails or the URL is invalid
+ */
+export const downloadImageFromUrl = async (
+  url: string,
+  savePath: string,
+): Promise<string> => {
+  try {
+    const response = await axios.get(url, {
+      responseType: 'stream',
+    });
+
+    return new Promise((resolve, reject) => {
+      const writer = fs.createWriteStream(savePath);
+
+      response.data.pipe(writer);
+
+      writer.on('finish', () => resolve(savePath));
+      writer.on('error', (err) => {
+        fs.unlink(savePath, () => reject(err)); // Clean up partially downloaded file
+      });
+    });
+  } catch (error) {
+    throw new Error(`Failed to download image from ${url}: ${error.message}`);
+  }
+};

@@ -16,7 +16,6 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { SignatureService } from '../services/signature.service';
-import { CreateUserSignatureInput } from '../dto/types';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { UserService } from '@user/services/user.service';
 import { Roles } from '@app/shared/constants/constants';
@@ -106,6 +105,61 @@ export class SignatureController {
     } catch (error) {
       console.error(
         '🚀 ~ SignatureController ~ upsertUserSignature ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  @Get('upload')
+  @Role(Roles.ARTIST)
+  async createSignatureWithUploadUrl(
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const userId = req?.user?.id || '';
+      // Create a new record in the DB with an empty URL
+      const signUrlResponse =
+        await this.signatureService.generateUploadSignedUrl(userId);
+      return res.status(HttpStatus.CREATED).json({
+        message: 'Signed URL created successfully',
+        data: {
+          signedUrl: signUrlResponse.signedUrl,
+          signatureId: signUrlResponse.signatureId,
+        },
+      });
+    } catch (error) {
+      console.error(
+        'SignatureController ~ createSignatureWithUploadUrl ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  @Post('upload/sucsess')
+  @Role(Roles.ARTIST)
+  async uploadFileSuccessfully(
+    @Body() body: { signatureId: string },
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const { signatureId } = body;
+      const userId = req?.user?.id || '';
+
+      const response = await this?.signatureService?.removeBackgroundFromImage(
+        signatureId,
+        userId,
+      );
+      res.status(HttpStatus.CREATED).json({
+        message: 'User Signature updated successully',
+        data: response,
+      });
+    } catch (error) {
+      console.error(
+        '🚀 ~ SignatureController ~ removeBackgroundImage ~  error:',
         error,
       );
       throw error;

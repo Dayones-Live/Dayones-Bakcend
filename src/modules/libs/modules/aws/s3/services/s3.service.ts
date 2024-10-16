@@ -1,6 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { S3 } from '@aws-sdk/client-s3';
+import { PutObjectCommand, S3 } from '@aws-sdk/client-s3';
 import { createFileReadStream } from '@app/shared/utils';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
 export class S3Service {
@@ -26,7 +27,7 @@ export class S3Service {
   async uploadFile(
     filePath: string,
     key: string,
-    fileMimeType: string,
+    fileMimeType: string | boolean,
   ): Promise<string> {
     try {
       const fileStream = createFileReadStream(filePath);
@@ -34,7 +35,7 @@ export class S3Service {
         Bucket: process.env.AWS_S3_BUCKET_NAME,
         Key: key,
         Body: fileStream,
-        ContentType: fileMimeType || 'application/octet-stream',
+        ContentType: (fileMimeType as string) || 'application/octet-stream',
       };
 
       await this.s3Client.putObject(uploadParams);
@@ -65,6 +66,38 @@ export class S3Service {
       console.error('S3Service ~ deleteFile error:', error);
       throw new HttpException(
         `File Deletion Failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Generate a signed URL for uploading a file
+   * @param key - S3 object key (filename in S3)
+   * @param fileMimeType - File MIME type
+   * @returns {Promise<string>} - Signed URL
+   */
+  async getSignedUrl(key: string, fileMimeType: string): Promise<string> {
+    try {
+      const params = {
+        Bucket: this.bucketName,
+        Key: key,
+        ContentType: fileMimeType || 'application/octet-stream',
+      };
+
+      // Create a command to sign the URL
+      const command = new PutObjectCommand(params);
+
+      // Generate a signed URL valid for 15 minutes
+      const signedUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn: 900, // URL is valid for 15 minutes
+      });
+
+      return signedUrl;
+    } catch (error) {
+      console.error('S3Service ~ getSignedUrl error:', error);
+      throw new HttpException(
+        `Failed to generate signed URL: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
