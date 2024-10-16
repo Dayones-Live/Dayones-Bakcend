@@ -10,6 +10,7 @@ import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { extractS3KeyFromUrl } from '../utils';
 import {
   convertHeicToPng,
+  downloadImageFromUrl,
   ensureDirectoryExists,
   readImage,
   removeDirectory,
@@ -163,6 +164,69 @@ export class SignatureService {
     );
     removeDirectory(tempDir);
     return uploadUrl;
+  }
+
+  /**
+   * Service to to remove background from image when successfully uploaded
+   * from front-end using presignedUrl
+   * @param signatureId
+   * @returns {imageUrl} image url without background
+   */
+  async removeBackgroundFromImage(signatureId: string, userId: string) {
+    let tempDir = '';
+    try {
+      const getUploadImage = await this.signaturesRepository.findOne({
+        where: { id: signatureId, user_id: userId },
+      });
+
+      if (getUploadImage) {
+        tempDir = path.join(__dirname, '..', 'temp'); // Create temp directory path
+        const parsedUrl = new URL(getUploadImage.url);
+
+        // Use path.basename to get just the filename
+        const fileName = path.basename(parsedUrl.pathname);
+        const tempFilePath = path.join(
+          tempDir,
+          fileName.replace(/\.heic$/i, '.png'),
+        ); // Full path for the temp file
+
+        ensureDirectoryExists(tempDir);
+        const imageUrl = getUploadImage?.url;
+
+        // Step 1: Download the image and save locally
+        const localImagePath = await downloadImageFromUrl(
+          imageUrl,
+          tempFilePath,
+        );
+
+        // Step 2: Remove the background
+        const removedBackgroundImage =
+          await removeImageBackground(localImagePath);
+
+        // Step 3: Upload again to s3
+        const s3Key = `${userId}/signatures/${signatureId}.png`; // Replace HEIC extension with PNG if necessary
+        const fileMimeType = mime.lookup(fileName.replace(/\.heic$/i, '.png'));
+        const uploadUrl = await this.s3Service.uploadFile(
+          removedBackgroundImage,
+          s3Key,
+          fileMimeType,
+        );
+
+        //  update image with the latest one (without background)
+        await this.signaturesRepository.update(signatureId, {
+          url: uploadUrl,
+        });
+        removeDirectory(tempDir);
+        return uploadUrl;
+      }
+    } catch (error) {
+      console.error(
+        '🚀 ~ SignatureService ~ removeBackgroundFromImage ~ error:',
+        error,
+      );
+      removeDirectory(tempDir);
+      throw error;
+    }
   }
 
   async generateUploadSignedUrl(

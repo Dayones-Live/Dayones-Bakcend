@@ -3,7 +3,7 @@ import { Paginate } from '@app/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Message } from '../entities/message.entity';
 import { MessageMapper } from '../dto/message.mapper';
-import { SocketInitializer } from '../../../socket/socket';
+import { SocketInitializer } from '@app/modules/user/modules/socket/socket';
 import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 import {
@@ -13,14 +13,14 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
-import { ConversationService } from '../../conversations/services/conversation.service';
+import { ConversationService } from '@app/modules/user/modules/chat/conversations/services/conversation.service';
 import {
   SendMessageInput,
   GetAllMessagesDto,
   AllMessageResponse,
 } from '../dto/types';
-import { FirebaseService } from '../../../ notifications/services/notification.service';
-import { NOTIFICATION_TYPE } from '../../../ notifications/constants';
+import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
+import { NOTIFICATION_TYPE } from '@app/modules/user/modules/ notifications/constants';
 
 @Injectable()
 export class MessageService {

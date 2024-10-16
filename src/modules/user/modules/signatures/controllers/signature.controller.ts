@@ -16,7 +16,6 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { SignatureService } from '../services/signature.service';
-import { CreateUserSignatureInput } from '../dto/types';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { UserService } from '@user/services/user.service';
 import { Roles } from '@app/shared/constants/constants';
@@ -139,38 +138,28 @@ export class SignatureController {
     }
   }
 
-  @Post('upload/file')
-  @UseInterceptors(FileInterceptor('file'))
+  @Post('upload/sucsess')
   @Role(Roles.ARTIST)
-  async uploadSignatureToSignUrl(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: { signedUrl: string },
+  async uploadFileSuccessfully(
+    @Body() body: { signatureId: string },
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
-      if (!file) {
-        throw new HttpException(
-          `Missing required fields: file`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const { signedUrl } = body;
-      // Perform the upload to the signed URL using fetch
-      const response = await fetch(signedUrl, {
-        method: 'PUT',
-        body: file.buffer, // Send the file buffer
-        headers: {
-          'Content-Type': file.mimetype, // Ensure the correct MIME type
-        },
-      });
+      const { signatureId } = body;
+      const userId = req?.user?.id || '';
+
+      const response = await this?.signatureService?.removeBackgroundFromImage(
+        signatureId,
+        userId,
+      );
       res.status(HttpStatus.CREATED).json({
-        message: 'User Signature creation successful',
+        message: 'User Signature updated successully',
         data: response,
       });
     } catch (error) {
       console.error(
-        '🚀 ~ SignatureController ~ upsertUserSignature ~ error:',
+        '🚀 ~ SignatureController ~ removeBackgroundImage ~  error:',
         error,
       );
       throw error;
