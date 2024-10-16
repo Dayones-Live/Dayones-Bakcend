@@ -202,7 +202,15 @@ export class ArtistPostService {
         const artistPosts = await this.artistPostRepository
           .createQueryBuilder('artistPost')
           .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
-          .leftJoinAndSelect('artistPostUser.user', 'user')
+          .leftJoin('artistPostUser.user', 'user')
+          .addSelect([
+            'user.id',
+            'user.full_name',
+            'user.email',
+            'user.phone_number',
+            'user.avatar_url',
+            'user.role',
+          ]) // Select specific fields from user
           .leftJoinAndSelect('artistPostUser.comment', 'comment')
           .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
           .where('artistPost.user_id = :userId', { userId: user?.id })

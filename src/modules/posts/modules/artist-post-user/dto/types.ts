@@ -32,3 +32,49 @@ export class UpdateArtistPostUserInput {
   @IsNotEmpty({ message: 'Status is Required' })
   status: Invite_Status;
 }
+
+export class UserInvitesResponse {
+  @IsOptional()
+  id: string;
+
+  @IsOptional()
+  user_id: string;
+
+  @IsOptional()
+  artist_post_id: string;
+
+  @IsOptional()
+  valid_till: Date;
+
+  @IsOptional()
+  status: string;
+
+  @IsOptional()
+  created_at: Date;
+
+  @IsOptional()
+  updated_at: Date;
+
+  @IsOptional()
+  user: User;
+}
+
+export class CommentsWithUserResponse {
+  @IsOptional()
+  id: string;
+
+  @IsOptional()
+  artist_post_user_id: string;
+
+  @IsOptional()
+  message: string;
+
+  @IsOptional()
+  created_at: Date;
+
+  @IsOptional()
+  updated_at: Date;
+
+  @IsOptional()
+  user: User;
+}

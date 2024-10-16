@@ -2,6 +2,7 @@ import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { Post_Type } from '../constants';
 import { Comments } from '../../comments/entities/comments.entity';
 import { PaginationResponse } from '@app/types';
+import { CommentsWithUserResponse } from '../../artist-post-user/dto/types';
 
 export class CreateArtistPostInput {
   @IsOptional()
@@ -88,13 +89,13 @@ export class ArtistPostResponse {
   post?: ArtistPostObject | null;
 
   @IsOptional()
-  comments?: Comments[];
+  comments?: CommentsWithUserResponse[];
 
   @IsOptional()
   reaction?: number;
 
   @IsOptional()
-  artistComments?: Comments[];
+  artistComments?: CommentsWithUserResponse[];
 }
 
 export class ArtistPostWithCounts extends ArtistPostObject {
