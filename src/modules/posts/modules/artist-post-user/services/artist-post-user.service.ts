@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   CreateArtistPostUserInput,
   UpdateArtistPostUserInput,
+  UserInvitesResponse,
 } from '../dto/types';
 import { ArtistPostUser } from '../entities/artist-post-user.entity';
 import { ArtistPostUserMapper } from '../dto/atrist-post-user.mapper';
@@ -136,13 +137,23 @@ export class ArtistPostUserService {
   /**
    * Fetch all ArtistPostUser records where valid_till is greater than current date
    */
-  async fetchValidArtistInvites(user: User): Promise<ArtistPostUser[]> {
+  async fetchValidArtistInvites(
+    user: User,
+  ): Promise<ArtistPostUser[] | UserInvitesResponse[]> {
     try {
       const currentDate = new Date();
       if (user.role[0] === Roles.ARTIST) {
         const artistValidInvites = await this.artistPostUserRepository
           .createQueryBuilder('artistPostUser')
           .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
+          .leftJoin('artistPostUser.user', 'user') // Join with user entity
+          .addSelect([
+            'user.id',
+            'user.full_name',
+            'user.email',
+            'user.phone_number',
+            'user.avatar_url',
+          ]) // Select specific fields from user
           .where('artistPostUser.valid_till > :currentDate', { currentDate })
           .where('artistPostUser.status = :status', {
             status: Invite_Status.ACCEPTED,
@@ -154,12 +165,21 @@ export class ArtistPostUserService {
       } else {
         const artistValidInvites = await this.artistPostUserRepository
           .createQueryBuilder('artistPostUser')
-          .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
+          .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with artistPost entity
+          .leftJoin('artistPost.user', 'user') // Join with the user entity from artistPost
+          .addSelect([
+            'user.id',
+            'user.full_name',
+            'user.email',
+            'user.phone_number',
+            'user.avatar_url',
+          ]) // Select specific fields from the user
           .where('artistPostUser.valid_till > :currentDate', { currentDate })
           .andWhere('artistPostUser.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
           .getMany();
-
-        return artistValidInvites;
+        return this.artistPostUserMapper.processInvitesToAddUser(
+          artistValidInvites,
+        );
       }
     } catch (err) {
       console.error(
@@ -209,7 +229,15 @@ export class ArtistPostUserService {
         .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
         .leftJoinAndSelect('artistPostUser.comment', 'comment')
         .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
-        .leftJoinAndSelect('artistPostUser.user', 'user')
+        .leftJoin('artistPostUser.user', 'user')
+        .addSelect([
+          'user.id',
+          'user.full_name',
+          'user.email',
+          'user.phone_number',
+          'user.avatar_url',
+          'user.role',
+        ]) // Select specific fields from user
         .andWhere('artistPostUser.status IN (:...statuses)', {
           statuses: [Invite_Status.ACCEPTED, Invite_Status.NULL], // Filter for both ACCEPTED and NULL statuses
         })

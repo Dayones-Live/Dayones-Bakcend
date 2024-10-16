@@ -7,6 +7,7 @@ import {
 import { ArtistPost } from '../entities/artist-post.entity';
 import { Comments } from '../../comments/entities/comments.entity';
 import { Roles } from '@app/shared/constants/constants';
+import { CommentsWithUserResponse } from '../../artist-post-user/dto/types';
 
 export class ArtistPostMapper {
   dtoToEntity(createArtistPostInput: CreateArtistPostInput): ArtistPost {
@@ -27,21 +28,22 @@ export class ArtistPostMapper {
   }
 
   processArtistPostData(artistPosts: ArtistPost) {
-    const userComments: Comments[] = [];
-    const artistComments: Comments[] = [];
+    const userComments: CommentsWithUserResponse[] = [];
+    const artistComments: CommentsWithUserResponse[] = [];
     let totalReactions = 0;
     artistPosts.artistPostUser?.forEach((userPost: any) => {
       // Count reactions if they exist
       if (userPost.reaction) {
         totalReactions += 1;
       }
+      const { role, ...userWithoutRole } = userPost.user;
       if (userPost?.user?.role[0] === Roles.USER) {
-        userPost.comment?.forEach((comment: any) => {
-          userComments.push(comment);
+        userPost.comment?.forEach((comment: Comments) => {
+          userComments.push({ ...comment, user: userWithoutRole }); // Include user info in the comment
         });
       } else if (userPost?.user?.role[0] === Roles.ARTIST) {
-        userPost.comment?.forEach((comment: any) => {
-          artistComments.push(comment);
+        userPost.comment?.forEach((comment: Comments) => {
+          artistComments.push({ ...comment, user: userWithoutRole }); // Include user info in the comment
         });
       }
     });
