@@ -6,14 +6,13 @@ import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import { PresignedUrlInput } from '@app/modules/libs/modules/aws/s3/dto/types';
 import { S3Service } from '@app/modules/libs/modules/aws/s3/services/s3.service';
 import {
-  Body,
-  Post,
   Req,
   Res,
   UseGuards,
   HttpStatus,
   Controller,
-  Get,
+  Post,
+  Body,
 } from '@nestjs/common';
 
 @ApiTags('S3')
@@ -22,7 +21,7 @@ import {
 export class S3Controller {
   constructor(private s3Service: S3Service) {}
 
-  @Get()
+  @Post()
   @Role(Roles.ARTIST)
   async createPresignedUrl(
     @Body() presignedUrlInput: PresignedUrlInput,
