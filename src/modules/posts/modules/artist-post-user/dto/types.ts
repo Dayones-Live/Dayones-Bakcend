@@ -76,5 +76,22 @@ export class CommentsWithUserResponse {
   updated_at: Date;
 
   @IsOptional()
-  user: User;
+  user: Partial<User>;
+}
+
+export class ReactionsWithUserResponse {
+  @IsOptional()
+  id: string;
+
+  @IsOptional()
+  artist_post_user_id: string;
+
+  @IsOptional()
+  created_at: Date;
+
+  @IsOptional()
+  updated_at: Date;
+
+  @IsOptional()
+  user: Partial<User>;
 }

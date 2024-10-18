@@ -3,11 +3,13 @@ import { ArtistPostUser } from '../entities/artist-post-user.entity';
 import {
   CommentsWithUserResponse,
   CreateArtistPostUserInput,
+  ReactionsWithUserResponse,
   UpdateArtistPostUserInput,
   UserInvitesResponse,
 } from './types';
 import { Comments } from '../../comments/entities/comments.entity';
 import { Roles } from '@app/shared/constants/constants';
+import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
 
 export class ArtistPostUserMapper {
   dtoToEntity(
@@ -33,16 +35,33 @@ export class ArtistPostUserMapper {
     );
   }
 
-  processArtistValidInvites(artistValidInvites: any[]) {
+  processArtistValidInvites(artistValidInvites?: ArtistPostUser[]) {
     let isReacted = 0;
     const userComments: CommentsWithUserResponse[] = [];
     const artistComments: CommentsWithUserResponse[] = [];
+    const userReactions: ReactionsWithUserResponse[] = [];
+
+    if (!artistValidInvites || artistValidInvites.length === 0) {
+      return {
+        post: {} as ArtistPost,
+        reaction: userReactions,
+        comments: userComments,
+        artistComments,
+      };
+    }
+
     // Iterate over the array
     artistValidInvites.forEach((invite) => {
       // Set reaction from the first record
       isReacted =
         invite?.user?.role[0] === Roles.USER && invite?.reaction ? 1 : 0;
       const { role, ...userWithoutRole } = invite?.user;
+
+      // Handle reaction user if exists
+      if (invite?.reaction) {
+        userReactions.push({ ...invite.reaction, user: userWithoutRole });
+      }
+
       // Separate comments based on the role
       if (invite.user?.role[0] === 'USER') {
         invite?.comment?.forEach((comment: Comments) => {
@@ -57,9 +76,9 @@ export class ArtistPostUserMapper {
 
     return {
       post: artistValidInvites[0].artistPost,
-      reaction: isReacted,
+      reactions: userReactions,
       comments: userComments, // All comments where the user is a USER
-      artistComments, // All comments where the user is an ARTIST
+      artistComments,
     };
   }
 
