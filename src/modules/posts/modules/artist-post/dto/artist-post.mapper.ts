@@ -7,7 +7,10 @@ import {
 import { ArtistPost } from '../entities/artist-post.entity';
 import { Comments } from '../../comments/entities/comments.entity';
 import { Roles } from '@app/shared/constants/constants';
-import { CommentsWithUserResponse } from '../../artist-post-user/dto/types';
+import {
+  CommentsWithUserResponse,
+  ReactionsWithUserResponse,
+} from '../../artist-post-user/dto/types';
 
 export class ArtistPostMapper {
   dtoToEntity(createArtistPostInput: CreateArtistPostInput): ArtistPost {
@@ -30,13 +33,30 @@ export class ArtistPostMapper {
   processArtistPostData(artistPosts: ArtistPost) {
     const userComments: CommentsWithUserResponse[] = [];
     const artistComments: CommentsWithUserResponse[] = [];
+    const userReactions: ReactionsWithUserResponse[] = [];
     let totalReactions = 0;
+
+    if (!artistPosts) {
+      return {
+        post: {} as ArtistPost,
+        reaction: userReactions,
+        comments: userComments,
+        artistComments,
+      };
+    }
+
     artistPosts.artistPostUser?.forEach((userPost: any) => {
       // Count reactions if they exist
       if (userPost.reaction) {
         totalReactions += 1;
       }
       const { role, ...userWithoutRole } = userPost.user;
+
+      // Handle reaction user if exists
+      if (userPost?.reaction) {
+        userReactions.push({ ...userPost.reaction, user: userWithoutRole });
+      }
+
       if (userPost?.user?.role[0] === Roles.USER) {
         userPost.comment?.forEach((comment: Comments) => {
           userComments.push({ ...comment, user: userWithoutRole }); // Include user info in the comment
@@ -52,7 +72,7 @@ export class ArtistPostMapper {
       post: artistPostWithoutUsers,
       comments: userComments,
       artistComments: artistComments,
-      reaction: totalReactions,
+      reactions: userReactions,
     };
   }
   processArtistPostsData(artistPosts: ArtistPost[]): ArtistPostWithCounts[] {
