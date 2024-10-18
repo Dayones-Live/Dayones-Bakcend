@@ -238,6 +238,13 @@ export class ArtistPostUserService {
           'user.avatar_url',
           'user.role',
         ]) // Select specific fields from user
+        .leftJoin('artistPost.user', 'artist')
+        .addSelect([
+          'artist.id',
+          'artist.full_name',
+          'artist.phone_number',
+          'artist.avatar_url',
+        ]) // Select specific fields from user (artist)
         .andWhere('artistPostUser.status IN (:...statuses)', {
           statuses: [Invite_Status.ACCEPTED, Invite_Status.NULL], // Filter for both ACCEPTED and NULL statuses
         })
@@ -247,7 +254,7 @@ export class ArtistPostUserService {
         ) // Fetch for current user or artistPost's user
         .andWhere('artistPost.id = :postId', { postId: postId }) // Filter by user_id
         .getMany();
-      if (!artistValidInvites) {
+      if (!artistValidInvites?.length) {
         throw new HttpException(
           ERROR_MESSAGES.POST_NOT_FOUND,
           HttpStatus.NOT_FOUND,
