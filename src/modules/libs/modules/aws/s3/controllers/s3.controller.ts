@@ -22,7 +22,6 @@ export class S3Controller {
   constructor(private s3Service: S3Service) {}
 
   @Post()
-  @Role(Roles.ARTIST)
   async createPresignedUrl(
     @Body() presignedUrlInput: PresignedUrlInput,
     @Res() res: Response,
