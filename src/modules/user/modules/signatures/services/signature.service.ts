@@ -142,7 +142,7 @@ export class SignatureService {
 
     saveFile(tempFilePath, readImage(processedImagePath || ''));
 
-    const s3Key = `${userId}/signatures/${signatureId}.png`; // Replace HEIC extension with PNG if necessary
+    const s3Key = `${userId}/signatures/${signatureId}`; // Replace HEIC extension with PNG if necessary
     const fileMimeType = mime.lookup(fileName.replace(/\.heic$/i, '.png'));
     const uploadUrl = await this.s3Service.uploadFile(
       tempFilePath,
