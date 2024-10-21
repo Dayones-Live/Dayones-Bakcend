@@ -21,6 +21,7 @@ import { UserService } from '@user/services/user.service';
 import { Roles } from '@app/shared/constants/constants';
 import { Role } from '@app/modules/auth/decorators/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateUserSignatureInput } from '../dto/types';
 
 @ApiTags('signature')
 @Controller('signature')
@@ -31,17 +32,53 @@ export class SignatureController {
     private userService: UserService,
   ) {}
 
-  @Post()
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  @Role(Roles.ARTIST)
+  async uploadUserSignature(
+    @UploadedFile() file: Express.Multer.File,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      if (!file) {
+        throw new HttpException(
+          `Missing required fields: file`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const buffer = file.buffer;
+      const uploadUrl = await this.signatureService.saveUserSignature(
+        req?.user?.id || '',
+        buffer,
+        file?.originalname,
+        file?.originalname,
+      );
+      res.status(HttpStatus.CREATED).json({
+        message: 'Signature Background Removed Successfully',
+        data: uploadUrl,
+      });
+    } catch (error) {
+      console.error(
+        '🚀 ~ SignatureController ~ uploadSignature ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  @Post('create')
   @Role(Roles.ARTIST)
   async createUserSignature(
-    @Body() url: string,
+    @Body() createUserSignatureInput: CreateUserSignatureInput,
     @Res() res: Response,
     @Req() req: Request,
   ) {
     try {
       const response = await this.signatureService.createSignature(
         req?.user?.id || '',
-        url,
+        createUserSignatureInput?.url,
       );
       res.status(HttpStatus.CREATED).json({
         message: 'User Signature creation successful',
