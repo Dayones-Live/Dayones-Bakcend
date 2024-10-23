@@ -246,7 +246,7 @@ export class ArtistPostUserService {
           'artist.avatar_url',
         ]) // Select specific fields from user (artist)
         .andWhere('artistPostUser.status IN (:...statuses)', {
-          statuses: [Invite_Status.ACCEPTED, Invite_Status.NULL], // Filter for both ACCEPTED and NULL statuses
+          statuses: [Invite_Status.ACCEPTED], // Filter for both ACCEPTED and NULL statuses
         })
         .andWhere(
           '(artistPostUser.user_id = :currentUserId OR artistPost.user_id = artistPostUser.user_id)',
@@ -316,10 +316,11 @@ export class ArtistPostUserService {
       const artistPostUsersDelete = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
         .where(
-          'artistPostUser.status = :rejected OR artistPostUser.valid_till < :now',
+          '(artistPostUser.status = :rejected OR artistPostUser.valid_till < :now) AND artistPostUser.status NOT IN (:...excludedStatuses)',
           {
             rejected: Invite_Status.REJECT,
             now,
+            excludedStatuses: [Invite_Status.ACCEPTED, Invite_Status.NULL],
           },
         )
         .getMany();
