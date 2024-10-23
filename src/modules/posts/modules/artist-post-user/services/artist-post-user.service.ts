@@ -309,7 +309,7 @@ export class ArtistPostUserService {
    *
    * @returns {boolean}
    * */
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
   async deleteRejectedOrStaleInvites(): Promise<boolean> {
     const now = new Date();
     try {
