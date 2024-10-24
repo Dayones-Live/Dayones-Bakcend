@@ -15,6 +15,7 @@ import { ChatModule } from '@app/modules/user/modules/chat/chat.module';
 import { SocketModule } from '@app/modules/user/modules/socket/socket.module';
 import { FirebaseModule } from '@app/modules/user/modules/ notifications/notification.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { CommentReactionsModule } from '@app/modules/posts/modules/comment-reactions/comment-reactions.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ChatModule,
     SocketModule,
     FirebaseModule,
+    CommentReactionsModule,
   ],
 })
 export class AppConfigModule {}

@@ -259,6 +259,7 @@ export class ArtistPostUserService {
         .createQueryBuilder('artistPostUser')
         .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
         .leftJoinAndSelect('artistPostUser.comment', 'comment')
+        .leftJoinAndSelect('comment.commentReaction', 'commentReaction')
         .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
         .leftJoin('artistPostUser.user', 'user')
         .addSelect([
@@ -283,11 +284,11 @@ export class ArtistPostUserService {
             Invite_Status.GENERIC,
           ], // Filter for both ACCEPTED and NULL statuses
         })
+        .andWhere('artistPost.id = :postId', { postId: postId })
         .andWhere(
           '(artistPostUser.user_id = :currentUserId OR artistPost.user_id = artistPostUser.user_id)',
           { currentUserId: userId },
-        ) // Fetch for current user or artistPost's user
-        .andWhere('artistPost.id = :postId', { postId: postId }) // Filter by user_id
+        )
         .getMany();
       if (!artistValidInvites?.length) {
         throw new HttpException(
@@ -351,10 +352,11 @@ export class ArtistPostUserService {
       const artistPostUsersDelete = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
         .where(
-          'artistPostUser.status = :rejected OR artistPostUser.valid_till < :now',
+          '(artistPostUser.status = :rejected OR artistPostUser.valid_till < :now) AND artistPostUser.status NOT IN (:...excludedStatuses)',
           {
             rejected: Invite_Status.REJECT,
             now,
+            excludedStatuses: [Invite_Status.ACCEPTED, Invite_Status.NULL],
           },
         )
         .getMany();

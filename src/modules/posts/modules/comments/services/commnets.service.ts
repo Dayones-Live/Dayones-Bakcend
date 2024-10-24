@@ -5,7 +5,7 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Comments } from '../entities/comments.entity';
 import { CommentsMapper } from '../dto/comments.mapper';
@@ -156,6 +156,60 @@ export class CommentsService {
         err,
       );
       throw err;
+    }
+  }
+
+  /**
+   * Service to fetch the comment by Id and verify that the comment is not of logged in user
+   * @param id
+   * @returns {Comments}
+   */
+  async getCommentDetails(id: string, userId: string): Promise<Comments> {
+    try {
+      const comment = await this.commentsRepository
+        .createQueryBuilder('comment')
+        .leftJoinAndSelect('comment.artistPostUser', 'artistPostUser')
+        .where('comment.id = :id', { id })
+        .andWhere('artistPostUser.user_id != :userId', { userId })
+        .getOne();
+      if (!comment) {
+        throw new HttpException(
+          ERROR_MESSAGES.COMMENT_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      return comment;
+    } catch (error) {
+      console.error('🚀 ~ CommentsService ~ getCommentById ~ error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the comments by post id
+   * @param id
+   * @param userId
+   * @returns {Comments[]}
+   */
+  async getCommentDetailsByPostId(
+    id: string,
+    userId: string,
+  ): Promise<Comments[]> {
+    try {
+      const comments = await this.commentsRepository
+        .createQueryBuilder('comment')
+        .leftJoinAndSelect('comment.artistPostUser', 'artistPostUser')
+        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost')
+        .where('artistPostUser.artist_post_id = :postId', { postId: id })
+        .andWhere('artistPost.user_id = :userId', { userId })
+        .andWhere('artistPostUser.status = :status', {
+          status: Invite_Status.ACCEPTED,
+        })
+        .getMany();
+      return comments;
+    } catch (error) {
+      console.error('🚀 ~ CommentsService ~ getCommentById ~ error:', error);
+      throw error;
     }
   }
 }

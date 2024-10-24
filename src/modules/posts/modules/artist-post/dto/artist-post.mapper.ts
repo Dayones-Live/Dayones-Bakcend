@@ -68,16 +68,26 @@ export class ArtistPostMapper {
       if (userPost?.reaction) {
         userReactions.push({ ...userPost.reaction, user: userWithoutRole });
       }
+      // Process comments and count comment reactions
+      userPost.comment?.forEach((comment: Comments) => {
+        // Count the comment reactions
+        const commentReactionCount = comment.commentReaction?.length || 0;
+        const { commentReaction, ...rest } = comment;
+        // Add commentReactionCount to the comment object
+        const commentWithReactionCount = {
+          ...rest,
+          commentReaction:
+            commentReaction?.map((reaction) => reaction.liked_by) || [],
+          commentReactionCount,
+          user: userWithoutRole,
+        };
 
-      if (userPost?.user?.role[0] === Roles.USER) {
-        userPost.comment?.forEach((comment: Comments) => {
-          userComments.push({ ...comment, user: userWithoutRole }); // Include user info in the comment
-        });
-      } else if (userPost?.user?.role[0] === Roles.ARTIST) {
-        userPost.comment?.forEach((comment: Comments) => {
-          artistComments.push({ ...comment, user: userWithoutRole }); // Include user info in the comment
-        });
-      }
+        if (userPost?.user?.role[0] === Roles.USER) {
+          userComments.push(commentWithReactionCount); // Include user info in the comment
+        } else if (userPost?.user?.role[0] === Roles.ARTIST) {
+          artistComments.push(commentWithReactionCount); // Include user info in the comment
+        }
+      });
     });
     const { artistPostUser, ...artistPostWithoutUsers } = artistPosts;
     return {
