@@ -197,8 +197,8 @@ export class ArtistPostUserService {
     try {
       const acceptedInviteArtistPostIds = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
-        .where('artistPostUser.status = :status', {
-          status: Invite_Status.ACCEPTED, // Filter for ACCEPTED status
+        .where('artistPostUser.status IN (:...statuses)', {
+          statuses: [Invite_Status.ACCEPTED, Invite_Status.GENERIC], // Filter for ACCEPTED status as well as Generic, which is for all the fans
         })
         .andWhere('artistPostUser.user_id = :user_id', { user_id }) // Filter by user_id
         .getMany();
@@ -210,6 +210,37 @@ export class ArtistPostUserService {
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ fetchValidArtistPostUsers ~ error:',
+        err,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Fetches the user IDs of all fans who have accepted invites to follow an artist's posts.
+   *
+   * @param userId - The ID of the user whose fans' posts we want to retrieve.
+   * @returns An array of user IDs of the fans who have accepted invites to follow the artist's posts.
+   */
+  async fetchFanOfArtistsGenericPostsIds(userId: string): Promise<string[]> {
+    try {
+      const fanOfArtists = await this.artistPostUserRepository
+        .createQueryBuilder('artistPostUser')
+        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost')
+        .leftJoinAndSelect('artistPost.user', 'user')
+        .where('artistPostUser.user_id = :userId', { userId })
+        .andWhere('artistPostUser.status = :status', {
+          status: Invite_Status.ACCEPTED,
+        })
+        .getMany();
+
+      // Return an array of user ids
+      return [
+        ...new Set(fanOfArtists.map((artist) => artist.artistPost.user.id)),
+      ];
+    } catch (err) {
+      console.error(
+        '🚀 ~ file: artist.post.user.service.ts: fetchFanOfArtistsGenericPostsIds ~ error:',
         err,
       );
       throw err;
@@ -246,7 +277,11 @@ export class ArtistPostUserService {
           'artist.avatar_url',
         ]) // Select specific fields from user (artist)
         .andWhere('artistPostUser.status IN (:...statuses)', {
-          statuses: [Invite_Status.ACCEPTED, Invite_Status.NULL], // Filter for both ACCEPTED and NULL statuses
+          statuses: [
+            Invite_Status.ACCEPTED,
+            Invite_Status.NULL,
+            Invite_Status.GENERIC,
+          ], // Filter for both ACCEPTED and NULL statuses
         })
         .andWhere(
           '(artistPostUser.user_id = :currentUserId OR artistPost.user_id = artistPostUser.user_id)',

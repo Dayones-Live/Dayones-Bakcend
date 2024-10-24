@@ -1,6 +1,5 @@
 import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { Invite_Status } from '../constants/constants';
-import { ArtistPostUser } from '../entities/artist-post-user.entity';
 import { User } from '@user/entities/user.entity';
 export class CreateArtistPostUserInput {
   @IsOptional()
@@ -10,7 +9,7 @@ export class CreateArtistPostUserInput {
   artistPostId: string;
 
   @IsNotEmpty({ message: 'Valid till is required' })
-  validTill: Date;
+  validTill: Date | null = null;
 
   @IsNotEmpty({ message: 'Invite Status is required' })
   status: Invite_Status;

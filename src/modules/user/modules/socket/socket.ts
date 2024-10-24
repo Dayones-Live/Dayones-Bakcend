@@ -74,7 +74,6 @@ export class SocketInitializer {
             this.usersMap.get(user.id.toString()) || new Map();
           conversationMap.set(conversationId.toString(), socket);
           this.usersMap.set(user.id.toString(), conversationMap);
-          console.log('usersMap', this.usersMap);
         } else {
           throw new Error('Invalid conversation');
         }

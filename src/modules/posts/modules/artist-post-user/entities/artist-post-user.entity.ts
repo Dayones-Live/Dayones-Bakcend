@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { User } from '@user/entities/user.entity';
 import {
   BaseEntity,
@@ -46,8 +46,8 @@ export class ArtistPostUser extends BaseEntity {
   @JoinColumn({ name: 'artist_post_id' })
   artistPost: ArtistPost;
 
-  @Column({ nullable: false })
-  @IsNotEmpty({ message: 'Valid Till is  required' })
+  @Column({ nullable: true })
+  @IsOptional()
   valid_till: Date;
 
   @Column({ type: 'enum', enum: Invite_Status, nullable: false })
