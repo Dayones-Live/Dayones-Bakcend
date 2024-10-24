@@ -107,4 +107,41 @@ export class CommentReactionsService {
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }
+
+  /**
+   * This service will like all post comments of users
+   * @param postId
+   * @param userId
+   * @returns {Boolean}
+   */
+  async likeAllPostComments(postId: string, userId: string): Promise<Boolean> {
+    try {
+      const comments = await this.commentsService.getCommentDetailsByPostId(
+        postId,
+        userId,
+      );
+      for (const comment of comments) {
+        const existingCommentLike =
+          await this.commentReactionRepository.findOne({
+            where: {
+              liked_by: userId,
+              comment_id: comment?.id,
+            },
+          });
+        if (!existingCommentLike) {
+          await this.commentReactionRepository.save({
+            comment_id: comment?.id,
+            liked_by: userId,
+          });
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file:-reactions.service.ts:96 ~ commentReactionService ~ likeAllPostComments ~ error:',
+        error,
+      );
+      throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
+    }
+  }
 }

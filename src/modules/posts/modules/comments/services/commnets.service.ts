@@ -184,4 +184,32 @@ export class CommentsService {
       throw error;
     }
   }
+
+  /**
+   * Get the comments by post id
+   * @param id
+   * @param userId
+   * @returns {Comments[]}
+   */
+  async getCommentDetailsByPostId(
+    id: string,
+    userId: string,
+  ): Promise<Comments[]> {
+    try {
+      const comments = await this.commentsRepository
+        .createQueryBuilder('comment')
+        .leftJoinAndSelect('comment.artistPostUser', 'artistPostUser')
+        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost')
+        .where('artistPostUser.artist_post_id = :postId', { postId: id })
+        .andWhere('artistPost.user_id = :userId', { userId })
+        .andWhere('artistPostUser.status = :status', {
+          status: Invite_Status.ACCEPTED,
+        })
+        .getMany();
+      return comments;
+    } catch (error) {
+      console.error('🚀 ~ CommentsService ~ getCommentById ~ error:', error);
+      throw error;
+    }
+  }
 }

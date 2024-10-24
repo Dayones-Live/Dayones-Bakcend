@@ -66,6 +66,8 @@ export class ArtistPostUserMapper {
         const { commentReaction, ...rest } = comment;
         const commentWithReactionCount = {
           ...rest,
+          commentReaction:
+            commentReaction?.map((reaction) => reaction.liked_by) || [],
           commentReactionCount,
           user: userWithoutRole,
         };

@@ -60,4 +60,5 @@ export enum SUCCESS_MESSAGES {
   SIGNED_URL_SUCCESS = 'Signed URL Created Successfully',
   COMMENT_LIKED_SUCCESS = 'Comment liked successfully',
   COMMENT_DISLIKED_SUCCESS = 'Comment disliked successfully',
+  POST_COMMENTS_LIKED_SUCCESS = 'Post comments liked successfully',
 }
