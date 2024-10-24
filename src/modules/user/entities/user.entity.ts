@@ -17,6 +17,7 @@ import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/enti
 import { Conversations } from '../modules/chat/conversations/entities/conversation.entity';
 import { Message } from '../modules/chat/messages/entities/message.entity';
 import { Notifications } from '../modules/ notifications/entities/notifications.entity';
+import { CommentReactions } from '@app/modules/posts/modules/comment-reactions/entities/comment-reaction.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -109,4 +110,10 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Notifications, (notification) => notification.toUser)
   to?: Notifications[];
+
+  @OneToMany(
+    () => CommentReactions,
+    (commentReactions) => commentReactions.user,
+  )
+  commentReactions?: CommentReactions[];
 }

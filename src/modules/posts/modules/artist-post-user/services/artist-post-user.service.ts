@@ -228,6 +228,7 @@ export class ArtistPostUserService {
         .createQueryBuilder('artistPostUser')
         .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
         .leftJoinAndSelect('artistPostUser.comment', 'comment')
+        .leftJoinAndSelect('comment.commentReaction', 'commentReaction')
         .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
         .leftJoin('artistPostUser.user', 'user')
         .addSelect([
@@ -245,14 +246,15 @@ export class ArtistPostUserService {
           'artist.phone_number',
           'artist.avatar_url',
         ]) // Select specific fields from user (artist)
-        .andWhere('artistPostUser.status IN (:...statuses)', {
-          statuses: [Invite_Status.ACCEPTED], // Filter for both ACCEPTED and NULL statuses
-        })
+        .andWhere('artistPost.id = :postId', { postId: postId })
         .andWhere(
           '(artistPostUser.user_id = :currentUserId OR artistPost.user_id = artistPostUser.user_id)',
           { currentUserId: userId },
         ) // Fetch for current user or artistPost's user
-        .andWhere('artistPost.id = :postId', { postId: postId }) // Filter by user_id
+        .andWhere('artistPostUser.status IN (:...statuses)', {
+          statuses: [Invite_Status.ACCEPTED, Invite_Status.NULL], // Filter for both ACCEPTED and NULL statuses
+        })
+        // Filter by user_id
         .getMany();
       if (!artistValidInvites?.length) {
         throw new HttpException(

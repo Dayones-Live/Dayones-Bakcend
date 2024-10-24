@@ -212,6 +212,7 @@ export class ArtistPostService {
             'user.role',
           ]) // Select specific fields from user
           .leftJoinAndSelect('artistPostUser.comment', 'comment')
+          .leftJoinAndSelect('comment.commentReaction', 'commentReaction')
           .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
           .where('artistPost.user_id = :userId', { userId: user?.id })
           .andWhere('artistPost.id = :postId', { postId })
