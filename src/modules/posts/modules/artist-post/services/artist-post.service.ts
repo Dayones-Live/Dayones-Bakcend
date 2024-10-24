@@ -14,6 +14,8 @@ import {
   ArtistPostResponse,
   ArtistPostWithCounts,
   CreateArtistPostInput,
+  CreateGenericArtistPostInput,
+  GenericArtistPostObject,
   UpdateArtistPostInput,
 } from '../dto/types';
 import { ArtistPostMapper } from '../dto/artist-post.mapper';
@@ -23,11 +25,12 @@ import { ArtistPostUserService } from '@artist-post-user/services/artist-post-us
 import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { addMinutesToDate } from '../utils';
 import { User } from '@app/modules/user/entities/user.entity';
-import { ArtistPostUser } from '@artist-post-user/entities/artist-post-user.entity';
 import { Post_Message, Post_Type } from '../constants';
 import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 import { UpdateUserLocationAndNotificationInput } from '@app/modules/user/dto/types';
+import { CommentsService } from '@comments/services/commnets.service';
+import { Comments } from '@comments/entities/comments.entity';
 
 @Injectable()
 export class ArtistPostService {
@@ -38,6 +41,7 @@ export class ArtistPostService {
     @Inject(forwardRef(() => UserService))
     private userService: UserService,
     private artistPostUserService: ArtistPostUserService,
+    private commentService: CommentsService,
   ) {}
 
   /**
@@ -87,6 +91,83 @@ export class ArtistPostService {
     } catch (error) {
       console.error(
         '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ createArtistPost ~ error:',
+        error,
+      );
+      throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  /**
+   * Service to send a generic message.
+   * This function checks if a generic message post already exists for the given user ID.
+   * If it does, it adds a comment to the existing post. If not, it creates a new generic message post.
+   * @param createGenericArtistPostInput The input containing the user ID and the message to be sent.
+   * @returns A GenericArtistPostObject containing the generic message post details.
+   * @throws An HttpException with status code 400 and the error message if an error occurs during the process.
+   */
+  async sendGenericMessage(
+    createGenericArtistPostInput: CreateGenericArtistPostInput,
+  ): Promise<GenericArtistPostObject> {
+    try {
+      // see if already generic message has been sent i.e. post is created already
+
+      const existingGenericArtistPost = await this.artistPostRepository.findOne(
+        {
+          where: {
+            user_id: createGenericArtistPostInput.userId,
+            type: Post_Type.GENERIC,
+          },
+          relations: ['artistPostUser', 'artistPostUser.comment'],
+        },
+      );
+
+      if (!existingGenericArtistPost) {
+        // need to create a new Generic Message Post
+        const artistPostDto = this.artistPostMapper.dtoToEntityGenericMessage({
+          ...createGenericArtistPostInput,
+        });
+        const artistPost = await this.artistPostRepository.save(artistPostDto);
+        await this.artistPostUserService.createArtistPostUser({
+          userId: createGenericArtistPostInput?.userId,
+          artistPostId: artistPost?.id,
+          status: Invite_Status.GENERIC,
+          validTill: null,
+        });
+        const { user_id, ...rest } = artistPost;
+        return rest;
+      } else {
+        // need to add a comment now to the already existing Generic Message Post
+        const comment = await this.commentService.commentAPost(
+          {
+            message: createGenericArtistPostInput.message,
+          },
+          existingGenericArtistPost.id,
+          createGenericArtistPostInput?.userId,
+        );
+        let comments: Comments[] | undefined;
+        // Restructure the data
+        if (
+          existingGenericArtistPost &&
+          existingGenericArtistPost.artistPostUser &&
+          existingGenericArtistPost.artistPostUser.length > 0
+        ) {
+          // Extract comments from the artistPostUser relationship and filter out undefined values
+          comments = existingGenericArtistPost.artistPostUser
+            .flatMap((invite) => invite.comment ?? [])
+            .filter(Boolean);
+          comments.push(comment);
+
+          // Remove artistPostUser from the response
+          delete existingGenericArtistPost.artistPostUser;
+        }
+        return {
+          ...existingGenericArtistPost,
+          comments: comments,
+        };
+      }
+    } catch (error) {
+      console.error(
+        '🚀 ~ file:artist.post.service.ts ~ ArtistPostService ~ sendGenericMessage ~ error:',
         error,
       );
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
@@ -189,6 +270,35 @@ export class ArtistPostService {
   }
 
   /**
+   * Service to fetch all Artist's generic post IDs.
+   * This function fetches the IDs of all generic posts made by the artists specified in the `artistIds` array.
+   * @param artistIds - An array of IDs of artists whose generic posts are to be fetched.
+   * @returns A Promise that resolves to an array of strings, where each string is the ID of a generic post made by one of the specified artists.
+   * @throws An error if there is a problem fetching the generic post IDs.
+   */
+  async fetchArtistsGenericPostsIds(artistIds: string[]): Promise<string[]> {
+    try {
+      const artistGenericPosts: ArtistPostObject[] =
+        await this.artistPostRepository
+          .createQueryBuilder('artistPost')
+          .where('artistPost.user_id IN (:...artistIds)', {
+            artistIds,
+          })
+          .andWhere('artistPost.type = :type', {
+            type: Post_Type.GENERIC,
+          })
+          .getMany();
+      return artistGenericPosts.map((post) => post.id);
+    } catch (error) {
+      console.error(
+        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchArtistsGenericPostsIds ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Service to fetch all Artist post
    * @param user_id
    * @returns {ArtistPostObject[]}
@@ -217,8 +327,12 @@ export class ArtistPostService {
           .where('artistPost.user_id = :userId', { userId: user?.id })
           .andWhere('artistPost.id = :postId', { postId })
           .andWhere('artistPostUser.status IN (:...statuses)', {
-            statuses: [Invite_Status.ACCEPTED, Invite_Status.NULL], // Filter for both ACCEPTED and NULL statuses
-          }) // Filter for accepted status
+            statuses: [
+              Invite_Status.ACCEPTED,
+              Invite_Status.NULL,
+              Invite_Status.GENERIC,
+            ], // Filter for both ACCEPTED and NULL statuses
+          })
           .getOne();
         if (!artistPosts) {
           throw new HttpException(
@@ -291,8 +405,24 @@ export class ArtistPostService {
         let formattedPosts: ArtistPostWithCounts[] = [];
         let postCount = 0;
         //Fetch the Post for which user accepts the invites plus comments and likes
-        const acceptedPostIds =
+        let acceptedPostIds =
           await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
+
+        const fanOfArtistIds =
+          await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(
+            user.id,
+          );
+
+        if (fanOfArtistIds.length > 0) {
+          const fanOfArtistsGenericPostsIds =
+            await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
+
+          acceptedPostIds = [
+            ...acceptedPostIds,
+            ...fanOfArtistsGenericPostsIds,
+          ];
+        }
+
         if (acceptedPostIds.length) {
           const [artistPosts, count] = await this.artistPostRepository
             .createQueryBuilder('artistPost')

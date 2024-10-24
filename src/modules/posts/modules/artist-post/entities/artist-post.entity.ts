@@ -36,12 +36,12 @@ export class ArtistPost extends BaseEntity {
   @IsOptional()
   message: string;
 
-  @Column({ nullable: false })
-  @IsNotEmpty({ message: 'Image url is required' })
+  @Column({ nullable: true })
+  @IsOptional()
   image_url: string;
 
-  @Column({ nullable: false })
-  @IsNotEmpty({ message: 'type is required' })
+  @Column({ nullable: true })
+  @IsOptional()
   range: number;
 
   @Column({ type: 'enum', enum: Post_Type, nullable: false })
@@ -64,18 +64,15 @@ export class ArtistPost extends BaseEntity {
   })
   updated_at: Date;
 
-  @Column({ nullable: false })
-  @IsNotEmpty({ message: 'Longitude is required' })
+  @Column({ nullable: true })
   @IsOptional()
   longitude: string;
 
-  @Column({ nullable: false })
-  @IsNotEmpty({ message: 'Latitude is required' })
+  @Column({ nullable: true })
   @IsOptional()
   latitude: string;
 
-  @Column({ nullable: false })
-  @IsNotEmpty({ message: 'Locale is required' })
+  @Column({ nullable: true })
   @IsOptional()
   locale: string;
 }

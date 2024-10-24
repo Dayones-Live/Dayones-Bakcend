@@ -2,7 +2,7 @@ import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 
 export class CreateCommentInput {
   @IsOptional()
-  artistPostUserId: string;
+  artistPostUserId?: string;
 
   @IsNotEmpty({ message: 'Message is required' })
   message: string;

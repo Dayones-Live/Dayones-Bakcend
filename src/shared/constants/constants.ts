@@ -48,6 +48,7 @@ export enum SUCCESS_MESSAGES {
   MESSAGES_FETCHED_SUCCESS = 'Messages fetched successfully',
   MESSAGE_DELETED_SUCCESS = 'Messages deleted successfully',
   POST_CREATED_SUCCESS = 'Post created successfully',
+  GENERIC_POST_SUCCESS = 'Generic Post success',
   POST_UPDATED_SUCCESS = 'Post updated successfully',
   POST_DELETED_SUCCESS = 'Post deleted successfully',
   POST_FETCHED_SUCCESS = 'Post Fetched Successfully',

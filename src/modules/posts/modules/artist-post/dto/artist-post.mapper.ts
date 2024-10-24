@@ -2,6 +2,7 @@ import { mapInputToEntity } from '@app/shared/utils';
 import {
   ArtistPostWithCounts,
   CreateArtistPostInput,
+  CreateGenericArtistPostInput,
   UpdateArtistPostInput,
 } from './types';
 import { ArtistPost } from '../entities/artist-post.entity';
@@ -18,6 +19,17 @@ export class ArtistPostMapper {
     return mapInputToEntity(
       new ArtistPost(),
       createArtistPostInput,
+      updateRecord,
+    );
+  }
+
+  dtoToEntityGenericMessage(
+    createGenericArtistPostInput: CreateGenericArtistPostInput,
+  ): ArtistPost {
+    const updateRecord: boolean = false;
+    return mapInputToEntity(
+      new ArtistPost(),
+      createGenericArtistPostInput,
       updateRecord,
     );
   }

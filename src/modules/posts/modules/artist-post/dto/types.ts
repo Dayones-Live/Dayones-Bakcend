@@ -33,6 +33,20 @@ export class CreateArtistPostInput {
   locale: string;
 }
 
+export class CreateGenericArtistPostInput {
+  @IsOptional()
+  userId: string;
+
+  @IsOptional()
+  imageUrl: string;
+
+  @IsOptional()
+  message: string;
+
+  @IsNotEmpty({ message: 'Type is required' })
+  type: Post_Type;
+}
+
 export class Location {
   @IsOptional()
   longitude: string;
@@ -80,6 +94,11 @@ export class ArtistPostObject extends Location {
 
   @IsOptional()
   type: Post_Type;
+}
+
+export class GenericArtistPostObject extends ArtistPostObject {
+  @IsOptional()
+  comments?: Comments[];
 }
 
 export class AllPostsResponse extends PaginationResponse {

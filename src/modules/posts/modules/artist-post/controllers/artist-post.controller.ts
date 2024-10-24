@@ -16,7 +16,11 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { ArtistPostService } from '../services/artist-post.service';
-import { CreateArtistPostInput, UpdateArtistPostInput } from '../dto/types';
+import {
+  CreateArtistPostInput,
+  CreateGenericArtistPostInput,
+  UpdateArtistPostInput,
+} from '../dto/types';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { UserService } from '@user/services/user.service';
 import {
@@ -61,6 +65,40 @@ export class ArtistPostController {
     } catch (error) {
       console.error(
         '🚀 ~ ArtistPostController ~ createArtistPost ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Creates / adds a generic message as an artist post.
+   *
+   * @param createGenericArtistPostInput - The input containing the details of the generic message.
+   * @param res - The Express response object.
+   * @param req - The Express request object.
+   * @returns A response containing the created generic post and a success message.
+   * @throws An error if there's an issue while sending the generic message.
+   */
+  @Post('generic')
+  @Role(Roles.ARTIST)
+  async sendGenericMessage(
+    @Body() createGenericArtistPostInput: CreateGenericArtistPostInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const artistPost = await this.artistPostService.sendGenericMessage({
+        ...createGenericArtistPostInput,
+        userId: req?.user?.id || '',
+      });
+      res.status(HttpStatus.CREATED).json({
+        message: SUCCESS_MESSAGES.GENERIC_POST_SUCCESS,
+        data: artistPost,
+      });
+    } catch (error) {
+      console.error(
+        '🚀 ~ ArtistPostController ~ sendGenericMessage ~ error:',
         error,
       );
       throw error;
