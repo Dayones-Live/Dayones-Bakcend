@@ -6,10 +6,12 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
 import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
+import { CommentReactions } from '../../comment-reactions/entities/comment-reaction.entity';
 
 @Entity({ name: 'comments' })
 @Unique(['id'])
@@ -41,4 +43,10 @@ export class Comments extends BaseEntity {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updated_at: Date;
+
+  @OneToMany(
+    () => CommentReactions,
+    (CommentReactions) => CommentReactions.comment,
+  )
+  commentReaction: CommentReactions[];
 }

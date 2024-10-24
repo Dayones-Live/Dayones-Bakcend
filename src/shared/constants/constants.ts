@@ -26,6 +26,8 @@ export enum ERROR_MESSAGES {
   NOTIFICATION_NOT_FOUND = 'Notification not found',
   USER_NOTIFICATION_TOKEN_NOT_FOUND = 'User notification token not found',
   SIGNATURE_NOT_FOUND = 'Signature not found',
+  COMMENT_ALREADY_LIKED_BY_USER = 'Comment is already liked by the User',
+  COMMENT_NOT_LIKED_BY_USER = 'Comment is not liked by user',
 }
 
 export enum SUCCESS_MESSAGES {
@@ -56,4 +58,6 @@ export enum SUCCESS_MESSAGES {
   LIKE_DELETED_SUCCESS = 'Reaction deleted successfully',
   INVITES_FETCH_SUCCESS = 'Invites Fetch Successfully',
   SIGNED_URL_SUCCESS = 'Signed URL Created Successfully',
+  COMMENT_LIKED_SUCCESS = 'Comment liked successfully',
+  COMMENT_DISLIKED_SUCCESS = 'Comment disliked successfully',
 }

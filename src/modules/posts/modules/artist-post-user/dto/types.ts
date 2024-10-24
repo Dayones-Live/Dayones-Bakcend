@@ -76,6 +76,9 @@ export class CommentsWithUserResponse {
   updated_at: Date;
 
   @IsOptional()
+  commentReactionCount?: number;
+
+  @IsOptional()
   user: Partial<User>;
 }
 

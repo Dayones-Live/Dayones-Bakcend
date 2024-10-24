@@ -61,17 +61,20 @@ export class ArtistPostUserMapper {
       if (invite?.reaction) {
         userReactions.push({ ...invite.reaction, user: userWithoutRole });
       }
-
-      // Separate comments based on the role
-      if (invite.user?.role[0] === 'USER') {
-        invite?.comment?.forEach((comment: Comments) => {
-          userComments.push({ ...comment, user: userWithoutRole }); // Include user info in the comment
-        });
-      } else if (invite.user?.role[0] === 'ARTIST') {
-        invite?.comment?.forEach((comment: Comments) => {
-          artistComments.push({ ...comment, user: userWithoutRole }); // Include user info in the comment
-        });
-      }
+      invite?.comment?.forEach((comment: Comments) => {
+        const commentReactionCount = comment.commentReaction?.length || 0;
+        const { commentReaction, ...rest } = comment;
+        const commentWithReactionCount = {
+          ...rest,
+          commentReactionCount,
+          user: userWithoutRole,
+        };
+        if (invite?.user?.role[0] === Roles.USER) {
+          userComments.push(commentWithReactionCount); // Include user info in the comment
+        } else if (invite?.user?.role[0] === Roles.ARTIST) {
+          artistComments.push(commentWithReactionCount); // Include user info in the comment
+        }
+      });
     });
 
     return {
