@@ -259,6 +259,14 @@ export class ArtistPostUserService {
         .createQueryBuilder('artistPostUser')
         .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with user entity
         .leftJoinAndSelect('artistPostUser.comment', 'comment')
+        .leftJoin('comment.user', 'commentedUser')
+        .addSelect([
+          'commentedUser.id',
+          'commentedUser.full_name',
+          'commentedUser.email',
+          'commentedUser.phone_number',
+          'commentedUser.avatar_url',
+        ]) // Select specific fields from user
         .leftJoinAndSelect('comment.commentReaction', 'commentReaction')
         .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
         .leftJoin('artistPostUser.user', 'user')

@@ -12,6 +12,7 @@ import {
   CommentsWithUserResponse,
   ReactionsWithUserResponse,
 } from '../../artist-post-user/dto/types';
+import { Invite_Status } from '../../artist-post-user/constants/constants';
 
 export class ArtistPostMapper {
   dtoToEntity(createArtistPostInput: CreateArtistPostInput): ArtistPost {
@@ -72,17 +73,20 @@ export class ArtistPostMapper {
       userPost.comment?.forEach((comment: Comments) => {
         // Count the comment reactions
         const commentReactionCount = comment.commentReaction?.length || 0;
-        const { commentReaction, ...rest } = comment;
+        const { commentReaction, user: commentedUser, ...rest } = comment;
         // Add commentReactionCount to the comment object
         const commentWithReactionCount = {
           ...rest,
           commentReaction:
             commentReaction?.map((reaction) => reaction.liked_by) || [],
           commentReactionCount,
-          user: userWithoutRole,
+          user:
+            userPost?.status === Invite_Status.GENERIC && comment?.comment_by
+              ? commentedUser
+              : userWithoutRole,
         };
 
-        if (userPost?.user?.role[0] === Roles.USER) {
+        if (userPost?.user?.role[0] === Roles.USER || comment?.comment_by) {
           userComments.push(commentWithReactionCount); // Include user info in the comment
         } else if (userPost?.user?.role[0] === Roles.ARTIST) {
           artistComments.push(commentWithReactionCount); // Include user info in the comment

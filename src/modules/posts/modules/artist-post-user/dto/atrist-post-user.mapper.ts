@@ -10,6 +10,8 @@ import {
 import { Comments } from '../../comments/entities/comments.entity';
 import { Roles } from '@app/shared/constants/constants';
 import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
+import { Post_Type } from '../../artist-post/constants';
+import { Invite_Status } from '../constants/constants';
 
 export class ArtistPostUserMapper {
   dtoToEntity(
@@ -56,22 +58,24 @@ export class ArtistPostUserMapper {
       isReacted =
         invite?.user?.role[0] === Roles.USER && invite?.reaction ? 1 : 0;
       const { role, ...userWithoutRole } = invite?.user;
-
       // Handle reaction user if exists
       if (invite?.reaction) {
         userReactions.push({ ...invite.reaction, user: userWithoutRole });
       }
       invite?.comment?.forEach((comment: Comments) => {
         const commentReactionCount = comment.commentReaction?.length || 0;
-        const { commentReaction, ...rest } = comment;
+        const { commentReaction, user: commentedUser, ...rest } = comment;
         const commentWithReactionCount = {
           ...rest,
           commentReaction:
             commentReaction?.map((reaction) => reaction.liked_by) || [],
           commentReactionCount,
-          user: userWithoutRole,
+          user:
+            invite?.status === Invite_Status.GENERIC && comment?.comment_by
+              ? commentedUser
+              : userWithoutRole,
         };
-        if (invite?.user?.role[0] === Roles.USER) {
+        if (invite?.user?.role[0] === Roles.USER || comment?.comment_by) {
           userComments.push(commentWithReactionCount); // Include user info in the comment
         } else if (invite?.user?.role[0] === Roles.ARTIST) {
           artistComments.push(commentWithReactionCount); // Include user info in the comment
