@@ -48,16 +48,18 @@ export class CommentsService {
       let comment: Comments = {} as Comments;
       if (artistPostUserGeneric) {
         createCommentInput.artistPostUserId = artistPostUserGeneric?.id;
+        if (artistPostUserGeneric.user_id !== userId) {
+          createCommentInput.commentBy = userId;
+        }
         const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
       } else {
         // Fetch the artistPostUserId through user id and artistPost
-        const artistPostUser =
-          await this.artistPostUserService.getArtistPostByPostId(
-            userId,
-            postId,
-          );
+        artistPostUser = await this.artistPostUserService.getArtistPostByPostId(
+          userId,
+          postId,
+        );
         if (!artistPostUser) {
           throw new HttpException(
             ERROR_MESSAGES.POST_NOT_FOUND,
