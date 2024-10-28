@@ -18,6 +18,7 @@ import { Conversations } from '../modules/chat/conversations/entities/conversati
 import { Message } from '../modules/chat/messages/entities/message.entity';
 import { Notifications } from '../modules/ notifications/entities/notifications.entity';
 import { CommentReactions } from '@app/modules/posts/modules/comment-reactions/entities/comment-reaction.entity';
+import { Comments } from '@app/modules/posts/modules/comments/entities/comments.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -116,4 +117,7 @@ export class User extends BaseEntity {
     (commentReactions) => commentReactions.user,
   )
   commentReactions?: CommentReactions[];
+
+  @OneToMany(() => Comments, (comment) => comment.user)
+  comment?: Comments[];
 }

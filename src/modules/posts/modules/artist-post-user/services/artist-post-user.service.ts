@@ -323,13 +323,7 @@ export class ArtistPostUserService {
           user_id: userId,
         },
       });
-      if (!artistPostUser) {
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      return artistPostUser;
+      return artistPostUser as ArtistPostUser;
     } catch (err) {
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96  ~ fetchComments ~ error:',
@@ -375,6 +369,30 @@ export class ArtistPostUserService {
         error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Fetch all User comments
+   */
+  async getGenericArtistPostUserByPostId(
+    postId: string,
+  ): Promise<ArtistPostUser> {
+    try {
+      const artistPostUser = await this.artistPostUserRepository.findOne({
+        relations: ['user', 'artistPost', 'artistPost.user'],
+        where: {
+          artist_post_id: postId,
+          status: Invite_Status.GENERIC,
+        },
+      });
+      return artistPostUser as ArtistPostUser;
+    } catch (err) {
+      console.error(
+        '🚀 ~ file:artist.post.user.service.ts:96  ~ fetchComments ~ error:',
+        err,
+      );
+      throw err;
     }
   }
 }
