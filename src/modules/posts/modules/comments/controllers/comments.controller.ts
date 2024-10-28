@@ -32,10 +32,13 @@ export class CommentsController {
     @Param('id') id: string,
   ) {
     try {
-      const commentReaction = await this.commentReactionService.likeAComment({
-        commentId: id,
-        likedBy: req?.user?.id || '',
-      });
+      const commentReaction = await this.commentReactionService.likeAComment(
+        {
+          commentId: id,
+          likedBy: req?.user?.id || '',
+        },
+        req?.user!,
+      );
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.COMMENT_LIKED_SUCCESS,
         data: commentReaction,

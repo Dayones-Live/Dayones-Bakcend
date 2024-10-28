@@ -184,18 +184,34 @@ export class CommentsService {
     }
   }
 
+  private isCommentOwnedByUser(
+    comment: Comments,
+    userId: string,
+    user?: User,
+  ): boolean {
+    if (comment?.artistPostUser?.status === Invite_Status.GENERIC) {
+      return user?.role?.includes(Roles.ARTIST)
+        ? !comment.comment_by
+        : comment.comment_by === userId;
+    }
+    return comment.artistPostUser.user_id === userId;
+  }
+
   /**
    * Service to fetch the comment by Id and verify that the comment is not of logged in user
    * @param id
    * @returns {Comments}
    */
-  async getCommentDetails(id: string, userId: string): Promise<Comments> {
+  async getCommentDetails(
+    id: string,
+    userId: string,
+    user?: User,
+  ): Promise<Comments> {
     try {
       const comment = await this.commentsRepository
         .createQueryBuilder('comment')
         .leftJoinAndSelect('comment.artistPostUser', 'artistPostUser')
         .where('comment.id = :id', { id })
-        .andWhere('artistPostUser.user_id != :userId', { userId })
         .getOne();
       if (!comment) {
         throw new HttpException(
@@ -203,6 +219,14 @@ export class CommentsService {
           HttpStatus.NOT_FOUND,
         );
       }
+
+      if (this.isCommentOwnedByUser(comment, userId, user)) {
+        throw new HttpException(
+          ERROR_MESSAGES.COMMENT_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
       return comment;
     } catch (error) {
       console.error('🚀 ~ CommentsService ~ getCommentById ~ error:', error);

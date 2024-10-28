@@ -12,6 +12,7 @@ import { CommentReactionInput } from '../dto/types';
 import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { CommentReactionMapper } from '../dto/comment-reaction.mapper';
 import { CommentsService } from '../../comments/services/commnets.service';
+import { User } from '@app/modules/user/entities/user.entity';
 
 @Injectable()
 export class CommentReactionsService {
@@ -29,11 +30,13 @@ export class CommentReactionsService {
    */
   async likeAComment(
     createCommentReactionInput: CommentReactionInput,
+    user: User,
   ): Promise<CommentReactions> {
     try {
       await this.commentsService.getCommentDetails(
         createCommentReactionInput?.commentId,
         createCommentReactionInput?.likedBy,
+        user,
       );
       const existingCommentLike = await this.commentReactionRepository.findOne({
         where: {
