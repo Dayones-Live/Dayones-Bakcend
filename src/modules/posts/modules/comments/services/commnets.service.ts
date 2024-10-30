@@ -16,6 +16,7 @@ import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
 import { NOTIFICATION_TYPE } from '@app/modules/user/modules/ notifications/constants';
+import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 
 @Injectable()
 export class CommentsService {
@@ -39,24 +40,47 @@ export class CommentsService {
     userId: string,
   ): Promise<Comments> {
     try {
-      // Fetch the artistPostUserId through user id and artistPost
-      const artistPostUser =
-        await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      if (
-        artistPostUser.status !== Invite_Status.ACCEPTED &&
-        artistPostUser?.user?.role[0] !== Roles.ARTIST
-      ) {
-        throw new HttpException(
-          ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
-          HttpStatus.FORBIDDEN,
+      let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
+      const artistPostUserGeneric =
+        await this.artistPostUserService.getGenericArtistPostUserByPostId(
+          postId,
         );
+      let comment: Comments = {} as Comments;
+      if (artistPostUserGeneric) {
+        createCommentInput.artistPostUserId = artistPostUserGeneric?.id;
+        if (artistPostUserGeneric.user_id !== userId) {
+          createCommentInput.commentBy = userId;
+        }
+        const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
+        // Use the upsert method
+        comment = await this.commentsRepository.save(commentDto);
+      } else {
+        // Fetch the artistPostUserId through user id and artistPost
+        artistPostUser = await this.artistPostUserService.getArtistPostByPostId(
+          userId,
+          postId,
+        );
+        if (!artistPostUser) {
+          throw new HttpException(
+            ERROR_MESSAGES.POST_NOT_FOUND,
+            HttpStatus.NOT_FOUND,
+          );
+        }
+        if (
+          artistPostUser.status !== Invite_Status.ACCEPTED &&
+          artistPostUser?.user?.role[0] !== Roles.ARTIST
+        ) {
+          throw new HttpException(
+            ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
+            HttpStatus.FORBIDDEN,
+          );
+        }
+        createCommentInput.artistPostUserId = artistPostUser?.id;
+        const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
+        // Use the upsert method
+        comment = await this.commentsRepository.save(commentDto);
       }
-      createCommentInput.artistPostUserId = artistPostUser?.id;
-      const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
-      // Use the upsert method
-      const comment = await this.commentsRepository.save(commentDto);
-
-      // send and save notification
+      //send and save notification
       try {
         await this.firebaseService.addNotification({
           isRead: false,
@@ -65,12 +89,13 @@ export class CommentsService {
           type: NOTIFICATION_TYPE.COMMENTS,
           data: createCommentInput?.message,
           message: createCommentInput?.message,
-          toId: artistPostUser?.artistPost?.user_id,
+          toId:
+            artistPostUserGeneric?.artistPost?.user_id ||
+            artistPostUser?.artistPost?.user_id,
         });
       } catch (err) {
         console.error('🚀 ~ Sending/Saving Notification ~ err:', err);
       }
-
       return comment;
     } catch (error) {
       console.error(
@@ -159,18 +184,34 @@ export class CommentsService {
     }
   }
 
+  private isCommentOwnedByUser(
+    comment: Comments,
+    userId: string,
+    user?: User,
+  ): boolean {
+    if (comment?.artistPostUser?.status === Invite_Status.GENERIC) {
+      return user?.role?.includes(Roles.ARTIST)
+        ? !comment.comment_by
+        : comment.comment_by === userId;
+    }
+    return comment.artistPostUser.user_id === userId;
+  }
+
   /**
    * Service to fetch the comment by Id and verify that the comment is not of logged in user
    * @param id
    * @returns {Comments}
    */
-  async getCommentDetails(id: string, userId: string): Promise<Comments> {
+  async getCommentDetails(
+    id: string,
+    userId: string,
+    user?: User,
+  ): Promise<Comments> {
     try {
       const comment = await this.commentsRepository
         .createQueryBuilder('comment')
         .leftJoinAndSelect('comment.artistPostUser', 'artistPostUser')
         .where('comment.id = :id', { id })
-        .andWhere('artistPostUser.user_id != :userId', { userId })
         .getOne();
       if (!comment) {
         throw new HttpException(
@@ -178,6 +219,14 @@ export class CommentsService {
           HttpStatus.NOT_FOUND,
         );
       }
+
+      if (this.isCommentOwnedByUser(comment, userId, user)) {
+        throw new HttpException(
+          ERROR_MESSAGES.COMMENT_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
       return comment;
     } catch (error) {
       console.error('🚀 ~ CommentsService ~ getCommentById ~ error:', error);

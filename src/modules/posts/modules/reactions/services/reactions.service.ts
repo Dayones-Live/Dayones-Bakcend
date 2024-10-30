@@ -37,7 +37,7 @@ export class ReactionService {
       const artistPostUser =
         await this.artistPostUserService.getArtistPostByPostId(userId, postId);
       if (
-        artistPostUser.status !== Invite_Status.ACCEPTED &&
+        artistPostUser?.status !== Invite_Status.ACCEPTED &&
         artistPostUser?.user?.role[0] !== Roles.ARTIST
       ) {
         throw new HttpException(

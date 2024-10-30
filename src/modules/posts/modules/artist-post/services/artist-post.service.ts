@@ -322,6 +322,14 @@ export class ArtistPostService {
             'user.role',
           ]) // Select specific fields from user
           .leftJoinAndSelect('artistPostUser.comment', 'comment')
+          .leftJoin('comment.user', 'commentedUser')
+          .addSelect([
+            'commentedUser.id',
+            'commentedUser.full_name',
+            'commentedUser.email',
+            'commentedUser.phone_number',
+            'commentedUser.avatar_url',
+          ]) // Select specific fields from user
           .leftJoinAndSelect('comment.commentReaction', 'commentReaction')
           .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
           .where('artistPost.user_id = :userId', { userId: user?.id })

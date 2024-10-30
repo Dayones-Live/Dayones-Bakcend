@@ -6,6 +6,9 @@ export class CreateCommentInput {
 
   @IsNotEmpty({ message: 'Message is required' })
   message: string;
+
+  @IsOptional()
+  commentBy?: string;
 }
 
 export class UpdateCommentInput {

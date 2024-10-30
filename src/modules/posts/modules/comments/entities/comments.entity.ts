@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 import { CommentReactions } from '../../comment-reactions/entities/comment-reaction.entity';
+import { User } from '@app/modules/user/entities/user.entity';
 
 @Entity({ name: 'comments' })
 @Unique(['id'])
@@ -49,4 +50,15 @@ export class Comments extends BaseEntity {
     (CommentReactions) => CommentReactions.comment,
   )
   commentReaction: CommentReactions[];
+
+  @Column({ nullable: true })
+  @IsUUID()
+  @Index()
+  comment_by: string;
+
+  @ManyToOne(() => User, (user) => user.comment, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'comment_by' })
+  user: User;
 }
