@@ -11,6 +11,7 @@ import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
 import { AddNotificationInput } from '@app/modules/user/modules/ notifications/dto/types';
 import { NOTIFICATION_TYPE } from '@app/modules/user/modules/ notifications/constants';
+import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 
 @Injectable()
 export class ReactionService {
@@ -33,31 +34,64 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
-      // Fetch the artistPostUserId through user id and artistPost
-      const artistPostUser =
-        await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      if (
-        artistPostUser?.status !== Invite_Status.ACCEPTED &&
-        artistPostUser?.user?.role[0] !== Roles.ARTIST
-      ) {
-        throw new HttpException(
-          ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
-          HttpStatus.FORBIDDEN,
-        );
-      }
-      const isAlreadyLikes = await this.reactionsRepository.findOne({
-        where: {
-          artist_post_user_id: artistPostUser?.id,
-        },
-      });
-      if (isAlreadyLikes) {
-        throw new HttpException(`Post Already Liked!`, HttpStatus.CONFLICT);
-      }
-      createReactionInput.artistPostUserId = artistPostUser?.id;
-      const reactionDto = this.reactionsMapper.dtoToEntity(createReactionInput);
-      // Use the upsert method
-      const reaction = await this.reactionsRepository.save(reactionDto);
+      let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
+      let reaction: Reactions = {} as Reactions;
 
+      // Retrieve the generic artist post user based on the post ID
+      const artistPostUserGeneric =
+        await this.artistPostUserService.getGenericArtistPostUserByPostId(
+          postId,
+        );
+
+      if (artistPostUserGeneric) {
+        const isAlreadyLikes = await this.reactionsRepository.findOne({
+          where: {
+            artist_post_user_id: artistPostUserGeneric?.id,
+            react_by: userId,
+          },
+        });
+
+        if (isAlreadyLikes) {
+          throw new HttpException(`Post Already Liked!`, HttpStatus.CONFLICT);
+        }
+        createReactionInput.artistPostUserId = artistPostUserGeneric?.id;
+        if (artistPostUserGeneric.user_id !== userId) {
+          createReactionInput.reactBy = userId;
+        }
+        const reactionDto =
+          this.reactionsMapper.dtoToEntity(createReactionInput);
+        // Use the upsert method
+        reaction = await this.reactionsRepository.save(reactionDto);
+      } else {
+        // Fetch the artistPostUserId through user id and artistPost
+        const artistPostUser =
+          await this.artistPostUserService.getArtistPostByPostId(
+            userId,
+            postId,
+          );
+        if (
+          artistPostUser?.status !== Invite_Status.ACCEPTED &&
+          artistPostUser?.user?.role[0] !== Roles.ARTIST
+        ) {
+          throw new HttpException(
+            ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
+            HttpStatus.FORBIDDEN,
+          );
+        }
+        const isAlreadyLikes = await this.reactionsRepository.findOne({
+          where: {
+            artist_post_user_id: artistPostUser?.id,
+          },
+        });
+        if (isAlreadyLikes) {
+          throw new HttpException(`Post Already Liked!`, HttpStatus.CONFLICT);
+        }
+        createReactionInput.artistPostUserId = artistPostUser?.id;
+        const reactionDto =
+          this.reactionsMapper.dtoToEntity(createReactionInput);
+        // Use the upsert method
+        reaction = await this.reactionsRepository.save(reactionDto);
+      }
       // Sending and saving notifications of reactions
       try {
         const notification: AddNotificationInput = {
