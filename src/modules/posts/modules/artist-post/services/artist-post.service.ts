@@ -55,7 +55,7 @@ export class ArtistPostService {
     try {
       const artistPostDto = this.artistPostMapper.dtoToEntity({
         ...createArtistPostInput,
-        message: Post_Message,
+        message: createArtistPostInput?.message || Post_Message,
       });
       // Use the upsert method
       const artistPost = await this.artistPostRepository.save(artistPostDto);

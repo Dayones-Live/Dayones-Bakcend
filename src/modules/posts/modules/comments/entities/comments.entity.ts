@@ -1,4 +1,4 @@
-import { IsUUID } from 'class-validator';
+import { IsOptional, IsUUID } from 'class-validator';
 import {
   BaseEntity,
   Column,
@@ -61,4 +61,8 @@ export class Comments extends BaseEntity {
   })
   @JoinColumn({ name: 'comment_by' })
   user: User;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  url: string;
 }
