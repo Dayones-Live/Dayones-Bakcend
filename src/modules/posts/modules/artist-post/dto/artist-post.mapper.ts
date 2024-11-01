@@ -13,6 +13,7 @@ import {
   ReactionsWithUserResponse,
 } from '../../artist-post-user/dto/types';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
+import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 
 export class ArtistPostMapper {
   dtoToEntity(createArtistPostInput: CreateArtistPostInput): ArtistPost {
@@ -46,7 +47,7 @@ export class ArtistPostMapper {
   processArtistPostData(artistPosts: ArtistPost) {
     const userComments: CommentsWithUserResponse[] = [];
     const artistComments: CommentsWithUserResponse[] = [];
-    const userReactions: ReactionsWithUserResponse[] = [];
+    let userReactions: ReactionsWithUserResponse[] = [];
     let totalReactions = 0;
 
     if (!artistPosts) {
@@ -58,16 +59,19 @@ export class ArtistPostMapper {
       };
     }
 
-    artistPosts.artistPostUser?.forEach((userPost: any) => {
+    artistPosts.artistPostUser?.forEach((userPost: ArtistPostUser) => {
       // Count reactions if they exist
-      if (userPost.reaction) {
+      if (userPost.reaction && userPost?.status !== Invite_Status.GENERIC) {
         totalReactions += 1;
+      } else {
+        totalReactions = userPost?.reaction?.length || 0;
       }
       const { role, ...userWithoutRole } = userPost.user;
 
       // Handle reaction user if exists
       if (userPost?.reaction) {
-        userReactions.push({ ...userPost.reaction, user: userWithoutRole });
+        userReactions =
+          userPost?.reaction as unknown as ReactionsWithUserResponse[];
       }
       // Process comments and count comment reactions
       userPost.comment?.forEach((comment: Comments) => {
@@ -105,10 +109,12 @@ export class ArtistPostMapper {
     return artistPosts.map((artistPost) => {
       let commentsCount = 0;
       let totalReactions = 0;
-      artistPost.artistPostUser?.forEach((userPost: any) => {
+      artistPost.artistPostUser?.forEach((userPost: ArtistPostUser) => {
         // Count reactions if they exist
-        if (userPost.reaction) {
-          totalReactions += 1;
+        if (userPost?.reaction && userPost?.status !== Invite_Status.GENERIC) {
+          totalReactions = totalReactions + userPost?.reaction?.length || 0;
+        } else {
+          totalReactions = userPost?.reaction?.length || 0;
         }
         commentsCount += userPost.comment?.length || 0;
       });
