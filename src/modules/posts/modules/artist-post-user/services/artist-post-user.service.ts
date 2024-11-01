@@ -332,6 +332,12 @@ export class ArtistPostUserService {
     postId: string,
   ): Promise<ArtistPostUser> {
     try {
+      const artistGenericPost =
+        await this.getGenericArtistPostUserByPostId(postId);
+      if (artistGenericPost) {
+        return artistGenericPost;
+      }
+
       const artistPostUser = await this.artistPostUserRepository.findOne({
         relations: ['user', 'artistPost', 'artistPost.user'],
         where: {
