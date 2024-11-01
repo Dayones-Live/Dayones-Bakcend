@@ -269,6 +269,14 @@ export class ArtistPostUserService {
         ]) // Select specific fields from user
         .leftJoinAndSelect('comment.commentReaction', 'commentReaction')
         .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+        .leftJoin('reaction.user', 'reactedUser')
+        .addSelect([
+          'reactedUser.id',
+          'reactedUser.full_name',
+          'reactedUser.email',
+          'reactedUser.phone_number',
+          'reactedUser.avatar_url',
+        ]) // Select specific fields from user
         .leftJoin('artistPostUser.user', 'user')
         .addSelect([
           'user.id',

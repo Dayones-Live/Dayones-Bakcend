@@ -67,6 +67,6 @@ export class ArtistPostUser extends BaseEntity {
   @OneToMany(() => Comments, (comments) => comments.artistPostUser)
   comment?: Comments[];
 
-  @OneToOne(() => Reactions, (reaction) => reaction.artistPostUser)
-  reaction: Reactions;
+  @OneToMany(() => Reactions, (reaction) => reaction.artistPostUser)
+  reaction: Reactions[];
 }

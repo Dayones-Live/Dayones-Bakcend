@@ -41,7 +41,7 @@ export class ArtistPostUserMapper {
     let isReacted = 0;
     const userComments: CommentsWithUserResponse[] = [];
     const artistComments: CommentsWithUserResponse[] = [];
-    const userReactions: ReactionsWithUserResponse[] = [];
+    let userReactions: ReactionsWithUserResponse[] = [];
 
     if (!artistValidInvites || artistValidInvites.length === 0) {
       return {
@@ -55,12 +55,21 @@ export class ArtistPostUserMapper {
     // Iterate over the array
     artistValidInvites.forEach((invite) => {
       // Set reaction from the first record
-      isReacted =
-        invite?.user?.role[0] === Roles.USER && invite?.reaction ? 1 : 0;
       const { role, ...userWithoutRole } = invite?.user;
       // Handle reaction user if exists
-      if (invite?.reaction) {
-        userReactions.push({ ...invite.reaction, user: userWithoutRole });
+      if (invite?.reaction && invite?.status === Invite_Status.GENERIC) {
+        userReactions =
+          invite?.reaction as unknown as ReactionsWithUserResponse[];
+      } else {
+        if (invite?.reaction?.length > 0) {
+          userReactions.push({
+            ...invite?.reaction[0],
+            user:
+              invite?.status === Invite_Status.GENERIC
+                ? userWithoutRole
+                : invite?.user,
+          });
+        }
       }
       invite?.comment?.forEach((comment: Comments) => {
         const commentReactionCount = comment.commentReaction?.length || 0;

@@ -6,6 +6,7 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
   Unique,
@@ -25,9 +26,13 @@ export class Reactions extends BaseEntity {
   @Index()
   artist_post_user_id: string;
 
-  @OneToOne(() => ArtistPostUser, (artistPostUser) => artistPostUser.reaction, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(
+    () => ArtistPostUser,
+    (artistPostUser) => artistPostUser.reaction,
+    {
+      onDelete: 'CASCADE',
+    },
+  )
   @JoinColumn({ name: 'artist_post_user_id' })
   artistPostUser: ArtistPostUser;
 
