@@ -77,6 +77,7 @@ export class CommentsService {
         }
         createCommentInput.artistPostUserId = artistPostUser?.id;
         const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
+        console.log('🚀 ~ CommentsService ~ commentDto:', commentDto);
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
       }
@@ -222,7 +223,7 @@ export class CommentsService {
 
       if (this.isCommentOwnedByUser(comment, userId, user)) {
         throw new HttpException(
-          ERROR_MESSAGES.COMMENT_NOT_FOUND,
+          ERROR_MESSAGES.COMMENT_OR_REPLY_NOT_BE_SELF_LIKE,
           HttpStatus.NOT_FOUND,
         );
       }

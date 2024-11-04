@@ -38,58 +38,80 @@ export class ArtistPostUserMapper {
   }
 
   processArtistValidInvites(artistValidInvites?: ArtistPostUser[]) {
-    let isReacted = 0;
-    const userComments: CommentsWithUserResponse[] = [];
-    const artistComments: CommentsWithUserResponse[] = [];
+    let userComments: CommentsWithUserResponse[] = [];
+    let artistComments: CommentsWithUserResponse[] = [];
     let userReactions: ReactionsWithUserResponse[] = [];
+    const repliesMap: Record<string, CommentsWithUserResponse[]> = {};
 
     if (!artistValidInvites || artistValidInvites.length === 0) {
       return {
         post: {} as ArtistPost,
-        reaction: userReactions,
+        reactions: userReactions,
         comments: userComments,
         artistComments,
       };
     }
 
-    // Iterate over the array
     artistValidInvites.forEach((invite) => {
-      // Set reaction from the first record
       const { role, ...userWithoutRole } = invite?.user;
-      // Handle reaction user if exists
+
+      // Handle reactions
       if (invite?.reaction && invite?.status === Invite_Status.GENERIC) {
         userReactions =
           invite?.reaction as unknown as ReactionsWithUserResponse[];
-      } else {
-        if (invite?.reaction?.length > 0) {
-          userReactions.push({
-            ...invite?.reaction[0],
-            user:
-              invite?.status === Invite_Status.GENERIC
-                ? userWithoutRole
-                : invite?.user,
-          });
-        }
+      } else if (invite?.reaction?.length > 0) {
+        userReactions.push({
+          ...invite?.reaction[0],
+          user:
+            invite?.status === Invite_Status.GENERIC
+              ? userWithoutRole
+              : invite?.user,
+        });
       }
+
+      // Process comments
       invite?.comment?.forEach((comment: Comments) => {
         const commentReactionCount = comment.commentReaction?.length || 0;
         const { commentReaction, user: commentedUser, ...rest } = comment;
-        const commentWithReactionCount = {
+
+        // Construct comment object
+        const commentWithDetails = {
           ...rest,
+
           commentReaction:
             commentReaction?.map((reaction) => reaction.liked_by) || [],
+
           commentReactionCount,
           user:
             invite?.status === Invite_Status.GENERIC && comment?.comment_by
               ? commentedUser
               : userWithoutRole,
         };
-        if (invite?.user?.role[0] === Roles.USER || comment?.comment_by) {
-          userComments.push(commentWithReactionCount); // Include user info in the comment
-        } else if (invite?.user?.role[0] === Roles.ARTIST) {
-          artistComments.push(commentWithReactionCount); // Include user info in the comment
+
+        // Check if the comment is a reply
+        if (comment.parent_comment_id) {
+          // If it's a reply, add it to the replies map
+          repliesMap[comment.parent_comment_id] =
+            repliesMap[comment.parent_comment_id] || [];
+          repliesMap[comment.parent_comment_id].push(commentWithDetails);
+        } else {
+          // If it's a top-level comment, push it directly to the appropriate array
+          if (invite?.user?.role[0] === Roles.USER || comment?.comment_by) {
+            userComments.push(commentWithDetails);
+          } else if (invite?.user?.role[0] === Roles.ARTIST) {
+            artistComments.push(commentWithDetails);
+          }
         }
       });
+    });
+
+    // Attach replies to their corresponding parent comments
+    userComments.forEach((comment) => {
+      comment.replies = repliesMap[comment.id] || []; // Attach replies if any
+    });
+
+    artistComments.forEach((comment) => {
+      comment.replies = repliesMap[comment.id] || []; // Attach replies if any
     });
 
     return {
