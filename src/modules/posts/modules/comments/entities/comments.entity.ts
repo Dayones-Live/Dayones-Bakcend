@@ -13,7 +13,7 @@ import {
 import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 import { CommentReactions } from '../../comment-reactions/entities/comment-reaction.entity';
 import { User } from '@app/modules/user/entities/user.entity';
-import { Media_Type } from '@app/shared/constants/constants';
+import { Media_Type } from '@app/types';
 
 @Entity({ name: 'comments' })
 @Unique(['id'])
@@ -84,5 +84,5 @@ export class Comments extends BaseEntity {
 
   @Column({ nullable: true })
   @IsOptional()
-  mediaType: Media_Type;
+  media_type: Media_Type;
 }

@@ -65,9 +65,3 @@ export enum SUCCESS_MESSAGES {
   COMMENT_DISLIKED_SUCCESS = 'Comment disliked successfully',
   POST_COMMENTS_LIKED_SUCCESS = 'Post comments liked successfully',
 }
-
-export enum Media_Type {
-  PHOTO = 'PHOTO',
-  VIDEO = 'VIDEO',
-  AUDIO = 'AUDIO',
-}

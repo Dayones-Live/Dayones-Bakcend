@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsOptional } from 'class-validator';
 import { Message } from '../entities/message.entity';
 import { PaginationDto, PaginationResponse } from '@app/types';
-import { Media_Type } from '@app/shared/constants/constants';
+import { Media_Type } from '@app/types';
 
 export class SendMessageInput {
   @IsNotEmpty({ message: 'Conversation ID is required' })

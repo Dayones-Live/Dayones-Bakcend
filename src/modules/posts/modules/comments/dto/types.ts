@@ -1,5 +1,5 @@
-import { Media_Type } from '@app/shared/constants/constants';
-import { IsNotEmpty, IsOptional, IsUUID, ValidateIf } from 'class-validator';
+import { Media_Type } from '@app/types';
+import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 
 export class CreateCommentInput {
   @IsOptional()

@@ -77,7 +77,6 @@ export class CommentsService {
         }
         createCommentInput.artistPostUserId = artistPostUser?.id;
         const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
-        console.log('🚀 ~ CommentsService ~ commentDto:', commentDto);
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
       }

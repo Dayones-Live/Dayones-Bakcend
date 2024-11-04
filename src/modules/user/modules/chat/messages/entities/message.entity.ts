@@ -11,7 +11,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Conversations } from '../../conversations/entities/conversation.entity';
-import { Media_Type } from '@app/shared/constants/constants';
+import { Media_Type } from '@app/types';
 
 @Entity({ name: 'messages' })
 @Unique(['id'])
@@ -47,7 +47,7 @@ export class Message extends BaseEntity {
 
   @Column({ nullable: true })
   @IsOptional()
-  mediaType: Media_Type;
+  media_type: Media_Type;
 
   @Column({ default: false })
   is_read: boolean;
