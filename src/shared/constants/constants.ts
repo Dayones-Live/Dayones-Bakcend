@@ -28,6 +28,7 @@ export enum ERROR_MESSAGES {
   SIGNATURE_NOT_FOUND = 'Signature not found',
   COMMENT_ALREADY_LIKED_BY_USER = 'Comment is already liked by the User',
   COMMENT_NOT_LIKED_BY_USER = 'Comment is not liked by user',
+  COMMENT_OR_REPLY_NOT_BE_SELF_LIKE = 'Not Allowed to Like Own Comment/Reply',
 }
 
 export enum SUCCESS_MESSAGES {
@@ -55,6 +56,7 @@ export enum SUCCESS_MESSAGES {
   POSTS_FETCHED_SUCCESS = 'Posts Fetched Successfully',
   COMMENT_CREATED_SUCCESS = 'Comment added successfully',
   COMMENT_DELETED_SUCCESS = 'Comment deleted successfully',
+  REPLAY_CREATED_SUCCESS = 'Reply added successfully',
   LIKE_ADDED_SUCCESS = 'Reaction added successfully',
   LIKE_DELETED_SUCCESS = 'Reaction deleted successfully',
   INVITES_FETCH_SUCCESS = 'Invites Fetch Successfully',

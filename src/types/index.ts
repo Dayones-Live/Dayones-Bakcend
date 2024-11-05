@@ -17,3 +17,9 @@ export class Meta {
   size: number;
   pages: number;
 }
+
+export enum Media_Type {
+  PHOTO = 'PHOTO',
+  VIDEO = 'VIDEO',
+  AUDIO = 'AUDIO',
+}

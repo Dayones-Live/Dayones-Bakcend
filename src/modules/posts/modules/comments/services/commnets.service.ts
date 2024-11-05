@@ -222,7 +222,7 @@ export class CommentsService {
 
       if (this.isCommentOwnedByUser(comment, userId, user)) {
         throw new HttpException(
-          ERROR_MESSAGES.COMMENT_NOT_FOUND,
+          ERROR_MESSAGES.COMMENT_OR_REPLY_NOT_BE_SELF_LIKE,
           HttpStatus.NOT_FOUND,
         );
       }

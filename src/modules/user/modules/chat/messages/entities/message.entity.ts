@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { User } from '@user/entities/user.entity';
 import {
   BaseEntity,
@@ -11,6 +11,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Conversations } from '../../conversations/entities/conversation.entity';
+import { Media_Type } from '@app/types';
 
 @Entity({ name: 'messages' })
 @Unique(['id'])
@@ -43,6 +44,10 @@ export class Message extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   url: string;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  media_type: Media_Type;
 
   @Column({ default: false })
   is_read: boolean;

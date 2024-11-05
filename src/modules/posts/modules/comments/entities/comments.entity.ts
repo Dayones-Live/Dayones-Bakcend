@@ -13,6 +13,7 @@ import {
 import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 import { CommentReactions } from '../../comment-reactions/entities/comment-reaction.entity';
 import { User } from '@app/modules/user/entities/user.entity';
+import { Media_Type } from '@app/types';
 
 @Entity({ name: 'comments' })
 @Unique(['id'])
@@ -31,6 +32,21 @@ export class Comments extends BaseEntity {
   })
   @JoinColumn({ name: 'artist_post_user_id' })
   artistPostUser: ArtistPostUser;
+
+  @Column({ nullable: true })
+  @IsUUID()
+  @Index()
+  parent_comment_id: string;
+
+  @ManyToOne(() => Comments, (comment) => comment.replies, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'parent_comment_id' })
+  parentComment: Comments;
+
+  @OneToMany(() => Comments, (comment) => comment.parentComment)
+  replies: Comments[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
@@ -65,4 +81,8 @@ export class Comments extends BaseEntity {
   @Column({ nullable: true })
   @IsOptional()
   url: string;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  media_type: Media_Type;
 }

@@ -79,6 +79,9 @@ export class CommentsWithUserResponse {
 
   @IsOptional()
   user: Partial<User>;
+
+  @IsOptional()
+  replies?: CommentsWithUserResponse[];
 }
 
 export class ReactionsWithUserResponse {
