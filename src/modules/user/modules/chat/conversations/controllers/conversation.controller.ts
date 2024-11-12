@@ -100,7 +100,6 @@ export class ConversationController {
    * @throws HttpException if the user is not found.
    */
   @Delete(':id')
-  @Role(Roles.ARTIST)
   async deleteConversation(@Param('id') id: string, @Res() res: Response) {
     try {
       const response = await this.conversationService.deleteConversation(id);
