@@ -23,7 +23,6 @@ import { Reactions } from '@app/modules/posts/modules/reactions/entities/reactio
 
 @Entity('user')
 @Unique(['email'])
-@Unique(['phone_number'])
 export class User extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -41,7 +40,6 @@ export class User extends BaseEntity {
 
   @Column({ nullable: false })
   @IsNotEmpty({ message: 'Phone no is required' })
-  @Index()
   phone_number: string;
 
   @Column({ nullable: false, default: false })
