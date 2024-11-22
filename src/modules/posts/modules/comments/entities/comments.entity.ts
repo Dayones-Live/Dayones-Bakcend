@@ -14,6 +14,7 @@ import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user
 import { CommentReactions } from '../../comment-reactions/entities/comment-reaction.entity';
 import { User } from '@app/modules/user/entities/user.entity';
 import { Media_Type } from '@app/types';
+import { Report } from '@app/modules/report/entities/report.entity';
 
 @Entity({ name: 'comments' })
 @Unique(['id'])
@@ -85,4 +86,7 @@ export class Comments extends BaseEntity {
   @Column({ nullable: true })
   @IsOptional()
   media_type: Media_Type;
+
+  @OneToMany(() => Report, (report) => report.reportedComment)
+  report: Report[];
 }
