@@ -17,6 +17,7 @@ import { FirebaseModule } from '@app/modules/user/modules/ notifications/notific
 import { ScheduleModule } from '@nestjs/schedule';
 import { CommentReactionsModule } from '@app/modules/posts/modules/comment-reactions/comment-reactions.module';
 import { ReportModule } from '@app/modules/report/report.module';
+import { FeedbackModule } from '@app/modules/user/modules/feedback/feedback.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ReportModule } from '@app/modules/report/report.module';
     FirebaseModule,
     CommentReactionsModule,
     ReportModule,
+    FeedbackModule,
   ],
 })
 export class AppConfigModule {}

@@ -11,10 +11,11 @@ import {
 import { Response, Request } from 'express';
 import { CognitoGuard } from '../../auth/guards/aws.cognito.guard';
 
-import { SUCCESS_MESSAGES } from '@app/shared/constants/constants';
+import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import { UserService } from '@app/modules/user/services/user.service';
 import { ReportService } from '../services/report.service';
 import { SaveReportInput } from '../dto/types';
+import { Role } from '@app/modules/auth/decorators/roles.decorator';
 
 @Controller('report')
 export class ReportController {
@@ -44,9 +45,10 @@ export class ReportController {
     }
   }
 
+  @Role(Roles.SUPER_ADMIN)
   @UseGuards(CognitoGuard)
   @Get()
-  async getAllREports(
+  async getAllReports(
     @Res()
     res: Response,
     @Req() req: Request,

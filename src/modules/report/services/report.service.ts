@@ -13,6 +13,11 @@ export class ReportService {
     private reportMapper: ReportMapper,
   ) {}
 
+  /**
+   * Service to save the user reports against {comment, post, user}
+   * @param saveReportInput
+   * @returns {Report}
+   */
   async saveReport(saveReportInput: SaveReportInput): Promise<Report> {
     try {
       const reportDto = this.reportMapper.dtoToEntity(saveReportInput);
@@ -28,7 +33,7 @@ export class ReportService {
   }
 
   /**
-   * Service to fetch all logged in user signatures
+   * Service to fetch all reports logged by users
    * @returns {Report[]}
    */
   async fetchAllReports(): Promise<Report[]> {

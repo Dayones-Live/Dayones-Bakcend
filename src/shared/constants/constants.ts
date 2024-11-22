@@ -3,6 +3,7 @@ export const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[@#$%^&+=]).{8,}$/;
 export enum Roles {
   USER = 'USER',
   ARTIST = 'ARTIST',
+  'SUPER_ADMIN' = 'SUPER_ADMIN',
 }
 
 export enum ERROR_MESSAGES {
@@ -66,4 +67,6 @@ export enum SUCCESS_MESSAGES {
   POST_COMMENTS_LIKED_SUCCESS = 'Post comments liked successfully',
   REPORT_SAVED_SUCCESS = 'Report saved successfully',
   REPORTS_FETCHED_SUCCESS = 'Report fetched successfully',
+  FEEDBACK_SAVED_SUCCESS = 'Feedback saved successfully',
+  FEEDBACK_FETCHED_SUCCESS = 'Feedback fetched successfully',
 }
