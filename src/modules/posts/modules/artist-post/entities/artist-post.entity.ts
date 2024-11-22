@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { Post_Type } from '../constants';
 import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
+import { Report } from '@app/modules/report/entities/report.entity';
 
 @Entity({ name: 'artist_post' })
 @Unique(['id'])
@@ -75,4 +76,7 @@ export class ArtistPost extends BaseEntity {
   @Column({ nullable: true })
   @IsOptional()
   locale: string;
+
+  @OneToMany(() => Report, (report) => report.reportedPost)
+  report?: Report[];
 }

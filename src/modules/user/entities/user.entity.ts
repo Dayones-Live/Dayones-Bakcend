@@ -20,6 +20,8 @@ import { Notifications } from '../modules/ notifications/entities/notifications.
 import { CommentReactions } from '@app/modules/posts/modules/comment-reactions/entities/comment-reaction.entity';
 import { Comments } from '@app/modules/posts/modules/comments/entities/comments.entity';
 import { Reactions } from '@app/modules/posts/modules/reactions/entities/reaction.entity';
+import { Report } from '@app/modules/report/entities/report.entity';
+import { Feedback } from '../modules/feedback/entitites/feedback.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -122,4 +124,13 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Reactions, (reaction) => reaction.user)
   reaction?: Reactions[];
+
+  @OneToMany(() => Report, (report) => report.reportedBy)
+  reportBy?: Report[];
+
+  @OneToMany(() => Report, (report) => report.reportedUser)
+  reportTo?: Report[];
+
+  @OneToOne(() => Feedback, (feedback) => feedback.user)
+  feedback: Feedback;
 }
