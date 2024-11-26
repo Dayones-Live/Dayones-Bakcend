@@ -174,6 +174,7 @@ export class CognitoService {
    * @returns {AccessToken}
    */
   async signIn(signInData: SignInUserInput): Promise<GlobalServiceResponse> {
+    await this.userService.checkUserActiveByEmail(signInData.username);
     const params = {
       AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
       ClientId: this.clientId || '',
@@ -222,7 +223,7 @@ export class CognitoService {
         message: 'Authentication failed: Invalid credentials',
       };
     } catch (error) {
-      throw error;
+      throw new HttpException(`${error.message}`, HttpStatus.UNAUTHORIZED);
     }
   }
 

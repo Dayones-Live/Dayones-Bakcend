@@ -152,21 +152,20 @@ export class UserService {
    * @param data
    * @returns {User}
    */
-  async findUserByUserEmailOrPhone(data: string): Promise<Boolean> {
+  async checkUserActiveByEmail(data: string): Promise<User | null> {
     try {
       const user: User | null = await this.userRepository.findOne({
         where: [
-          { phone_number: data }, // Search by phone_number
-          { email: data }, // Search by email
+          { email: data, is_active: false }, // Search by email
         ],
       });
       if (user) {
         throw new HttpException(
-          `User with this data already exist`,
-          HttpStatus.CONFLICT,
+          `User with email: ${data} is deleted`,
+          HttpStatus.NOT_FOUND,
         );
       }
-      return true;
+      return user;
     } catch (error) {
       console.error(
         '🚀 ~ file: user.service.ts ~ UserService ~ findUserById ~ error:',
