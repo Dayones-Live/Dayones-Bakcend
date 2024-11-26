@@ -17,6 +17,7 @@ export class UserMapper {
       updateUserInput.avatarUrl || existingUser.avatar_url;
     existingUser.is_confirmed =
       updateUserInput.isConfirmed ?? existingUser.is_confirmed;
+    existingUser.is_active = updateUserInput.isActive ?? existingUser.is_active;
 
     // Any additional properties can be updated similarly
     return existingUser;

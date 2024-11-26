@@ -17,6 +17,9 @@ export class UserUpdateInput {
 
   @IsOptional()
   avatarUrl?: string;
+
+  @IsOptional()
+  isActive?: boolean;
 }
 
 export class UpdateUserLocationInput {

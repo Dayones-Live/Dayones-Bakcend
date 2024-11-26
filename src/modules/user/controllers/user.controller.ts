@@ -94,4 +94,21 @@ export class UserController {
       throw error;
     }
   }
+
+  @UseGuards(CognitoGuard)
+  @Post('delete-user')
+  async deleteCurrentUser(@Res() res: Response, @Req() req: Request) {
+    try {
+      const response = await this.userService.deleteCurrentUser(
+        req?.user?.id || '',
+      );
+      res.status(HttpStatus.CREATED).json({
+        message: SUCCESS_MESSAGES.USER_DELETE_SUCCESS,
+        data: response,
+      });
+    } catch (error) {
+      console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
+      throw error;
+    }
+  }
 }

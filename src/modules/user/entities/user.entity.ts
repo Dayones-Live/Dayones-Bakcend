@@ -41,7 +41,7 @@ export class User extends BaseEntity {
   @IsEmail({}, { message: 'Invalid email format' })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: false })
   @IsNotEmpty({ message: 'Phone no is required' })
   phone_number: string;
 
@@ -65,6 +65,9 @@ export class User extends BaseEntity {
 
   @Column({ nullable: true })
   avatar_url: string;
+
+  @Column({ nullable: false, default: true })
+  is_active: boolean;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

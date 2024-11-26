@@ -222,10 +222,7 @@ export class CognitoService {
         message: 'Authentication failed: Invalid credentials',
       };
     } catch (error) {
-      throw new HttpException(
-        `Unauthorized user: ${error.message}`,
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw error;
     }
   }
 

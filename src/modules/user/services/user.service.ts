@@ -101,11 +101,11 @@ export class UserService {
   async findUserByUserSub(id: string): Promise<User> {
     try {
       const user: User | null = await this.userRepository.findOne({
-        where: { user_sub: id },
+        where: { user_sub: id, is_active: true },
       });
       if (!user) {
         throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
+          ERROR_MESSAGES.USER_DELETED_ERROR,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -511,6 +511,41 @@ export class UserService {
         error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Service to delete the user
+   * @param id
+   * @returns
+   */
+  async deleteCurrentUser(id: string): Promise<Boolean> {
+    try {
+      // Check if the user exists and is active
+      const existingUser = await this.userRepository.findOne({
+        where: { id: id, is_active: true },
+      });
+      if (!existingUser) {
+        throw new HttpException(
+          `User with ID: ${id} does not exist or is already deleted`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      const updateUserDto = this.userMapper.dtoToEntityUpdate(existingUser, {
+        isActive: false,
+      });
+      // Update existing user
+      await this.userRepository.save(updateUserDto);
+      return true;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts:96 ~ UserService ~ updateUser ~ error:',
+        error,
+      );
+      throw new HttpException(
+        `User update error: ${error?.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 }
