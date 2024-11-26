@@ -63,6 +63,7 @@ export class ArtistPostService {
         radiusInMeters: createArtistPostInput.range,
         longitude: Number(createArtistPostInput.longitude),
         latitude: Number(createArtistPostInput.latitude),
+        currentUserId: createArtistPostInput?.userId,
       });
       const minutesToAdd = artistPost.type === Post_Type.INVITE_PHOTO ? 15 : 5;
       // Loop on users and add it in artist post user
@@ -456,6 +457,17 @@ export class ArtistPostService {
             .where('artistPost.id IN (:...acceptedPostIds)', {
               acceptedPostIds,
             }) // Filter by artistPostIds
+            .leftJoin(
+              'blocks',
+              'block',
+              `
+                (block.blocked_by = :currentUserId AND block.blocked_user = user.id)
+                OR
+                (block.blocked_user = :currentUserId AND block.blocked_by = user.id)
+              `,
+              { currentUserId: user?.id },
+            )
+            .andWhere('block.id IS NULL') // Exclude blocked users
             .skip(paginate.offset) // Apply pagination offset
             .take(paginate.limit) // Apply pagination limit
             .getManyAndCount();

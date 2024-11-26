@@ -30,6 +30,8 @@ export enum ERROR_MESSAGES {
   COMMENT_ALREADY_LIKED_BY_USER = 'Comment is already liked by the User',
   COMMENT_NOT_LIKED_BY_USER = 'Comment is not liked by user',
   COMMENT_OR_REPLY_NOT_BE_SELF_LIKE = 'Not Allowed to Like Own Comment/Reply',
+  CANNOT_BLOCK_YOURSELF = 'You cannot block yourself!',
+  USER_NOT_BLOCK = 'User is not block!',
 }
 
 export enum SUCCESS_MESSAGES {
@@ -69,4 +71,6 @@ export enum SUCCESS_MESSAGES {
   REPORTS_FETCHED_SUCCESS = 'Report fetched successfully',
   FEEDBACK_SAVED_SUCCESS = 'Feedback saved successfully',
   FEEDBACK_FETCHED_SUCCESS = 'Feedback fetched successfully',
+  USER_BLOCK_SUCCESS = 'User Blocked successfully',
+  USER_UNBLOCK_SUCCESS = 'User Unblocked successfully',
 }

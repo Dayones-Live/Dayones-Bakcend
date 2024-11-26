@@ -36,6 +36,9 @@ export class FetchNearByUsersInput {
 
   @IsNotEmpty({ message: 'Radius in meter is required' })
   radiusInMeters: number;
+
+  @IsNotEmpty({ message: 'Current Logged in user id is required' })
+  currentUserId: string;
 }
 
 export class UpdateUserLocationAndNotificationInput {

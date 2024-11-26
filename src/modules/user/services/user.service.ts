@@ -367,7 +367,8 @@ export class UserService {
     fetchNearByUsersInput: FetchNearByUsersInput,
   ): Promise<any> {
     try {
-      const { latitude, longitude, radiusInMeters } = fetchNearByUsersInput;
+      const { latitude, longitude, radiusInMeters, currentUserId } =
+        fetchNearByUsersInput;
       const queryBuilder = this.userRepository.createQueryBuilder('user');
       const query = queryBuilder
         .select([
@@ -377,6 +378,16 @@ export class UserService {
             ST_MakePoint(${longitude}, ${latitude})
           ) AS distance_in_meters`,
         ])
+        .leftJoin(
+          'blocks',
+          'block',
+          `
+            (block.blocked_by = :currentUserId AND block.blocked_user = "user".id)
+            OR
+            (block.blocked_user = :currentUserId AND block.blocked_by = "user".id)
+          `,
+          { currentUserId },
+        )
         .where(`"user"."latitude" <> ''`)
         .andWhere(`"user"."longitude" <> ''`)
         .andWhere(':role = ANY(user.role)', { role: Roles.USER })
@@ -387,6 +398,7 @@ export class UserService {
             ST_MakePoint(${longitude}, ${latitude})
           ) <= ${radiusInMeters}`, // This checks if users are within the radius
         )
+        .andWhere('block.id IS NULL') // Exclude blocked users
         .orderBy(`distance_in_meters`, 'ASC');
 
       const res = await query.getRawMany();

@@ -22,6 +22,7 @@ import { Comments } from '@app/modules/posts/modules/comments/entities/comments.
 import { Reactions } from '@app/modules/posts/modules/reactions/entities/reaction.entity';
 import { Report } from '@app/modules/report/entities/report.entity';
 import { Feedback } from '../modules/feedback/entitites/feedback.entity';
+import { Blocks } from '../modules/blocks/entities/blocks.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -40,7 +41,7 @@ export class User extends BaseEntity {
   @IsEmail({}, { message: 'Invalid email format' })
   email: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   @IsNotEmpty({ message: 'Phone no is required' })
   phone_number: string;
 
@@ -133,4 +134,10 @@ export class User extends BaseEntity {
 
   @OneToOne(() => Feedback, (feedback) => feedback.user)
   feedback: Feedback;
+
+  @OneToMany(() => Blocks, (blocks) => blocks.blockedBy)
+  blockedBy?: Blocks[];
+
+  @OneToMany(() => Blocks, (blocks) => blocks.blockedUser)
+  blockedUser?: Blocks[];
 }
