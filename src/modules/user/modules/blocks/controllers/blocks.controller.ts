@@ -18,11 +18,21 @@ import { SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import { CognitoGuard } from '@app/modules/auth/guards/aws.cognito.guard';
 import { BlockUserInput } from '../dto/types';
 import { BlocksService } from '../services/blocks.service';
+import { GlobalServiceResponse } from '@app/shared/types/types';
 
 @Controller('blocks')
 export class BlocksController {
   constructor(private blockService: BlocksService) {}
 
+  /**
+   *  Service to block a user
+   * @param blockUserInput
+   * @param res
+   * @param req
+   * @return {GlobalServiceResponse}
+   *
+   * @throws Error if blocking yourself or blocking, already blocked user and user that doesn't exist
+   */
   @UseGuards(CognitoGuard)
   @Post()
   async blockUser(
@@ -44,6 +54,16 @@ export class BlocksController {
       throw error;
     }
   }
+
+  /**
+   *  Service to unblock a user
+   * @param blockUserInput
+   * @param res
+   * @param req
+   * @return {GlobalServiceResponse}
+   *
+   * @throws Error if unblocking a not blocked user
+   */
   @UseGuards(CognitoGuard)
   @Delete(':id')
   async unblockUser(
@@ -67,6 +87,14 @@ export class BlocksController {
     }
   }
 
+  /**
+   *  Service to get all blocked user of current logged in user
+   * @param res
+   * @param req
+   * @query pageNo
+   * @query pageSize
+   * @return {GlobalServiceResponse}
+   */
   @UseGuards(CognitoGuard)
   @Get()
   async getAllBlockUsers(

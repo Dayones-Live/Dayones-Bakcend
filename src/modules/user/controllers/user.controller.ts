@@ -18,6 +18,7 @@ import {
 } from '../dto/types';
 import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import { Role } from '@app/modules/auth/decorators/roles.decorator';
+import { GlobalServiceResponse } from '@app/shared/types/types';
 
 @ApiTags('user')
 @Controller('user')
@@ -95,6 +96,14 @@ export class UserController {
     }
   }
 
+  /**
+   *  Service to soft delete the user from database
+   * @param res
+   * @param req
+   * @return {GlobalServiceResponse}
+   *
+   * @throws Error if User is already deleted or user doesn't exist
+   */
   @UseGuards(CognitoGuard)
   @Post('delete-user')
   async deleteLoggedInUser(@Res() res: Response, @Req() req: Request) {

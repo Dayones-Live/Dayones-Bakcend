@@ -8,7 +8,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { User } from '../../../entities/user.entity';
+import { User } from '@user/entities/user.entity';
 import { IsUUID } from 'class-validator';
 
 @Entity('blocks')

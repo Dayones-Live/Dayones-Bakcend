@@ -96,7 +96,7 @@ export class CognitoService {
    * This service will confirm the user signup after verifying the code
    * @param username
    * @param confirmationCode
-   * @returns {}
+   * @returns {GlobalServiceResponse}
    */
   async confirmSignUp(
     username: string,
@@ -288,7 +288,7 @@ export class CognitoService {
   }
 
   /**
-   *
+   * Service to get current logged in user info
    * @param id
    * @returns {GlobalServiceResponse}
    */
@@ -362,7 +362,7 @@ export class CognitoService {
   /**
    * Service to send a password reset code to the user's email
    * @param username
-   * @returns {}
+   * @returns {GlobalServiceResponse}
    */
   async forgotPassword(username: string): Promise<GlobalServiceResponse> {
     const params = {
@@ -400,7 +400,7 @@ export class CognitoService {
    * @param username
    * @param confirmationCode
    * @param newPassword
-   * @returns {}
+   * @returns {GlobalServiceResponse}
    */
   async confirmForgotPassword(
     confirmForgotPasswordInput: ConfirmForgotPasswordInput,

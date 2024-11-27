@@ -22,6 +22,7 @@ import {
 } from '@cognito/dto/types';
 import { Token } from '@auth/decorators/auth.decorator';
 import { Public } from '../decorators/public.decorator';
+import { GlobalServiceResponse } from '@app/shared/types/types';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -131,6 +132,15 @@ export class AuthController {
     }
   }
 
+  /**
+   * Controller to update the current password
+   * @param updatePasswordInput
+   * @param res
+   * @param req
+   * @returns {GlobalServiceResponse}
+   *
+   * @throws Error if old password doesn't match
+   */
   @UseGuards(CognitoGuard)
   @Post('update-password')
   async updatePassword(
@@ -156,6 +166,15 @@ export class AuthController {
     }
   }
 
+  /**
+   * Controller to initiate the request for reset password with reset password verification code.
+   * @param forgotPasswordInput
+   * @param res
+   * @param req
+   * @returns {GlobalServiceResponse}
+   *
+   * @throws Error if email sent failed with confirmation code
+   */
   @UseGuards(CognitoGuard)
   @Post('forgot-password')
   async forgotPassword(
@@ -176,6 +195,15 @@ export class AuthController {
     }
   }
 
+  /**
+   * Controller to confirm the password reset with new password using confirmation code
+   * @param confirmForgotPasswordInput
+   * @param res
+   * @param req
+   * @returns {GlobalServiceResponse}
+   *
+   * @throws Error if confirmation code is incorrect and password policy don't satisfy
+   */
   @UseGuards(CognitoGuard)
   @Post('confirm-forgot-password')
   async confirmForgotPassword(

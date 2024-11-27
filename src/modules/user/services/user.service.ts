@@ -516,7 +516,7 @@ export class UserService {
   /**
    * Service to delete the user
    * @param id
-   * @returns
+   * @returns {Boolean}
    */
   async deleteCurrentLoggedInUser(id: string): Promise<Boolean> {
     try {
