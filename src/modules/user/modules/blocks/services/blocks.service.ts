@@ -18,6 +18,11 @@ export class BlocksService {
     private blockMapper: BlocksMapper,
   ) {}
 
+  /**
+   * Service to block a user
+   * @param blockUserInput
+   * @returns {Block}
+   */
   async blockUser(blockUserInput: BlockUserInput): Promise<Blocks> {
     try {
       const { blockedUser, blockedBy } = blockUserInput;
@@ -54,6 +59,11 @@ export class BlocksService {
     }
   }
 
+  /**
+   * Service to unblock a user
+   * @param unblockUserInput
+   * @returns {Boolean}
+   */
   async unblockUser(unblockUserInput: BlockUserInput): Promise<Boolean> {
     try {
       // Assuming unblockUserInput has identifiers to find the record
@@ -83,6 +93,12 @@ export class BlocksService {
     }
   }
 
+  /**
+   * Service to fetch all users b blocked by current user
+   * @param userId
+   * @param req
+   * @returns {AllBlockedUserResponse}
+   */
   async fetchAllBlockedUsers(
     userId: string,
     req: PaginationDto,

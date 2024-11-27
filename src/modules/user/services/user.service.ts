@@ -518,15 +518,15 @@ export class UserService {
    * @param id
    * @returns
    */
-  async deleteCurrentUser(id: string): Promise<Boolean> {
+  async deleteCurrentLoggedInUser(id: string): Promise<Boolean> {
     try {
-      // Check if the user exists and is active
+      // Check if the user exists and is already is_active throw error
       const existingUser = await this.userRepository.findOne({
         where: { id: id, is_active: true },
       });
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${id} does not exist or is already deleted`,
+          `User with ID: ${id} is already deleted`,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -541,10 +541,7 @@ export class UserService {
         '🚀 ~ file: user.service.ts:96 ~ UserService ~ updateUser ~ error:',
         error,
       );
-      throw new HttpException(
-        `User update error: ${error?.message}`,
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException(`${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }
 }

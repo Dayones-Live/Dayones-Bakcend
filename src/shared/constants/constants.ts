@@ -31,7 +31,7 @@ export enum ERROR_MESSAGES {
   COMMENT_NOT_LIKED_BY_USER = 'Comment is not liked by user',
   COMMENT_OR_REPLY_NOT_BE_SELF_LIKE = 'Not Allowed to Like Own Comment/Reply',
   CANNOT_BLOCK_YOURSELF = 'You cannot block yourself!',
-  USER_NOT_BLOCK = 'User is not block!',
+  USER_NOT_BLOCK = 'User is not blocked!',
   USER_DELETED_ERROR = 'User not found or already deleted',
 }
 
@@ -75,4 +75,5 @@ export enum SUCCESS_MESSAGES {
   USER_BLOCK_SUCCESS = 'User Blocked successfully',
   USER_UNBLOCK_SUCCESS = 'User Unblocked successfully',
   USER_DELETE_SUCCESS = 'User delete successfully',
+  BLOCK_USER_FETCHED_SUCCESS = 'Blocked users fetched successfully',
 }

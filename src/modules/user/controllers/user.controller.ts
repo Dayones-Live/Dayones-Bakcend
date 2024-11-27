@@ -97,9 +97,9 @@ export class UserController {
 
   @UseGuards(CognitoGuard)
   @Post('delete-user')
-  async deleteCurrentUser(@Res() res: Response, @Req() req: Request) {
+  async deleteLoggedInUser(@Res() res: Response, @Req() req: Request) {
     try {
-      const response = await this.userService.deleteCurrentUser(
+      const response = await this.userService.deleteCurrentLoggedInUser(
         req?.user?.id || '',
       );
       res.status(HttpStatus.CREATED).json({

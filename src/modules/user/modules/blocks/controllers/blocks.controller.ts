@@ -77,13 +77,13 @@ export class BlocksController {
     @Query('pageSize') pageSize: number = 10,
   ) {
     try {
-      const feedbacks = await this.blockService.fetchAllBlockedUsers(
+      const blockedUsers = await this.blockService.fetchAllBlockedUsers(
         req?.user?.id || '',
         { pageNo, pageSize },
       );
       res.status(HttpStatus.CREATED).json({
-        message: SUCCESS_MESSAGES.FEEDBACK_FETCHED_SUCCESS,
-        data: feedbacks,
+        message: SUCCESS_MESSAGES.BLOCK_USER_FETCHED_SUCCESS,
+        data: blockedUsers,
       });
     } catch (error) {
       console.error('🚀 ~ BlocksController ~ getAllBlockUsers ~ error:', error);
