@@ -19,7 +19,7 @@ export class UserUpdateInput {
   avatarUrl?: string;
 
   @IsOptional()
-  isActive?: boolean;
+  isDeleted?: boolean;
 }
 
 export class UpdateUserLocationInput {

@@ -16,7 +16,7 @@ export class UserSignUpInput {
   @IsNotEmpty({ message: 'Name is required' })
   name: string;
 
-  @IsNotEmpty({ message: 'Phone number is required' })
+  @IsOptional()
   phoneNumber: string;
 }
 
@@ -63,4 +63,31 @@ export class SignInUserInput {
   @IsOptional()
   @IsNotEmpty({ message: 'Password is required' })
   password: string;
+}
+
+export class UpdatePasswordInput {
+  @IsOptional()
+  accessToken: string;
+
+  @IsNotEmpty({ message: 'Old Password is required' })
+  previousPassword: string;
+
+  @IsNotEmpty({ message: 'New password is required' })
+  newPassword: string;
+}
+
+export class ForgotPasswordInput {
+  @IsNotEmpty({ message: 'User Name is required' })
+  @IsEmail({}, { message: 'User Name must be a valid email address' })
+  userName: string;
+}
+export class ConfirmForgotPasswordInput {
+  @IsNotEmpty({ message: 'Username is required' })
+  userName: string;
+
+  @IsNotEmpty({ message: 'Confirmation Code is required' })
+  confirmationCode: string;
+
+  @IsNotEmpty({ message: 'New password is required' })
+  newPassword: string;
 }

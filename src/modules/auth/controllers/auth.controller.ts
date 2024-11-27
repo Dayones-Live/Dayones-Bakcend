@@ -12,8 +12,11 @@ import { ApiTags } from '@nestjs/swagger';
 import { CognitoService } from '@libs/modules/aws/cognito/services/cognito.service';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import {
+  ConfirmForgotPasswordInput,
+  ForgotPasswordInput,
   ResendConfirmationCodeInput,
   SignInUserInput,
+  UpdatePasswordInput,
   UserConfirmationInput,
   UserSignUpInput,
 } from '@cognito/dto/types';
@@ -119,6 +122,71 @@ export class AuthController {
   async getCognitoUser(@Res() res: Response, @Req() req: Request) {
     try {
       const result = await this.cognitoService.getUser(req?.user?.id || '');
+      res
+        .status(result?.statusCode)
+        .json({ message: result?.message, data: result?.data || '' });
+    } catch (error) {
+      console.error('🚀 ~ CognitoController ~ getCognitoUser ~ error:', error);
+      throw error; // Handle the error appropriately
+    }
+  }
+
+  @UseGuards(CognitoGuard)
+  @Post('update-password')
+  async updatePassword(
+    @Body() updatePasswordInput: UpdatePasswordInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.split(' ')[1]; // Extract token after 'Bearer'
+      if (!token) {
+        return res.status(400).json({ message: 'Bearer token is missing' });
+      }
+      updatePasswordInput.accessToken = token;
+      const result =
+        await this.cognitoService.updatePassword(updatePasswordInput);
+      res
+        .status(result?.statusCode)
+        .json({ message: result?.message, data: result?.data || '' });
+    } catch (error) {
+      console.error('🚀 ~ CognitoController ~ getCognitoUser ~ error:', error);
+      throw error; // Handle the error appropriately
+    }
+  }
+
+  @UseGuards(CognitoGuard)
+  @Post('forgot-password')
+  async forgotPassword(
+    @Body() forgotPasswordInput: ForgotPasswordInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const result = await this.cognitoService.forgotPassword(
+        forgotPasswordInput.userName,
+      );
+      res
+        .status(result?.statusCode)
+        .json({ message: result?.message, data: result?.data || '' });
+    } catch (error) {
+      console.error('🚀 ~ CognitoController ~ getCognitoUser ~ error:', error);
+      throw error; // Handle the error appropriately
+    }
+  }
+
+  @UseGuards(CognitoGuard)
+  @Post('confirm-forgot-password')
+  async confirmForgotPassword(
+    @Body() confirmForgotPasswordInput: ConfirmForgotPasswordInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const result = await this.cognitoService.confirmForgotPassword(
+        confirmForgotPasswordInput,
+      );
       res
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });

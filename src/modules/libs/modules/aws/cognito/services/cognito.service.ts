@@ -1,8 +1,13 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import {
+  AdminUpdateUserAttributesCommand,
   AuthFlowType,
+  ChangePasswordCommand,
   CognitoIdentityProviderClient,
+  ConfirmForgotPasswordCommand,
   ConfirmSignUpCommand,
+  ForgotPasswordCommand,
+  GetUserAttributeVerificationCodeCommand,
   GlobalSignOutCommand,
   InitiateAuthCommand,
   ResendConfirmationCodeCommand,
@@ -11,7 +16,12 @@ import {
 import { cognitoJwtVerify } from '../constants/cognito.constants';
 import { computeSecretHash } from '../utils/cognito.utils';
 import { signupUserAttributes } from '../dto/constants';
-import { SignInUserInput, UserSignUpInput } from '../dto/types';
+import {
+  ConfirmForgotPasswordInput,
+  SignInUserInput,
+  UpdatePasswordInput,
+  UserSignUpInput,
+} from '../dto/types';
 import { GlobalServiceResponse } from '@app/shared/types/types';
 import { UserService } from '@user/services/user.service';
 import {
@@ -51,7 +61,7 @@ export class CognitoService {
         email,
         role,
         userFullName,
-        phoneNumber,
+        phoneNumber || '',
       ),
     };
     try {
@@ -101,6 +111,20 @@ export class CognitoService {
     try {
       const command = new ConfirmSignUpCommand(params);
       const result = await this.cognitoClient.send(command);
+      const paramsForVerifyEmail = {
+        UserPoolId: process.env.COGNITO_POOL_ID, // Replace with your user pool ID
+        Username: username,
+        UserAttributes: [
+          {
+            Name: 'email_verified',
+            Value: 'true',
+          },
+        ],
+      };
+      const commandForVerifyEmail = new AdminUpdateUserAttributesCommand(
+        paramsForVerifyEmail,
+      );
+      await this.cognitoClient.send(commandForVerifyEmail);
       // Check if the response is successful (HTTP 200)
       if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
         return {
@@ -288,6 +312,128 @@ export class CognitoService {
       throw new HttpException(
         `Unauthorized user: ${error.message}`,
         HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  /**
+   * Service to change the password for a Cognito user
+   * @param accessToken - User's access token
+   * @param previousPassword - Current password of the user
+   * @param proposedPassword - New password to set
+   * @returns {Promise<GlobalServiceResponse>}
+   */
+  async updatePassword(
+    updatePasswordInput: UpdatePasswordInput,
+  ): Promise<GlobalServiceResponse> {
+    const params = {
+      AccessToken: updatePasswordInput.accessToken,
+      PreviousPassword: updatePasswordInput.previousPassword,
+      ProposedPassword: updatePasswordInput.newPassword,
+    };
+
+    try {
+      const command = new ChangePasswordCommand(params);
+      const result = await this.cognitoClient.send(command);
+
+      if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
+        return {
+          message: 'Password changed successfully',
+          statusCode: result['$metadata'].httpStatusCode,
+        };
+      }
+
+      // Handle unexpected response codes
+      return {
+        message: 'Unexpected response from Cognito',
+        statusCode:
+          result['$metadata'].httpStatusCode ||
+          HttpStatus.INTERNAL_SERVER_ERROR,
+      };
+    } catch (error) {
+      console.error('🚀 ~ CognitoService ~ error:', error);
+      throw new HttpException(
+        `Change Password Error: ${error.message}`,
+        error['$metadata']?.httpStatusCode || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Service to send a password reset code to the user's email
+   * @param username
+   * @returns {}
+   */
+  async forgotPassword(username: string): Promise<GlobalServiceResponse> {
+    const params = {
+      ClientId: this.clientId || '',
+      Username: username,
+      SecretHash: computeSecretHash(username),
+    };
+    try {
+      const command = new ForgotPasswordCommand(params);
+      const result = await this.cognitoClient.send(command);
+      if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
+        return {
+          message: SUCCESS_MESSAGES.FORGOT_PASSWORD_EMAIL_SENT,
+          statusCode: result['$metadata'].httpStatusCode,
+        };
+      }
+      // Handle unexpected response
+      return {
+        message: 'Unexpected response from Cognito',
+        statusCode:
+          result['$metadata'].httpStatusCode ||
+          HttpStatus.INTERNAL_SERVER_ERROR,
+      };
+    } catch (error) {
+      console.error('Error in forgotPassword service:', error);
+      throw new HttpException(
+        `${ERROR_MESSAGES.FORGOT_PASSWORD_FAILED} ${error.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  /**
+   * Service to confirm password reset and set a new password
+   * @param username
+   * @param confirmationCode
+   * @param newPassword
+   * @returns {}
+   */
+  async confirmForgotPassword(
+    confirmForgotPasswordInput: ConfirmForgotPasswordInput,
+  ): Promise<GlobalServiceResponse> {
+    const params = {
+      ClientId: this.clientId || '',
+      Username: confirmForgotPasswordInput?.userName,
+      SecretHash: computeSecretHash(confirmForgotPasswordInput?.userName),
+      ConfirmationCode: confirmForgotPasswordInput?.confirmationCode,
+      Password: confirmForgotPasswordInput?.newPassword,
+    };
+
+    try {
+      const command = new ConfirmForgotPasswordCommand(params);
+      const result = await this.cognitoClient.send(command);
+      if (result['$metadata']?.httpStatusCode === HttpStatus.OK) {
+        return {
+          message: SUCCESS_MESSAGES.PASSWORD_RESET_SUCCESS,
+          statusCode: result['$metadata'].httpStatusCode,
+        };
+      }
+      // Handle unexpected response
+      return {
+        message: 'Unexpected response from Cognito',
+        statusCode:
+          result['$metadata'].httpStatusCode ||
+          HttpStatus.INTERNAL_SERVER_ERROR,
+      };
+    } catch (error) {
+      console.error('Error in confirmForgotPassword service:', error);
+      throw new HttpException(
+        `${ERROR_MESSAGES.PASSWORD_RESET_FAILED} ${error.message}`,
+        HttpStatus.BAD_REQUEST,
       );
     }
   }

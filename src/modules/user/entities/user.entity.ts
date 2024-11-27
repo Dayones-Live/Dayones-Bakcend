@@ -9,7 +9,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { IsEmail, IsNotEmpty, Length } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, Length } from 'class-validator';
 import { UserNotification } from '@user-notifications/entities/user-notifications.entity';
 import { Signatures } from '@signature/entities/signature.entity';
 import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
@@ -41,9 +41,9 @@ export class User extends BaseEntity {
   @IsEmail({}, { message: 'Invalid email format' })
   email: string;
 
-  @Column({ nullable: false })
-  @IsNotEmpty({ message: 'Phone no is required' })
-  phone_number: string;
+  @Column({ nullable: true })
+  @IsOptional()
+  phone_number?: string;
 
   @Column({ nullable: false, default: false })
   is_confirmed: boolean = false;
@@ -66,8 +66,8 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   avatar_url: string;
 
-  @Column({ nullable: false, default: true })
-  is_active: boolean;
+  @Column({ nullable: false, default: false })
+  is_deleted: boolean;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

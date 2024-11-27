@@ -33,6 +33,11 @@ export enum ERROR_MESSAGES {
   CANNOT_BLOCK_YOURSELF = 'You cannot block yourself!',
   USER_NOT_BLOCK = 'User is not blocked!',
   USER_DELETED_ERROR = 'User not found or already deleted',
+  FORGOT_PASSWORD_FAILED = 'Error in sending forgot password email',
+  PASSWORD_RESET_FAILED = 'Password reset failed',
+  VERIFICATION_CODE_FAILED = 'Verify Email code sent fail',
+  USER_ALREADY_DELETED = 'User is already deleted',
+  USER_DELETED = 'User is deleted',
 }
 
 export enum SUCCESS_MESSAGES {
@@ -76,4 +81,7 @@ export enum SUCCESS_MESSAGES {
   USER_UNBLOCK_SUCCESS = 'User Unblocked successfully',
   USER_DELETE_SUCCESS = 'User delete successfully',
   BLOCK_USER_FETCHED_SUCCESS = 'Blocked users fetched successfully',
+  FORGOT_PASSWORD_EMAIL_SENT = 'Password reset confirmation code email sent!',
+  PASSWORD_RESET_SUCCESS = 'Password reset successfully',
+  VERIFICATION_CODE_SENT = 'Verify email code sent',
 }

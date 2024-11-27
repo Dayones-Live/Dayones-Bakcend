@@ -101,7 +101,7 @@ export class UserService {
   async findUserByUserSub(id: string): Promise<User> {
     try {
       const user: User | null = await this.userRepository.findOne({
-        where: { user_sub: id, is_active: true },
+        where: { user_sub: id, is_deleted: false },
       });
       if (!user) {
         throw new HttpException(
@@ -156,12 +156,12 @@ export class UserService {
     try {
       const user: User | null = await this.userRepository.findOne({
         where: [
-          { email: data, is_active: false }, // Search by email
+          { email: data, is_deleted: true }, // Search by email
         ],
       });
       if (user) {
         throw new HttpException(
-          `User with email: ${data} is deleted`,
+          ERROR_MESSAGES.USER_DELETED,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -189,7 +189,7 @@ export class UserService {
 
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${id} does not exist`,
+          ERROR_MESSAGES.USER_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -232,7 +232,7 @@ export class UserService {
 
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${id} does not exist`,
+          ERROR_MESSAGES.USER_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -520,18 +520,24 @@ export class UserService {
    */
   async deleteCurrentLoggedInUser(id: string): Promise<Boolean> {
     try {
-      // Check if the user exists and is already is_active throw error
+      // Check if the user exists
       const existingUser = await this.userRepository.findOne({
-        where: { id: id, is_active: true },
+        where: { id: id },
       });
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${id} is already deleted`,
+          ERROR_MESSAGES.USER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      if (existingUser?.is_deleted === true) {
+        throw new HttpException(
+          ERROR_MESSAGES.USER_ALREADY_DELETED,
           HttpStatus.NOT_FOUND,
         );
       }
       const updateUserDto = this.userMapper.dtoToEntityUpdate(existingUser, {
-        isActive: false,
+        isDeleted: true,
       });
       // Update existing user
       await this.userRepository.save(updateUserDto);
