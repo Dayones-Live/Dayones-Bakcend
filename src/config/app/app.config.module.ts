@@ -18,6 +18,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { CommentReactionsModule } from '@app/modules/posts/modules/comment-reactions/comment-reactions.module';
 import { ReportModule } from '@app/modules/report/report.module';
 import { FeedbackModule } from '@app/modules/user/modules/feedback/feedback.module';
+import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { FeedbackModule } from '@app/modules/user/modules/feedback/feedback.modu
     CommentReactionsModule,
     ReportModule,
     FeedbackModule,
+    BlocksModule,
   ],
 })
 export class AppConfigModule {}

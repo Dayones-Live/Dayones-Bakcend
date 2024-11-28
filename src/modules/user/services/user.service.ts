@@ -101,11 +101,11 @@ export class UserService {
   async findUserByUserSub(id: string): Promise<User> {
     try {
       const user: User | null = await this.userRepository.findOne({
-        where: { user_sub: id },
+        where: { user_sub: id, is_deleted: false },
       });
       if (!user) {
         throw new HttpException(
-          ERROR_MESSAGES.USER_NOT_FOUND,
+          ERROR_MESSAGES.USER_DELETED_ERROR,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -152,21 +152,20 @@ export class UserService {
    * @param data
    * @returns {User}
    */
-  async findUserByUserEmailOrPhone(data: string): Promise<Boolean> {
+  async checkUserActiveByEmail(data: string): Promise<User | null> {
     try {
       const user: User | null = await this.userRepository.findOne({
         where: [
-          { phone_number: data }, // Search by phone_number
-          { email: data }, // Search by email
+          { email: data, is_deleted: true }, // Search by email
         ],
       });
       if (user) {
         throw new HttpException(
-          `User with this data already exist`,
-          HttpStatus.CONFLICT,
+          ERROR_MESSAGES.USER_DELETED,
+          HttpStatus.NOT_FOUND,
         );
       }
-      return true;
+      return user;
     } catch (error) {
       console.error(
         '🚀 ~ file: user.service.ts ~ UserService ~ findUserById ~ error:',
@@ -190,7 +189,7 @@ export class UserService {
 
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${id} does not exist`,
+          ERROR_MESSAGES.USER_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -233,7 +232,7 @@ export class UserService {
 
       if (!existingUser) {
         throw new HttpException(
-          `User with ID: ${id} does not exist`,
+          ERROR_MESSAGES.USER_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
@@ -367,7 +366,8 @@ export class UserService {
     fetchNearByUsersInput: FetchNearByUsersInput,
   ): Promise<any> {
     try {
-      const { latitude, longitude, radiusInMeters } = fetchNearByUsersInput;
+      const { latitude, longitude, radiusInMeters, currentUserId } =
+        fetchNearByUsersInput;
       const queryBuilder = this.userRepository.createQueryBuilder('user');
       const query = queryBuilder
         .select([
@@ -377,6 +377,16 @@ export class UserService {
             ST_MakePoint(${longitude}, ${latitude})
           ) AS distance_in_meters`,
         ])
+        .leftJoin(
+          'blocks',
+          'block',
+          `
+            (block.blocked_by = :currentUserId AND block.blocked_user = "user".id)
+            OR
+            (block.blocked_user = :currentUserId AND block.blocked_by = "user".id)
+          `,
+          { currentUserId },
+        )
         .where(`"user"."latitude" <> ''`)
         .andWhere(`"user"."longitude" <> ''`)
         .andWhere(':role = ANY(user.role)', { role: Roles.USER })
@@ -387,6 +397,7 @@ export class UserService {
             ST_MakePoint(${longitude}, ${latitude})
           ) <= ${radiusInMeters}`, // This checks if users are within the radius
         )
+        .andWhere('block.id IS NULL') // Exclude blocked users
         .orderBy(`distance_in_meters`, 'ASC');
 
       const res = await query.getRawMany();
@@ -499,6 +510,47 @@ export class UserService {
         error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Service to delete the user
+   *
+   * @param id
+   * @returns {Boolean}
+   *
+   * @throws Error if user not found or already deleted
+   */
+  async deleteCurrentLoggedInUser(id: string): Promise<Boolean> {
+    try {
+      // Check if the user exists
+      const existingUser = await this.userRepository.findOne({
+        where: { id: id },
+      });
+      if (!existingUser) {
+        throw new HttpException(
+          ERROR_MESSAGES.USER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      if (existingUser?.is_deleted === true) {
+        throw new HttpException(
+          ERROR_MESSAGES.USER_ALREADY_DELETED,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      const updateUserDto = this.userMapper.dtoToEntityUpdate(existingUser, {
+        isDeleted: true,
+      });
+      // Update existing user
+      await this.userRepository.save(updateUserDto);
+      return true;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts:96 ~ UserService ~ updateUser ~ error:',
+        error,
+      );
+      throw new HttpException(`${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }
 }

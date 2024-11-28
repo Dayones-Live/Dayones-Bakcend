@@ -18,6 +18,7 @@ import {
 } from '../dto/types';
 import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import { Role } from '@app/modules/auth/decorators/roles.decorator';
+import { GlobalServiceResponse } from '@app/shared/types/types';
 
 @ApiTags('user')
 @Controller('user')
@@ -87,6 +88,32 @@ export class UserController {
         );
       res.status(HttpStatus.OK).json({
         message: response?.message,
+        data: response,
+      });
+    } catch (error) {
+      console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   *  Service to soft delete the user
+   *
+   * @param res
+   * @param req
+   * @return {GlobalServiceResponse}
+   *
+   * @throws Error if User is already deleted or user doesn't exist
+   */
+  @UseGuards(CognitoGuard)
+  @Post('delete-user')
+  async deleteLoggedInUser(@Res() res: Response, @Req() req: Request) {
+    try {
+      const response = await this.userService.deleteCurrentLoggedInUser(
+        req?.user?.id || '',
+      );
+      res.status(HttpStatus.CREATED).json({
+        message: SUCCESS_MESSAGES.USER_DELETE_SUCCESS,
         data: response,
       });
     } catch (error) {

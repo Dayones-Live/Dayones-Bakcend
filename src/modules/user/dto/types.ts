@@ -17,6 +17,9 @@ export class UserUpdateInput {
 
   @IsOptional()
   avatarUrl?: string;
+
+  @IsOptional()
+  isDeleted?: boolean;
 }
 
 export class UpdateUserLocationInput {
@@ -36,6 +39,9 @@ export class FetchNearByUsersInput {
 
   @IsNotEmpty({ message: 'Radius in meter is required' })
   radiusInMeters: number;
+
+  @IsNotEmpty({ message: 'Current Logged in user id is required' })
+  currentUserId: string;
 }
 
 export class UpdateUserLocationAndNotificationInput {
