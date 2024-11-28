@@ -318,10 +318,13 @@ export class CognitoService {
 
   /**
    * Service to change the password for a Cognito user
+   *
    * @param accessToken - User's access token
    * @param previousPassword - Current password of the user
    * @param proposedPassword - New password to set
    * @returns {Promise<GlobalServiceResponse>}
+   *
+   * @throws Error if current password entered wrong or new password doesn't match password policy
    */
   async updatePassword(
     updatePasswordInput: UpdatePasswordInput,
@@ -361,6 +364,7 @@ export class CognitoService {
 
   /**
    * Service to send a password reset code to the user's email
+   *
    * @param username
    * @returns {GlobalServiceResponse}
    */
@@ -397,10 +401,13 @@ export class CognitoService {
 
   /**
    * Service to confirm password reset and set a new password
+   *
    * @param username
    * @param confirmationCode
    * @param newPassword
    * @returns {GlobalServiceResponse}
+   *
+   * @throws Error if Confirmation code is wrong or the password doesn't match the password policy
    */
   async confirmForgotPassword(
     confirmForgotPasswordInput: ConfirmForgotPasswordInput,

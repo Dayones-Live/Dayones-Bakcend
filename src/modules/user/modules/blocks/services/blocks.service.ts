@@ -45,7 +45,10 @@ export class BlocksService {
       });
 
       if (existingBlock) {
-        return existingBlock;
+        throw new HttpException(
+          ERROR_MESSAGES.USER_ALREADY_BLOCKED,
+          HttpStatus.BAD_REQUEST,
+        );
       }
       const blockUserDto = this.blockMapper.dtoToEntity(blockUserInput);
       const response = await this.blockRepository.save(blockUserDto);

@@ -38,6 +38,7 @@ export enum ERROR_MESSAGES {
   VERIFICATION_CODE_FAILED = 'Verify Email code sent fail',
   USER_ALREADY_DELETED = 'User is already deleted',
   USER_DELETED = 'User is deleted',
+  USER_ALREADY_BLOCKED = 'This user is already blocked by you.',
 }
 
 export enum SUCCESS_MESSAGES {

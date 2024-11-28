@@ -134,6 +134,7 @@ export class AuthController {
 
   /**
    * Controller to update the current password
+   *
    * @param updatePasswordInput
    * @param res
    * @param req
@@ -168,6 +169,7 @@ export class AuthController {
 
   /**
    * Controller to initiate the request for reset password with reset password verification code.
+   *
    * @param forgotPasswordInput
    * @param res
    * @param req
@@ -197,6 +199,7 @@ export class AuthController {
 
   /**
    * Controller to confirm the password reset with new password using confirmation code
+   *
    * @param confirmForgotPasswordInput
    * @param res
    * @param req

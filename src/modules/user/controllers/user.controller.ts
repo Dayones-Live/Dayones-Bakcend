@@ -97,7 +97,8 @@ export class UserController {
   }
 
   /**
-   *  Service to soft delete the user from database
+   *  Service to soft delete the user
+   *
    * @param res
    * @param req
    * @return {GlobalServiceResponse}
