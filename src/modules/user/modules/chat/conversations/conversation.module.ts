@@ -6,12 +6,14 @@ import { Conversations } from './entities/conversation.entity';
 import { ConversationMapper } from './dto/conversation.mapper';
 import { UserModule } from '@app/modules/user/user.module';
 import { MessageModule } from '../messages/messages.module';
+import { BlocksModule } from '../../blocks/blocks.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Conversations]),
     forwardRef(() => UserModule),
     forwardRef(() => MessageModule),
+    forwardRef(() => BlocksModule),
   ],
   controllers: [ConversationController],
   providers: [ConversationService, ConversationMapper],

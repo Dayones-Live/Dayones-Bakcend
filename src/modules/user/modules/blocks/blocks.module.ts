@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from '@user/user.module';
 import { Blocks } from './entities/blocks.entity';
@@ -7,7 +7,7 @@ import { BlocksService } from './services/blocks.service';
 import { BlocksMapper } from './dto/blocks.mapper';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Blocks]), UserModule],
+  imports: [TypeOrmModule.forFeature([Blocks]), forwardRef(() => UserModule)],
   controllers: [BlocksController],
   providers: [BlocksMapper, BlocksService],
   exports: [BlocksService],

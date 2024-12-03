@@ -13,6 +13,11 @@ import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { CommentReactionMapper } from '../dto/comment-reaction.mapper';
 import { CommentsService } from '../../comments/services/commnets.service';
 import { User } from '@app/modules/user/entities/user.entity';
+import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
+import {
+  NOTIFICATION_TITLE,
+  NOTIFICATION_TYPE,
+} from '@app/modules/user/modules/ notifications/constants';
 
 @Injectable()
 export class CommentReactionsService {
@@ -21,6 +26,7 @@ export class CommentReactionsService {
     private commentReactionRepository: Repository<CommentReactions>,
     private commentReactionMapper: CommentReactionMapper,
     private commentsService: CommentsService,
+    private firebaseSerivce: FirebaseService,
   ) {}
 
   /**
@@ -33,7 +39,7 @@ export class CommentReactionsService {
     user: User,
   ): Promise<CommentReactions> {
     try {
-      await this.commentsService.getCommentDetails(
+      const comment = await this.commentsService.getCommentDetails(
         createCommentReactionInput?.commentId,
         createCommentReactionInput?.likedBy,
         user,
@@ -53,6 +59,15 @@ export class CommentReactionsService {
       const likeACommentDto = this.commentReactionMapper.dtoToEntity(
         createCommentReactionInput,
       );
+      await this.firebaseSerivce.addNotification({
+        toId: comment?.comment_by || comment?.artistPostUser?.user_id,
+        isRead: false,
+        fromId: user?.id,
+        title: NOTIFICATION_TITLE.LIKE_COMMENT,
+        data: JSON.stringify(likeACommentDto),
+        message: `${user?.full_name} ${NOTIFICATION_TITLE.LIKE_COMMENT}`,
+        type: NOTIFICATION_TYPE.REACTION,
+      });
       return await this.commentReactionRepository.save(likeACommentDto);
     } catch (error) {
       console.error(
