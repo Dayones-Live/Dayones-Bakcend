@@ -10,8 +10,11 @@ import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
 import { AddNotificationInput } from '@app/modules/user/modules/ notifications/dto/types';
-import { NOTIFICATION_TYPE } from '@app/modules/user/modules/ notifications/constants';
-import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
+import {
+  NOTIFICATION_TITLE,
+  NOTIFICATION_TYPE,
+} from '@app/modules/user/modules/ notifications/constants';
+import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
 
 @Injectable()
 export class ReactionService {
@@ -36,6 +39,7 @@ export class ReactionService {
     try {
       let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
       let reaction: Reactions = {} as Reactions;
+      let toId: string = '';
 
       // Retrieve the generic artist post user based on the post ID
       const artistPostUserGeneric =
@@ -62,6 +66,7 @@ export class ReactionService {
           this.reactionsMapper.dtoToEntity(createReactionInput);
         // Use the upsert method
         reaction = await this.reactionsRepository.save(reactionDto);
+        toId = artistPostUserGeneric.user_id;
       } else {
         // Fetch the artistPostUserId through user id and artistPost
         const artistPostUser =
@@ -91,17 +96,19 @@ export class ReactionService {
           this.reactionsMapper.dtoToEntity(createReactionInput);
         // Use the upsert method
         reaction = await this.reactionsRepository.save(reactionDto);
+        toId = artistPostUser?.user_id;
       }
+
       // Sending and saving notifications of reactions
       try {
         const notification: AddNotificationInput = {
-          data: 'Like',
-          title: 'Like',
+          data: JSON.stringify(reaction),
+          title: NOTIFICATION_TITLE.LIKE_POST,
           isRead: false,
           fromId: userId,
           message: 'Someone like your post',
           type: NOTIFICATION_TYPE.REACTION,
-          toId: artistPostUser?.artistPost?.user_id,
+          toId: toId,
         };
         await this.firebaseService.addNotification(notification);
       } catch (err) {

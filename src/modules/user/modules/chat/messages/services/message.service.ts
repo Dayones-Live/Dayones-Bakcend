@@ -20,7 +20,11 @@ import {
   AllMessageResponse,
 } from '../dto/types';
 import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
-import { NOTIFICATION_TYPE } from '@app/modules/user/modules/ notifications/constants';
+import {
+  NOTIFICATION_TITLE,
+  NOTIFICATION_TYPE,
+} from '@app/modules/user/modules/ notifications/constants';
+import { BlocksService } from '@app/modules/user/modules/blocks/services/blocks.service';
 
 @Injectable()
 export class MessageService {
@@ -33,6 +37,7 @@ export class MessageService {
     @Inject(forwardRef(() => ConversationService))
     private conversationService: ConversationService,
     private firebaseSerivce: FirebaseService,
+    private blockService: BlocksService,
   ) {}
 
   /**
@@ -101,6 +106,20 @@ export class MessageService {
         );
       }
 
+      const blockStatus = await this.blockService.checkBlockStatus(
+        userId,
+        userId === isMember.sender_id
+          ? isMember.reciever_id
+          : isMember.sender_id,
+      );
+
+      if (blockStatus) {
+        throw new HttpException(
+          ` ${ERROR_MESSAGES.BLOCKED_USER}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       const message = await this.messageRepository.save(
         this.messageMapper.dtoToEntity({ ...req, senderId: userId }),
       );
@@ -129,7 +148,7 @@ export class MessageService {
           toId: toId,
           isRead: false,
           fromId: userId,
-          title: 'Message',
+          title: NOTIFICATION_TITLE.MESSAGE,
           data: req?.message,
           message: req?.message,
           type: NOTIFICATION_TYPE.MESSAGE,

@@ -146,4 +146,30 @@ export class BlocksService {
       throw error;
     }
   }
+
+  /**
+   * Service to check if either user has blocked the other.
+   * @param currentUserId - The ID of the first user (requesting user).
+   * @param targetUserId - The ID of the second user (target user).
+   * @returns {boolean} - True if either user has blocked the other, false otherwise.
+   */
+  async checkBlockStatus(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<boolean> {
+    try {
+      // Query for a block record where currentUser blocked targetUser or vice versa
+      const blockRecord = await this.blockRepository.findOne({
+        where: [
+          { blocked_by: currentUserId, blocked_user: targetUserId },
+          { blocked_by: targetUserId, blocked_user: currentUserId },
+        ],
+      });
+
+      return !!blockRecord;
+    } catch (error) {
+      console.error('🚀 ~ checkBlockStatus ~ error:', error);
+      throw error;
+    }
+  }
 }

@@ -39,6 +39,7 @@ export enum ERROR_MESSAGES {
   USER_ALREADY_DELETED = 'User is already deleted',
   USER_DELETED = 'User is deleted',
   USER_ALREADY_BLOCKED = 'This user is already blocked by you.',
+  BLOCKED_USER = 'You cannot perform this action because you are blocked by this user',
 }
 
 export enum SUCCESS_MESSAGES {

@@ -5,7 +5,11 @@ import { UserService } from '@user/services/user.service';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import { Role } from '@app/modules/auth/decorators/roles.decorator';
 import { ConversationService } from '../services/conversation.service';
-import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
+import {
+  ERROR_MESSAGES,
+  Roles,
+  SUCCESS_MESSAGES,
+} from '@app/shared/constants/constants';
 import {
   Get,
   Body,
@@ -19,6 +23,7 @@ import {
   Controller,
   HttpStatus,
 } from '@nestjs/common';
+import { BlocksService } from '@app/modules/user/modules/blocks/services/blocks.service';
 
 @ApiTags('conversation')
 @Controller('conversation')
@@ -27,6 +32,7 @@ export class ConversationController {
   constructor(
     private conversationService: ConversationService,
     private userService: UserService,
+    private blockService: BlocksService,
   ) {}
 
   /**
@@ -46,6 +52,15 @@ export class ConversationController {
     @Req() req: Request,
   ) {
     try {
+      const isBlocked = await this.blockService.checkBlockStatus(
+        req?.user?.id || '',
+        createConversationInput.recieverId,
+      );
+      if (isBlocked) {
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          message: ERROR_MESSAGES.BLOCKED_USER,
+        });
+      }
       const response = await this.conversationService.createConversation(
         req?.user?.id || '',
         createConversationInput,
