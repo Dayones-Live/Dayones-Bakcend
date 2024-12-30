@@ -3,7 +3,7 @@ import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nest
 import { Notifications } from '../entities/notifications.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ERROR_MESSAGES } from '@app/shared/constants/constants';
+import { BUNDLE_NOTIFICATIONS_UNIQUE_KEYS, ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { NotificationMapper } from '../dto/notifications.mapper';
 import { AddNotificationInput } from '../dto/types';
 import { UserNotificationService } from '../../user-notifications/services/user-notification.service';
@@ -89,6 +89,18 @@ export class FirebaseService {
       senderEmail: senderProfile?.email || '',
     });
 
+    // return {
+    //   tokens: tokens,
+    //   notification: {
+    //     title: notification.title,
+    //     body: notification.message,
+    //   },
+    //   data: {
+    //     action: action, // Screen name
+    //     id: id,  
+    //     senderProfiles,
+    //   },
+    // };
     return {
       tokens: tokens,
       notification: {
@@ -99,6 +111,19 @@ export class FirebaseService {
         action: action, // Screen name
         id: id,  
         senderProfiles,
+      },
+      android: {
+        notification: {
+          tag: BUNDLE_NOTIFICATIONS_UNIQUE_KEYS.ANDROID_BUNDLE_ID, // Grouping key
+          color: '#ff0000',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            thread_id: BUNDLE_NOTIFICATIONS_UNIQUE_KEYS.IOS_BUNDLE_ID, // Grouping key for iOS
+          },
+        },
       },
     };
   }
@@ -112,7 +137,7 @@ export class FirebaseService {
    */
   async sendNotification(payload: MulticastMessage): Promise<boolean> {
     try {
-      console.log('Sending notification', payload);
+     
       
       if (payload?.tokens.length) {
         await this.app.messaging().sendEachForMulticast({
