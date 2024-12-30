@@ -85,6 +85,7 @@ export class CommentsService {
         await this.firebaseService.addNotification({
           isRead: false,
           fromId: userId,
+          postId: postId,
           title: 'Comment',
           type: NOTIFICATION_TYPE.COMMENTS,
           data: createCommentInput?.message,

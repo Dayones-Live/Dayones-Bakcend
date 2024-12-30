@@ -109,6 +109,7 @@ export class ReactionService {
           message: 'Someone like your post',
           type: NOTIFICATION_TYPE.REACTION,
           toId: toId,
+          postId: postId,
         };
         await this.firebaseService.addNotification(notification);
       } catch (err) {

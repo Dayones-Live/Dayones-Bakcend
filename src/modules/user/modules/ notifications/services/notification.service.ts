@@ -1,6 +1,5 @@
 import admin, { credential } from 'firebase-admin';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { initializeApp } from 'firebase-admin';
+import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { Notifications } from '../entities/notifications.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +8,10 @@ import { NotificationMapper } from '../dto/notifications.mapper';
 import { AddNotificationInput } from '../dto/types';
 import { UserNotificationService } from '../../user-notifications/services/user-notification.service';
 import { MulticastMessage } from 'firebase-admin/lib/messaging/messaging-api';
+
+import { UserService } from '../../../services/user.service';
+import { NOTIFICATION_TITLE } from '../constants';
+
 
 @Injectable()
 /**
@@ -22,6 +25,8 @@ export class FirebaseService {
     private notificationsRepository: Repository<Notifications>,
     private notificationMapper: NotificationMapper,
     private userNotificationTokenService: UserNotificationService,
+    @Inject(forwardRef(() => UserService)) private userService: UserService, // Explicit forwardRef injection
+
   ) {
     // Initialize Firebase app with service account
     const serviceAccount = {
@@ -48,7 +53,42 @@ export class FirebaseService {
   createFcmMulticastPayload(
     notification: Notifications,
     tokens: string[],
+    senderProfile: any,
+    postId: any,
+    conversationId: any,
   ): MulticastMessage {
+    let action = '';
+    let id = '';
+
+    switch (notification.title) {
+      case NOTIFICATION_TITLE.LIKE_POST:
+      case NOTIFICATION_TITLE.DISLIKE_POST:
+      case NOTIFICATION_TITLE.REACTION:
+      case NOTIFICATION_TITLE.COMMENT: // Add this case to match "Comment"
+      case 'Comment': // Match the exact string returned in the title
+        action = 'post';
+        id = postId;
+        break;
+      case NOTIFICATION_TITLE.MESSAGE:
+        action = 'conversation';
+        id = conversationId;
+        break;
+      case NOTIFICATION_TITLE.LIKE_COMMENT:
+      case NOTIFICATION_TITLE.DISLIKE_COMMENT:
+        action = 'post';
+        id = postId ? `${postId}#comment-${notification.id}` : notification.id;
+        break;
+      default:
+        action = 'profile';
+        id = notification.from_id; // Default to sender's profile
+    }
+  
+    const senderProfiles = JSON.stringify({
+      image: senderProfile?.avatar_url || '',
+      senderName: senderProfile?.full_name || 'Unknown',
+      senderEmail: senderProfile?.email || '',
+    });
+
     return {
       tokens: tokens,
       notification: {
@@ -56,13 +96,9 @@ export class FirebaseService {
         body: notification.message,
       },
       data: {
-        id: notification.id,
-        from_id: notification.from_id,
-        to_id: notification.to_id,
-        type: notification.type,
-        is_read: notification.is_read ? 'true' : 'false',
-        created_at: notification.created_at.toISOString(),
-        updated_at: notification.updated_at.toISOString(),
+        action: action, // Screen name
+        id: id,  
+        senderProfiles,
       },
     };
   }
@@ -76,6 +112,8 @@ export class FirebaseService {
    */
   async sendNotification(payload: MulticastMessage): Promise<boolean> {
     try {
+      console.log('Sending notification', payload);
+      
       if (payload?.tokens.length) {
         await this.app.messaging().sendEachForMulticast({
           tokens: payload?.tokens,
@@ -165,11 +203,17 @@ export class FirebaseService {
         await this.userNotificationTokenService.getUserNotificationTokenByUserId(
           addNotificationInput.toId,
         );
+      const senderProfile = await this.userService.findUserById(notification.from_id);
+
       if (userToken) {
         try {
-          const payload = this.createFcmMulticastPayload(notification, [
-            userToken.notification_token,
-          ]);
+          const payload = this.createFcmMulticastPayload(
+            notification,
+            [userToken.notification_token],
+            senderProfile,
+            addNotificationInput.postId || null,
+            addNotificationInput.conversationId || null,
+          );
           await this.sendNotification(payload);
         } catch (e) {
           console.error('🚀 ~ FirebaseService ~ e:', e);

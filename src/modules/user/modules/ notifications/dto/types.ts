@@ -24,4 +24,10 @@ export class AddNotificationInput {
     message: 'Notification must be one of:  REACTION, COMMENT, INVITE, MESSAGE',
   })
   type: NOTIFICATION_TYPE;
+
+  @IsOptional()
+  postId?: string;
+
+  @IsOptional()
+  conversationId?: string;
 }
