@@ -12,6 +12,31 @@ import { MulticastMessage } from 'firebase-admin/lib/messaging/messaging-api';
 import { UserService } from '../../../services/user.service';
 import { NOTIFICATION_TITLE } from '../constants';
 
+interface EnrichedNotification {
+  id: string;
+  title: string;
+  message: string;
+  data: string;
+  is_read: boolean;
+  type: string; // Adjust type if `NOTIFICATION_TYPE` is defined
+  created_at: Date;
+  updated_at: Date;
+  from_user_profile: {
+    id: string;
+    username: string;
+    img_profile: string;
+    email: string;
+    action: string;
+  };
+  to_user_profile: {
+    id: string;
+    username: string;
+    img_profile: string;
+    email: string;
+    action: string;
+  };
+}
+
 
 @Injectable()
 /**
@@ -59,6 +84,7 @@ export class FirebaseService {
   ): MulticastMessage {
     let action = '';
     let id = '';
+    let redirectUrl = '';
 
     switch (notification.title) {
       case NOTIFICATION_TITLE.LIKE_POST:
@@ -68,19 +94,25 @@ export class FirebaseService {
       case 'Comment': // Match the exact string returned in the title
         action = 'post';
         id = postId;
+        redirectUrl = `/post/${postId}`; // Deep link for a post
         break;
       case NOTIFICATION_TITLE.MESSAGE:
         action = 'conversation';
         id = conversationId;
+        redirectUrl = `conversation/${conversationId}`; // Deep link for a conversation
         break;
       case NOTIFICATION_TITLE.LIKE_COMMENT:
       case NOTIFICATION_TITLE.DISLIKE_COMMENT:
         action = 'post';
         id = postId ? `${postId}#comment-${notification.id}` : notification.id;
+        redirectUrl = `/post/${postId}`;
+
         break;
       default:
         action = 'profile';
         id = notification.from_id; // Default to sender's profile
+        redirectUrl = `myapp://profile/${notification.from_id}`; // Deep link for a profile
+
     }
   
     const senderProfiles = JSON.stringify({
@@ -111,6 +143,8 @@ export class FirebaseService {
         action: action, // Screen name
         id: id,  
         senderProfiles,
+        redirect_url: redirectUrl, // Include the redirect_url here
+
       },
       android: {
         notification: {
@@ -157,15 +191,40 @@ export class FirebaseService {
    * Service to fetch all notifications
    * @returns {Notifications[]}
    */
-  async getAllNotification(userId: string): Promise<Notifications[]> {
+  async getAllNotification(userId: string): Promise<EnrichedNotification[]> {
     try {
-      const notification: Notifications[] =
-        await this.notificationsRepository.find({
-          where: {
-            to_id: userId,
-          },
-        });
-      return notification;
+      const notifications: Notifications[] = await this.notificationsRepository.find({
+        where: {
+          to_id: userId,
+        },
+      });
+  
+      const enrichedNotifications = await Promise.all(
+        notifications.map(async (notification) => {
+          const fromUserProfile = await this.userService.findUserById(notification.from_id);
+          const toUserProfile = await this.userService.findUserById(notification.to_id);
+  
+          return {
+            ...notification, // Include all properties of `Notifications`
+            from_user_profile: {
+              id: fromUserProfile?.id || '',
+              username: fromUserProfile?.full_name || '',
+              img_profile: fromUserProfile?.avatar_url || '',
+              email: fromUserProfile?.email || '',
+              action: this.getAction(notification.title),
+            },
+            to_user_profile: {
+              id: toUserProfile?.id || '',
+              username: toUserProfile?.full_name || '',
+              img_profile: toUserProfile?.avatar_url || '',
+              email: toUserProfile?.email || '',
+              action: this.getAction(notification.title),
+            },
+          };
+        }),
+      );
+  
+      return enrichedNotifications;
     } catch (error) {
       console.error(
         '🚀 ~ file:notification.service.ts:96 ~ getAllNotification ~ error:',
@@ -173,6 +232,31 @@ export class FirebaseService {
       );
       throw error;
     }
+  }
+  
+
+  /**
+   * Maps notification titles to actions.
+   * @param title Notification title
+   * @returns Corresponding action string
+   */
+  private getAction(title: string): string {
+    switch (title) {
+      case NOTIFICATION_TITLE.LIKE_POST:
+      case NOTIFICATION_TITLE.DISLIKE_POST:
+      case NOTIFICATION_TITLE.REACTION:
+      case NOTIFICATION_TITLE.COMMENT: // Add this case to match "Comment"
+      case 'Comment': // Match the exact string returned in the title
+        return 'comment';
+      case NOTIFICATION_TITLE.MESSAGE:
+        return 'conversation'; 
+      case NOTIFICATION_TITLE.LIKE_COMMENT:
+      case NOTIFICATION_TITLE.DISLIKE_COMMENT:
+        return 'like';
+      default:
+        return 'other';
+    }
+
   }
 
   /**
