@@ -343,7 +343,7 @@ export class ArtistPostService {
           ]) // Select specific fields from user
           .addSelect(
             `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
-            'fanCount',
+            'associate_fan_count',
           )
           .where('artistPost.user_id = :userId', { userId: user?.id })
           .andWhere('artistPost.id = :postId', { postId })
@@ -468,7 +468,7 @@ export class ArtistPostService {
             .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
             .addSelect(
               `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
-              'fanCount',
+              'associate_fan_count',
             ) 
             .where('artistPost.id IN (:...acceptedPostIds)', {
               acceptedPostIds,

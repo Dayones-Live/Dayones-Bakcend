@@ -50,7 +50,7 @@ export class ArtistPostMapper {
     let userReactions: ReactionsWithUserResponse[] = [];
     let totalReactions = 0;
     const repliesMap: Record<string, CommentsWithUserResponse[]> = {};
-    let fanCount = 0; // Initialize fan count
+    let associate_fan_count = 0; // Initialize fan count
 
     if (!artistPosts) {
       return {
@@ -58,7 +58,7 @@ export class ArtistPostMapper {
         reactions: userReactions,
         comments: userComments,
         artistComments,
-        fanCount, // Return fan count as 0
+        associate_fan_count, // Return fan count as 0
       };
     }
 
@@ -72,7 +72,7 @@ export class ArtistPostMapper {
 
       // Count fans based on accepted status
     if (userPost.status === Invite_Status.ACCEPTED) {
-      fanCount += 1;
+      associate_fan_count += 1;
     }
 
       const { role, ...userWithoutRole } = userPost.user;
@@ -132,7 +132,7 @@ export class ArtistPostMapper {
       comments: userComments,
       artistComments,
       reactions: userReactions,
-      fanCount, // Include fan count in the response
+      associate_fan_count, // Include fan count in the response
     };
   }
 
@@ -140,7 +140,7 @@ export class ArtistPostMapper {
     return artistPosts.map((artistPost) => {
       let commentsCount = 0;
       let totalReactions = 0;
-      let fanCount = 0; // Initialize fan count
+      let associate_fan_count = 0; // Initialize fan count
 
       artistPost.artistPostUser?.forEach((userPost: ArtistPostUser) => {
         // Count reactions if they exist
@@ -155,7 +155,7 @@ export class ArtistPostMapper {
 
           // Increment fan count for users who accepted invites
           if (userPost?.status === Invite_Status.ACCEPTED) {
-            fanCount++;
+            associate_fan_count++;
           }
       });
       // Destructure artistPost and add commentsCount, reactionCount and fanCount
@@ -166,7 +166,7 @@ export class ArtistPostMapper {
         ...rest,
         commentsCount, // Total comments count (user + artist)
         reactionCount: totalReactions, // Total reactions count
-        fanCount, // Total fan count
+        associate_fan_count, // Total fan count
       };
     });
   }
