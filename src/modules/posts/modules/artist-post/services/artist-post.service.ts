@@ -341,6 +341,10 @@ export class ArtistPostService {
             'reactedUser.phone_number',
             'reactedUser.avatar_url',
           ]) // Select specific fields from user
+          .addSelect(
+            `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
+            'fanCount',
+          )
           .where('artistPost.user_id = :userId', { userId: user?.id })
           .andWhere('artistPost.id = :postId', { postId })
           .andWhere('artistPostUser.status IN (:...statuses)', {
@@ -350,7 +354,16 @@ export class ArtistPostService {
               Invite_Status.GENERIC,
             ], // Filter for both ACCEPTED and NULL statuses
           })
+          .groupBy('artistPost.id')
+          .addGroupBy('artistPostUser.id')
+          .addGroupBy('user.id')
+          .addGroupBy('comment.id')
+          .addGroupBy('commentedUser.id')
+          .addGroupBy('reaction.id')
+          .addGroupBy('reactedUser.id')
+          .addGroupBy('commentReaction.id') // Added commentReaction to group by
           .getOne();
+          // .getOne();
         if (!artistPosts) {
           throw new HttpException(
             ERROR_MESSAGES.POST_NOT_FOUND,
@@ -429,7 +442,6 @@ export class ArtistPostService {
           await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(
             user.id,
           );
-
         if (fanOfArtistIds.length > 0) {
           const fanOfArtistsGenericPostsIds =
             await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
@@ -454,6 +466,10 @@ export class ArtistPostService {
             .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
             .leftJoinAndSelect('artistPostUser.comment', 'comment')
             .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+            .addSelect(
+              `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
+              'fanCount',
+            ) 
             .where('artistPost.id IN (:...acceptedPostIds)', {
               acceptedPostIds,
             }) // Filter by artistPostIds
@@ -475,6 +491,8 @@ export class ArtistPostService {
             this.artistPostMapper.processArtistPostsData(artistPosts);
           postCount = count;
         }
+        
+        
         const meta = getPaginatedOutput(
           paginate.pageNo,
           paginate.pageSize,
