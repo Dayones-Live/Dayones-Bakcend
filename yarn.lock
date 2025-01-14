@@ -7992,6 +7992,14 @@ typedarray@^0.0.6:
   resolved "https://registry.npmjs.org/typedarray/-/typedarray-0.0.6.tgz"
   integrity sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==
 
+<<<<<<< HEAD
+=======
+typeorm-ts-node-commonjs@^0.3.20:
+  version "0.3.20"
+  resolved "https://registry.npmjs.org/typeorm-ts-node-commonjs/-/typeorm-ts-node-commonjs-0.3.20.tgz"
+  integrity sha512-lXjve7w7OcF3s5+dHnCsrBjUTukpVeiS0bDe5KDXWcDx8TyRW0GTTg9kjWgHzFgHgBIBBu4WGXM0iuGpEgaV9g==
+
+>>>>>>> 03c26ddbc0567b62750015089e261ecb4b1fe0c6
 typeorm@^0.3.0, typeorm@^0.3.20:
   version "0.3.20"
   resolved "https://registry.npmjs.org/typeorm/-/typeorm-0.3.20.tgz"

@@ -388,58 +388,38 @@ export class ArtistPostService {
   ): Promise<AllPostsResponse> {
     try {
       if (user?.role[0] === Roles.ARTIST) {
-        const paginate: Paginate = getPaginated(
-          req.pageNo || 1,
-          req.pageSize || 0,
-        );
-        const [artistPosts, count] =
-          await this.artistPostRepository.findAndCount({
-            relations: [
-              'artistPostUser',
-              'artistPostUser.user',
-              'artistPostUser.comment',
-              'artistPostUser.reaction',
-            ],
-            where: {
-              user_id: user?.id,
-            },
-            skip: paginate.offset,
-            take: paginate.limit,
-          });
-        const formattedPosts =
-          this.artistPostMapper.processArtistPostsData(artistPosts);
-        const meta = getPaginatedOutput(
-          paginate.pageNo,
-          paginate.pageSize,
-          count,
-        );
+        const paginate: Paginate = getPaginated(req.pageNo || 1, req.pageSize || 0);
+        const [artistPosts, count] = await this.artistPostRepository.findAndCount({
+          relations: [
+            'artistPostUser',
+            'artistPostUser.user',
+            'artistPostUser.comment',
+            'artistPostUser.reaction',
+          ],
+          where: {
+            user_id: user?.id,
+          },
+          skip: paginate.offset,
+          take: paginate.limit,
+        });
+        const formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
+        const meta = getPaginatedOutput(paginate.pageNo, paginate.pageSize, count);
         return { posts: formattedPosts, meta };
       } else {
-        const paginate: Paginate = getPaginated(
-          req.pageNo || 1,
-          req.pageSize || 0,
-        );
+        const paginate: Paginate = getPaginated(req.pageNo || 1, req.pageSize || 0);
         let formattedPosts: ArtistPostWithCounts[] = [];
         let postCount = 0;
-        //Fetch the Post for which user accepts the invites plus comments and likes
-        let acceptedPostIds =
-          await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
-
-        const fanOfArtistIds =
-          await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(
-            user.id,
-          );
-
+  
+        // Fetch the Post for which the user accepts the invites plus comments and likes
+        let acceptedPostIds = await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
+  
+        const fanOfArtistIds = await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(user.id);
+  
         if (fanOfArtistIds.length > 0) {
-          const fanOfArtistsGenericPostsIds =
-            await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
-
-          acceptedPostIds = [
-            ...acceptedPostIds,
-            ...fanOfArtistsGenericPostsIds,
-          ];
+          const fanOfArtistsGenericPostsIds = await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
+          acceptedPostIds = [...acceptedPostIds, ...fanOfArtistsGenericPostsIds];
         }
-
+  
         if (acceptedPostIds.length) {
           const [artistPosts, count] = await this.artistPostRepository
             .createQueryBuilder('artistPost')
@@ -471,15 +451,12 @@ export class ArtistPostService {
             .skip(paginate.offset) // Apply pagination offset
             .take(paginate.limit) // Apply pagination limit
             .getManyAndCount();
-          formattedPosts =
-            this.artistPostMapper.processArtistPostsData(artistPosts);
+          
+          formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
           postCount = count;
         }
-        const meta = getPaginatedOutput(
-          paginate.pageNo,
-          paginate.pageSize,
-          postCount,
-        );
+  
+        const meta = getPaginatedOutput(paginate.pageNo, paginate.pageSize, postCount);
         return { posts: formattedPosts, meta };
       }
     } catch (error) {
@@ -490,6 +467,7 @@ export class ArtistPostService {
       throw error;
     }
   }
+  
 
   /**
    * Service to fetch all Recent Artist post
