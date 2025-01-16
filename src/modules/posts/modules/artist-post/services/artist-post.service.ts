@@ -390,129 +390,97 @@ export class ArtistPostService {
     }
   }
 
-  /**
+/**
    * Service to fetch all User data
    * @param user
    * @returns {ArtistPostObject[]}
    */
-  async fetchAllUserPostsData(
-    user: User,
-    req: PaginationDto,
-  ): Promise<AllPostsResponse> {
-    try {
-      if (user?.role[0] === Roles.ARTIST) {
-        const paginate: Paginate = getPaginated(
-          req.pageNo || 1,
-          req.pageSize || 0,
-        );
-        const [artistPosts, count] =
-          await this.artistPostRepository.findAndCount({
-            relations: [
-              'artistPostUser',
-              'artistPostUser.user',
-              'artistPostUser.comment',
-              'artistPostUser.reaction',
-            ],
-            where: {
-              user_id: user?.id,
-            },
-            skip: paginate.offset,
-            take: paginate.limit,
-          });
-        const formattedPosts =
-          this.artistPostMapper.processArtistPostsData(artistPosts);
-        const meta = getPaginatedOutput(
-          paginate.pageNo,
-          paginate.pageSize,
-          count,
-        );
-        return { posts: formattedPosts, meta };
-      } else {
-        const paginate: Paginate = getPaginated(
-          req.pageNo || 1,
-          req.pageSize || 0,
-        );
-        let formattedPosts: ArtistPostWithCounts[] = [];
-        let postCount = 0;
-        //Fetch the Post for which user accepts the invites plus comments and likes
-        let acceptedPostIds =
-          await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
+async fetchAllUserPostsData(
+  user: User,
+  req: PaginationDto,
+): Promise<AllPostsResponse> {
+  try {
+    if (user?.role[0] === Roles.ARTIST) {
+      const paginate: Paginate = getPaginated(req.pageNo || 1, req.pageSize || 0);
+      const [artistPosts, count] = await this.artistPostRepository.findAndCount({
+        relations: [
+          'artistPostUser',
+          'artistPostUser.user',
+          'artistPostUser.comment',
+          'artistPostUser.reaction',
+        ],
+        where: {
+          user_id: user?.id,
+        },
+        skip: paginate.offset,
+        take: paginate.limit,
+      });
+      const formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
+      const meta = getPaginatedOutput(paginate.pageNo, paginate.pageSize, count);
+      return { posts: formattedPosts, meta };
+    } else {
+      const paginate: Paginate = getPaginated(req.pageNo || 1, req.pageSize || 0);
+      let formattedPosts: ArtistPostWithCounts[] = [];
+      let postCount = 0;
 
-        const fanOfArtistIds =
-          await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(
-            user.id,
-          );
-        if (fanOfArtistIds.length > 0) {
-          const fanOfArtistsGenericPostsIds =
-            await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
+      // Fetch the Post for which the user accepts the invites plus comments and likes
+      let acceptedPostIds = await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
 
-          acceptedPostIds = [
-            ...acceptedPostIds,
-            ...fanOfArtistsGenericPostsIds,
-          ];
-        }
+      const fanOfArtistIds = await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(user.id);
 
-        if (acceptedPostIds.length) {
-          const [artistPosts, count] = await this.artistPostRepository
-            .createQueryBuilder('artistPost')
-            .leftJoin('artistPost.user', 'user')
-            .addSelect([
-              'user.id',
-              'user.full_name',
-              'user.email',
-              'user.phone_number',
-              'user.avatar_url',
-            ]) // Select specific fields from user
-            .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
-            .leftJoinAndSelect('artistPostUser.comment', 'comment')
-            .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
-            .addSelect(
-              `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
-              'associate_fan_count',
-            ) 
-            .where('artistPost.id IN (:...acceptedPostIds)', {
-              acceptedPostIds,
-            }) // Filter by artistPostIds
-            .leftJoin(
-              'blocks',
-              'block',
-              `
-                (block.blocked_by = :currentUserId AND block.blocked_user = user.id)
-                OR
-                (block.blocked_user = :currentUserId AND block.blocked_by = user.id)
-              `,
-              { currentUserId: user?.id },
-            )
-            .andWhere('block.id IS NULL') // Exclude blocked users
-            .groupBy('artistPost.id') // Add GROUP BY for artistPost.id
-            .addGroupBy('user.id') // Add GROUP BY for user fields
-            .addGroupBy('artistPostUser.id') // Add GROUP BY for artistPostUser.id
-            .addGroupBy('comment.id') // Add GROUP BY for comment.id
-            .addGroupBy('reaction.id')
-            .skip(paginate.offset) // Apply pagination offset
-            .take(paginate.limit) // Apply pagination limit
-            .getManyAndCount();
-          formattedPosts =
-            this.artistPostMapper.processArtistPostsData(artistPosts);
-          postCount = count;
-        }
-        
-        
-        const meta = getPaginatedOutput(
-          paginate.pageNo,
-          paginate.pageSize,
-          postCount,
-        );
-        return { posts: formattedPosts, meta };
+      if (fanOfArtistIds.length > 0) {
+        const fanOfArtistsGenericPostsIds = await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
+        acceptedPostIds = [...acceptedPostIds, ...fanOfArtistsGenericPostsIds];
       }
-    } catch (error) {
-      console.error(
-        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllUserPostsData ~ error:',
-        error,
-      );
-      throw error;
+
+      if (acceptedPostIds.length) {
+        const [artistPosts, count] = await this.artistPostRepository
+          .createQueryBuilder('artistPost')
+          .leftJoin('artistPost.user', 'user')
+          .addSelect([
+            'user.id',
+            'user.full_name',
+            'user.email',
+            'user.phone_number',
+            'user.avatar_url',
+          ]) // Select specific fields from user
+          .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
+          .leftJoinAndSelect('artistPostUser.comment', 'comment')
+          .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+          .where('artistPost.id IN (:...acceptedPostIds)', {
+            acceptedPostIds,
+          }) // Filter by artistPostIds
+          .leftJoin(
+            'blocks',
+            'block',
+            `
+              (block.blocked_by = :currentUserId AND block.blocked_user = user.id)
+              OR
+              (block.blocked_user = :currentUserId AND block.blocked_by = user.id)
+            `,
+            { currentUserId: user?.id },
+          )
+          .andWhere('block.id IS NULL') // Exclude blocked users
+          .skip(paginate.offset) // Apply pagination offset
+          .take(paginate.limit) // Apply pagination limit
+          .getManyAndCount();
+        
+        formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
+        postCount = count;
+      }
+
+      const meta = getPaginatedOutput(paginate.pageNo, paginate.pageSize, postCount);
+      return { posts: formattedPosts, meta };
     }
+  } catch (error) {
+    console.error(
+      '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllUserPostsData ~ error:',
+      error,
+    );
+    throw error;
   }
+}
+
 
   /**
    * Service to fetch all Recent Artist post
