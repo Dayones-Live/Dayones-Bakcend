@@ -447,6 +447,18 @@ export class ArtistPostService {
         if (acceptedPostIds.length) {
           const [artistPosts, count] = await this.artistPostRepository
             .createQueryBuilder('artistPost')
+            .addSelect([
+              'artistPost.title',
+              'artistPost.message',
+              'artistPost.image_url',
+              'artistPost.range',
+              'artistPost.type',
+              'artistPost.created_at',
+              'artistPost.updated_at',
+              'artistPost.longitude',
+              'artistPost.latitude',
+              'artistPost.locale',
+            ])
             .leftJoin('artistPost.user', 'user')
             .addSelect([
               'user.id',
@@ -479,7 +491,21 @@ export class ArtistPostService {
             .skip(paginate.offset) // Apply pagination offset
             .take(paginate.limit) // Apply pagination limit
             .groupBy('artistPost.id')
+            .addGroupBy('user.id')
+            .addGroupBy('user.full_name')
+            .addGroupBy('user.email')
+            .addGroupBy('user.phone_number')
+            .addGroupBy('user.avatar_url')
             .addGroupBy('artistPost.title')
+            .addGroupBy('artistPost.message')
+            .addGroupBy('artistPost.image_url')
+            .addGroupBy('artistPost.range')
+            .addGroupBy('artistPost.type')
+            .addGroupBy('artistPost.created_at')
+            .addGroupBy('artistPost.updated_at')
+            .addGroupBy('artistPost.longitude')
+            .addGroupBy('artistPost.latitude')
+            .addGroupBy('artistPost.locale')
             .getManyAndCount();
           
           formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
