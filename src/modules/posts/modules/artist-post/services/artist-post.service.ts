@@ -478,6 +478,8 @@ export class ArtistPostService {
             .andWhere('block.id IS NULL') // Exclude blocked users
             .skip(paginate.offset) // Apply pagination offset
             .take(paginate.limit) // Apply pagination limit
+            .groupBy('artistPost.id')
+            .addGroupBy('artistPost.title')
             .getManyAndCount();
           
           formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
