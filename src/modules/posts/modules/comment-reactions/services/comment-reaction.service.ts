@@ -67,6 +67,7 @@ export class CommentReactionsService {
         data: JSON.stringify(likeACommentDto),
         message: `${user?.full_name} ${NOTIFICATION_TITLE.LIKE_COMMENT}`,
         type: NOTIFICATION_TYPE.REACTION,
+        postId: comment?.artistPostUser?.artist_post_id,
       });
       return await this.commentReactionRepository.save(likeACommentDto);
     } catch (error) {

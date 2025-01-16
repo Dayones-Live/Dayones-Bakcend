@@ -50,6 +50,7 @@ export class ArtistPostMapper {
     let userReactions: ReactionsWithUserResponse[] = [];
     let totalReactions = 0;
     const repliesMap: Record<string, CommentsWithUserResponse[]> = {};
+    let associate_fan_count = 0; // Initialize fan count
 
     if (!artistPosts) {
       return {
@@ -57,6 +58,7 @@ export class ArtistPostMapper {
         reactions: userReactions,
         comments: userComments,
         artistComments,
+        associate_fan_count, // Return fan count as 0
       };
     }
 
@@ -67,6 +69,11 @@ export class ArtistPostMapper {
       } else {
         totalReactions = userPost?.reaction?.length || 0;
       }
+
+      // Count fans based on accepted status
+    if (userPost.status === Invite_Status.ACCEPTED) {
+      associate_fan_count += 1;
+    }
 
       const { role, ...userWithoutRole } = userPost.user;
 
@@ -125,6 +132,7 @@ export class ArtistPostMapper {
       comments: userComments,
       artistComments,
       reactions: userReactions,
+      associate_fan_count, // Include fan count in the response
     };
   }
 
@@ -132,6 +140,8 @@ export class ArtistPostMapper {
     return artistPosts.map((artistPost) => {
       let commentsCount = 0;
       let totalReactions = 0;
+      let associate_fan_count = 0; // Initialize fan count
+
       artistPost.artistPostUser?.forEach((userPost: ArtistPostUser) => {
         // Count reactions if they exist
         if (userPost?.reaction && userPost?.status !== Invite_Status.GENERIC) {
@@ -142,13 +152,21 @@ export class ArtistPostMapper {
         commentsCount +=
           userPost.comment?.filter((item) => !item?.parent_comment_id)
             ?.length || 0;
+
+          // Increment fan count for users who accepted invites
+          if (userPost?.status === Invite_Status.ACCEPTED) {
+            associate_fan_count++;
+          }
       });
-      // Destructure artistPost and add commentsCount and reactionCount
+      // Destructure artistPost and add commentsCount, reactionCount and fanCount
       const { artistPostUser, ...rest } = artistPost;
+      console.log('artistPostUser', artistPostUser);
+      
       return {
         ...rest,
         commentsCount, // Total comments count (user + artist)
         reactionCount: totalReactions, // Total reactions count
+        associate_fan_count, // Total fan count
       };
     });
   }

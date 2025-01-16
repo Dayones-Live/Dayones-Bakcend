@@ -152,6 +152,7 @@ export class MessageService {
           data: req?.message,
           message: req?.message,
           type: NOTIFICATION_TYPE.MESSAGE,
+          conversationId: req.conversationId,
         });
       } catch (err) {
         console.error('🚀 ~ Sending/Saving message notification ~ err:', err);

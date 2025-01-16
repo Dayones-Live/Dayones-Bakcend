@@ -341,6 +341,10 @@ export class ArtistPostService {
             'reactedUser.phone_number',
             'reactedUser.avatar_url',
           ]) // Select specific fields from user
+          .addSelect(
+            `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
+            'associate_fan_count',
+          )
           .where('artistPost.user_id = :userId', { userId: user?.id })
           .andWhere('artistPost.id = :postId', { postId })
           .andWhere('artistPostUser.status IN (:...statuses)', {
@@ -350,7 +354,16 @@ export class ArtistPostService {
               Invite_Status.GENERIC,
             ], // Filter for both ACCEPTED and NULL statuses
           })
+          .groupBy('artistPost.id')
+          .addGroupBy('artistPostUser.id')
+          .addGroupBy('user.id')
+          .addGroupBy('comment.id')
+          .addGroupBy('commentedUser.id')
+          .addGroupBy('reaction.id')
+          .addGroupBy('reactedUser.id')
+          .addGroupBy('commentReaction.id') // Added commentReaction to group by
           .getOne();
+          // .getOne();
         if (!artistPosts) {
           throw new HttpException(
             ERROR_MESSAGES.POST_NOT_FOUND,
@@ -409,12 +422,23 @@ export class ArtistPostService {
         const paginate: Paginate = getPaginated(req.pageNo || 1, req.pageSize || 0);
         let formattedPosts: ArtistPostWithCounts[] = [];
         let postCount = 0;
+<<<<<<< HEAD
   
         // Fetch the Post for which the user accepts the invites plus comments and likes
         let acceptedPostIds = await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
   
         const fanOfArtistIds = await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(user.id);
   
+=======
+        //Fetch the Post for which user accepts the invites plus comments and likes
+        let acceptedPostIds =
+          await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
+
+        const fanOfArtistIds =
+          await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(
+            user.id,
+          );
+>>>>>>> d9a3f6dca28a84e3b35ba19b820d4f3adcbee939
         if (fanOfArtistIds.length > 0) {
           const fanOfArtistsGenericPostsIds = await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
           acceptedPostIds = [...acceptedPostIds, ...fanOfArtistsGenericPostsIds];
@@ -434,6 +458,10 @@ export class ArtistPostService {
             .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
             .leftJoinAndSelect('artistPostUser.comment', 'comment')
             .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
+            .addSelect(
+              `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
+              'associate_fan_count',
+            ) 
             .where('artistPost.id IN (:...acceptedPostIds)', {
               acceptedPostIds,
             }) // Filter by artistPostIds
@@ -455,8 +483,18 @@ export class ArtistPostService {
           formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
           postCount = count;
         }
+<<<<<<< HEAD
   
         const meta = getPaginatedOutput(paginate.pageNo, paginate.pageSize, postCount);
+=======
+        
+        
+        const meta = getPaginatedOutput(
+          paginate.pageNo,
+          paginate.pageSize,
+          postCount,
+        );
+>>>>>>> d9a3f6dca28a84e3b35ba19b820d4f3adcbee939
         return { posts: formattedPosts, meta };
       }
     } catch (error) {

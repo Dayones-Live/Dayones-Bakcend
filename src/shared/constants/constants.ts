@@ -87,3 +87,8 @@ export enum SUCCESS_MESSAGES {
   PASSWORD_RESET_SUCCESS = 'Password reset successfully',
   VERIFICATION_CODE_SENT = 'Verify email code sent',
 }
+
+export enum BUNDLE_NOTIFICATIONS_UNIQUE_KEYS {
+  ANDROID_BUNDLE_ID = 'dayones_android',
+  IOS_BUNDLE_ID = 'dayones_ios',
+}
