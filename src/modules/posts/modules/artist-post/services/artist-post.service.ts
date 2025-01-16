@@ -401,35 +401,39 @@ export class ArtistPostService {
   ): Promise<AllPostsResponse> {
     try {
       if (user?.role[0] === Roles.ARTIST) {
-        const paginate: Paginate = getPaginated(req.pageNo || 1, req.pageSize || 0);
-        const [artistPosts, count] = await this.artistPostRepository.findAndCount({
-          relations: [
-            'artistPostUser',
-            'artistPostUser.user',
-            'artistPostUser.comment',
-            'artistPostUser.reaction',
-          ],
-          where: {
-            user_id: user?.id,
-          },
-          skip: paginate.offset,
-          take: paginate.limit,
-        });
-        const formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
-        const meta = getPaginatedOutput(paginate.pageNo, paginate.pageSize, count);
+        const paginate: Paginate = getPaginated(
+          req.pageNo || 1,
+          req.pageSize || 0,
+        );
+        const [artistPosts, count] =
+          await this.artistPostRepository.findAndCount({
+            relations: [
+              'artistPostUser',
+              'artistPostUser.user',
+              'artistPostUser.comment',
+              'artistPostUser.reaction',
+            ],
+            where: {
+              user_id: user?.id,
+            },
+            skip: paginate.offset,
+            take: paginate.limit,
+          });
+        const formattedPosts =
+          this.artistPostMapper.processArtistPostsData(artistPosts);
+        const meta = getPaginatedOutput(
+          paginate.pageNo,
+          paginate.pageSize,
+          count,
+        );
         return { posts: formattedPosts, meta };
       } else {
-        const paginate: Paginate = getPaginated(req.pageNo || 1, req.pageSize || 0);
+        const paginate: Paginate = getPaginated(
+          req.pageNo || 1,
+          req.pageSize || 0,
+        );
         let formattedPosts: ArtistPostWithCounts[] = [];
         let postCount = 0;
-<<<<<<< HEAD
-  
-        // Fetch the Post for which the user accepts the invites plus comments and likes
-        let acceptedPostIds = await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
-  
-        const fanOfArtistIds = await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(user.id);
-  
-=======
         //Fetch the Post for which user accepts the invites plus comments and likes
         let acceptedPostIds =
           await this.artistPostUserService.fetchAcceptedPostsIds(user?.id);
@@ -438,12 +442,16 @@ export class ArtistPostService {
           await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(
             user.id,
           );
->>>>>>> d9a3f6dca28a84e3b35ba19b820d4f3adcbee939
         if (fanOfArtistIds.length > 0) {
-          const fanOfArtistsGenericPostsIds = await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
-          acceptedPostIds = [...acceptedPostIds, ...fanOfArtistsGenericPostsIds];
+          const fanOfArtistsGenericPostsIds =
+            await this.fetchArtistsGenericPostsIds(fanOfArtistIds);
+
+          acceptedPostIds = [
+            ...acceptedPostIds,
+            ...fanOfArtistsGenericPostsIds,
+          ];
         }
-  
+
         if (acceptedPostIds.length) {
           const [artistPosts, count] = await this.artistPostRepository
             .createQueryBuilder('artistPost')
@@ -458,10 +466,10 @@ export class ArtistPostService {
             .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
             .leftJoinAndSelect('artistPostUser.comment', 'comment')
             .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
-            // .addSelect(
-            //   `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
-            //   'associate_fan_count',
-            // ) 
+            .addSelect(
+              `COUNT(CASE WHEN artistPostUser.status = '${Invite_Status.ACCEPTED}' THEN 1 END)`,
+              'associate_fan_count',
+            ) 
             .where('artistPost.id IN (:...acceptedPostIds)', {
               acceptedPostIds,
             }) // Filter by artistPostIds
@@ -476,17 +484,18 @@ export class ArtistPostService {
               { currentUserId: user?.id },
             )
             .andWhere('block.id IS NULL') // Exclude blocked users
+            .groupBy('artistPost.id') // Add GROUP BY for artistPost.id
+            .addGroupBy('user.id') // Add GROUP BY for user fields
+            .addGroupBy('artistPostUser.id') // Add GROUP BY for artistPostUser.id
+            .addGroupBy('comment.id') // Add GROUP BY for comment.id
+            .addGroupBy('reaction.id')
             .skip(paginate.offset) // Apply pagination offset
             .take(paginate.limit) // Apply pagination limit
             .getManyAndCount();
-          
-          formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
+          formattedPosts =
+            this.artistPostMapper.processArtistPostsData(artistPosts);
           postCount = count;
         }
-<<<<<<< HEAD
-  
-        const meta = getPaginatedOutput(paginate.pageNo, paginate.pageSize, postCount);
-=======
         
         
         const meta = getPaginatedOutput(
@@ -494,7 +503,6 @@ export class ArtistPostService {
           paginate.pageSize,
           postCount,
         );
->>>>>>> d9a3f6dca28a84e3b35ba19b820d4f3adcbee939
         return { posts: formattedPosts, meta };
       }
     } catch (error) {
@@ -505,7 +513,6 @@ export class ArtistPostService {
       throw error;
     }
   }
-  
 
   /**
    * Service to fetch all Recent Artist post
