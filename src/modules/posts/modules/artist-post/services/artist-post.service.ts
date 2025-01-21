@@ -461,6 +461,15 @@ async fetchAllUserPostsData(
             { currentUserId: user?.id },
           )
           .andWhere('block.id IS NULL') // Exclude blocked users
+          .groupBy('artistPost.id') // Group by artistPost.id
+          .addGroupBy('user.id') // Add group by for selected user fields
+          .addGroupBy('user.full_name')
+          .addGroupBy('user.email')
+          .addGroupBy('user.phone_number')
+          .addGroupBy('user.avatar_url')
+          .addGroupBy('artistPostUser.id') // Add group by for joined entities
+          .addGroupBy('comment.id')
+          .addGroupBy('reaction.id')
           .skip(paginate.offset) // Apply pagination offset
           .take(paginate.limit) // Apply pagination limit
           .getManyAndCount();
