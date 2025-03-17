@@ -65,7 +65,7 @@ export class ArtistPostService {
         latitude: Number(createArtistPostInput.latitude),
         currentUserId: createArtistPostInput?.userId,
       });
-      const minutesToAdd = artistPost.type === Post_Type.INVITE_PHOTO ? 15 : 5;
+      const minutesToAdd = 60; // Changed to 1 hour for all post types
       // Loop on users and add it in artist post user
       for (const user of users) {
         await this.artistPostUserService.createArtistPostUser({
