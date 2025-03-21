@@ -149,7 +149,10 @@ export class MessageService {
           isRead: false,
           fromId: userId,
           title: NOTIFICATION_TITLE.MESSAGE,
-          data: req?.message,
+          data: JSON.stringify({
+            message: req?.message,
+            conversation_id: req.conversationId
+          }),
           message: req?.message,
           type: NOTIFICATION_TYPE.MESSAGE,
           conversationId: req.conversationId,
