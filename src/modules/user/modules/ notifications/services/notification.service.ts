@@ -206,6 +206,7 @@ export class FirebaseService {
   
           return {
             ...notification, // Include all properties of `Notifications`
+            data: notification.data, // Explicitly include the data field
             from_user_profile: {
               id: fromUserProfile?.id || '',
               username: fromUserProfile?.full_name || '',
