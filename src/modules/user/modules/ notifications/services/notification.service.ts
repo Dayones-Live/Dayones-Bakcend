@@ -145,6 +145,7 @@ export class FirebaseService {
         senderProfiles,
         redirect_url: redirectUrl, // Include the redirect_url here
         notification_data: notification.data, // Include the original notification data
+        test_value: 'DAYONES_NOTIF', // Test value to verify deployment
       },
       android: {
         notification: {
