@@ -64,7 +64,11 @@ export class CommentReactionsService {
         isRead: false,
         fromId: user?.id,
         title: NOTIFICATION_TITLE.LIKE_COMMENT,
-        data: JSON.stringify(likeACommentDto),
+        data: JSON.stringify({
+          ...likeACommentDto,
+          post_id: comment?.artistPostUser?.artist_post_id,
+          test_value: 'DAYONES_NOTIF'
+        }),
         message: `${user?.full_name} ${NOTIFICATION_TITLE.LIKE_COMMENT}`,
         type: NOTIFICATION_TYPE.REACTION,
         postId: comment?.artistPostUser?.artist_post_id,
