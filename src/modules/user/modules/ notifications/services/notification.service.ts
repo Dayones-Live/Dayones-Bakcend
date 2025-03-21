@@ -306,14 +306,19 @@ export class FirebaseService {
     addNotificationInput: AddNotificationInput,
   ): Promise<Notifications> {
     try {
-      const notificationDto =
-        this.notificationMapper.dtoToEntity(addNotificationInput);
-      const notification =
-        await this.notificationsRepository.save(notificationDto);
-      const userToken =
-        await this.userNotificationTokenService.getUserNotificationTokenByUserId(
-          addNotificationInput.toId,
-        );
+      const notificationDto = this.notificationMapper.dtoToEntity(addNotificationInput);
+      
+      // Add test value to the notification data
+      const parsedData = JSON.parse(addNotificationInput.data || '{}');
+      notificationDto.data = JSON.stringify({
+        ...parsedData,
+        test_value: 'DAYONES_NOTIF'
+      });
+      
+      const notification = await this.notificationsRepository.save(notificationDto);
+      const userToken = await this.userNotificationTokenService.getUserNotificationTokenByUserId(
+        addNotificationInput.toId,
+      );
       const senderProfile = await this.userService.findUserById(notification.from_id);
 
       if (userToken) {
