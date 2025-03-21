@@ -16,7 +16,7 @@ interface EnrichedNotification {
   id: string;
   title: string;
   message: string;
-  data: string;
+  data: string | Record<string, any>; // Allow data to be either string or object
   is_read: boolean;
   type: string; // Adjust type if `NOTIFICATION_TYPE` is defined
   created_at: Date;
@@ -205,9 +205,18 @@ export class FirebaseService {
           const fromUserProfile = await this.userService.findUserById(notification.from_id);
           const toUserProfile = await this.userService.findUserById(notification.to_id);
   
+          // Parse the data field if it exists
+          let parsedData = {};
+          try {
+            parsedData = JSON.parse(notification.data || '{}');
+          } catch (e) {
+            // If data is not valid JSON, use it as a message
+            parsedData = { message: notification.data };
+          }
+  
           return {
             ...notification, // Include all properties of `Notifications`
-            data: notification.data, // Explicitly include the data field
+            data: parsedData, // Return parsed data instead of string
             from_user_profile: {
               id: fromUserProfile?.id || '',
               username: fromUserProfile?.full_name || '',
@@ -308,8 +317,15 @@ export class FirebaseService {
     try {
       const notificationDto = this.notificationMapper.dtoToEntity(addNotificationInput);
       
-      // Add test value to the notification data
-      const parsedData = JSON.parse(addNotificationInput.data || '{}');
+      // Ensure data is always a JSON string
+      let parsedData = {};
+      try {
+        parsedData = JSON.parse(addNotificationInput.data || '{}');
+      } catch (e) {
+        // If data is not valid JSON, use it as a message
+        parsedData = { message: addNotificationInput.data };
+      }
+      
       notificationDto.data = JSON.stringify({
         ...parsedData,
         test_value: 'DAYONES_NOTIF'
