@@ -144,7 +144,7 @@ export class FirebaseService {
         id: id,  
         senderProfiles,
         redirect_url: redirectUrl, // Include the redirect_url here
-
+        notification_data: notification.data, // Include the original notification data
       },
       android: {
         notification: {
