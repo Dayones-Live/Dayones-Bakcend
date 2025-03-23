@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsUUID, ValidateIf } from 'class-validator';
 import { User } from '@user/entities/user.entity';
 import {
   BaseEntity,
@@ -38,9 +38,10 @@ export class Message extends BaseEntity {
   @JoinColumn({ name: 'conversation_id' })
   conversation: Conversations;
 
-  @Column({ type: 'varchar' })
-  @IsNotEmpty({ message: 'Message is required' })
-  message: string;
+  @Column({ type: 'varchar', nullable: true })
+  @ValidateIf((o) => !o.media_type)
+  @IsNotEmpty({ message: 'Message is required when no media is attached' })
+  message?: string;
 
   @Column({ type: 'varchar', nullable: true })
   url: string;

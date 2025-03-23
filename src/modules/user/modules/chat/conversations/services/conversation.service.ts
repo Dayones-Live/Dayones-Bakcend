@@ -59,6 +59,8 @@ export class ConversationService {
         {
           conversationId: conversation.id,
           message: lastMessage,
+          mediaType: req.mediaType,
+          url: req.url,
         },
         userId,
       );

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { Message } from '../entities/message.entity';
 import { PaginationDto, PaginationResponse } from '@app/types';
 import { Media_Type } from '@app/types';
@@ -7,8 +7,9 @@ export class SendMessageInput {
   @IsNotEmpty({ message: 'Conversation ID is required' })
   conversationId: string;
 
-  @IsNotEmpty({ message: 'Message content is required' })
-  message: string;
+  @ValidateIf((o) => !o.mediaType)
+  @IsNotEmpty({ message: 'Message content is required when no media is attached' })
+  message?: string;
 
   url?: string;
 

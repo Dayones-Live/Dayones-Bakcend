@@ -127,7 +127,7 @@ export class MessageService {
       if (message) {
         await this.conversationService.updateConversation({
           id: req.conversationId,
-          lastMessage: message.message,
+          lastMessage: message.message || `[${message.media_type}]`,
         });
 
         await this.sendMessageThroughSocket(
@@ -150,10 +150,10 @@ export class MessageService {
           fromId: userId,
           title: NOTIFICATION_TITLE.MESSAGE,
           data: JSON.stringify({
-            message: req?.message,
+            message: req?.message || `[${req?.mediaType}]`,
             conversation_id: req.conversationId
           }),
-          message: req?.message,
+          message: req?.message || `[${req?.mediaType}]`,
           type: NOTIFICATION_TYPE.MESSAGE,
           conversationId: req.conversationId,
         });
