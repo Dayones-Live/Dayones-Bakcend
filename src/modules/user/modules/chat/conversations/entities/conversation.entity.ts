@@ -38,8 +38,7 @@ export class Conversations extends BaseEntity {
   @JoinColumn({ name: 'reciever_id' })
   reciever: User;
 
-  @Column({ type: 'varchar' })
-  @IsNotEmpty({ message: 'Last message is required' })
+  @Column({ type: 'varchar', nullable: true })
   last_message: string;
 
   @Column()

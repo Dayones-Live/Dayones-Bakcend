@@ -46,24 +46,26 @@ export class ConversationService {
     req: CreateConversationInput,
   ): Promise<Conversations> {
     try {
-      const { lastMessage, recieverId } = req;
+      const { lastMessage, recieverId, mediaType, url } = req;
       const dto = this.conversationMapper.dtoToEntity({
-        lastMessage,
+        lastMessage: lastMessage || (mediaType ? `[${mediaType}]` : ''),
         recieverId,
         senderId: userId,
         senderRecieverCode: `${userId}_${recieverId}`,
       });
       const conversation = await this.conversationRepository.save(dto);
 
-      await this.messageService.sendMessage(
-        {
-          conversationId: conversation.id,
-          message: lastMessage,
-          mediaType: req.mediaType,
-          url: req.url,
-        },
-        userId,
-      );
+      if (lastMessage || mediaType) {
+        await this.messageService.sendMessage(
+          {
+            conversationId: conversation.id,
+            message: lastMessage,
+            mediaType: mediaType,
+            url: url,
+          },
+          userId,
+        );
+      }
       return conversation;
     } catch (error) {
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);

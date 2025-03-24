@@ -5,13 +5,13 @@ export class UpdateMessageColumnNullable1732605251100 implements MigrationInterf
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "messages" ALTER COLUMN "message" DROP NOT NULL`,
+      `ALTER TABLE "conversations" ALTER COLUMN "last_message" DROP NOT NULL`,
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "messages" ALTER COLUMN "message" SET NOT NULL`,
+      `ALTER TABLE "conversations" ALTER COLUMN "last_message" SET NOT NULL`,
     );
   }
 } 
