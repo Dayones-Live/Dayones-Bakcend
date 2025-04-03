@@ -473,6 +473,8 @@ export class CognitoService {
         AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
         AuthParameters: {
+          USERNAME: payload.email,
+          PASSWORD: 'dummy-password', // Required but not used for Google auth
           PROVIDER_TOKEN: googleToken,
           PROVIDER_TYPE: 'Google',
         },
@@ -514,7 +516,7 @@ export class CognitoService {
             token_type: result?.AuthenticationResult?.TokenType,
             user: {
               ...user,
-              role: user?.role?.[0] || null,
+              role: user?.role || null,
             },
           },
         };
