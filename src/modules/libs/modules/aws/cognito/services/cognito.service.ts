@@ -475,6 +475,7 @@ export class CognitoService {
         AuthParameters: {
           USERNAME: payload.email,
           PASSWORD: 'dummy-password', // Required but not used for Google auth
+          SECRET_HASH: computeSecretHash(payload.email),
           PROVIDER_TOKEN: googleToken,
           PROVIDER_TYPE: 'Google',
         },
