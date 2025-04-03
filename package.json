@@ -48,6 +48,7 @@
     "dayjs": "^1.11.13",
     "dotenv": "^16.4.5",
     "firebase-admin": "^12.6.0",
+    "google-auth-library": "^9.15.1",
     "heic-convert": "^2.1.0",
     "mime-types": "^2.1.35",
     "pg": "^8.13.0",

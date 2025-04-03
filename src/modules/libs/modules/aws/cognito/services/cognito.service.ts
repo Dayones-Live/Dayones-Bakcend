@@ -12,6 +12,7 @@ import {
   InitiateAuthCommand,
   ResendConfirmationCodeCommand,
   SignUpCommand,
+  GetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { cognitoJwtVerify } from '../constants/cognito.constants';
 import { computeSecretHash } from '../utils/cognito.utils';
@@ -28,6 +29,7 @@ import {
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
 } from '@app/shared/constants/constants';
+import { Roles } from '@app/shared/constants/roles';
 
 @Injectable()
 export class CognitoService {
@@ -441,6 +443,92 @@ export class CognitoService {
       throw new HttpException(
         `${ERROR_MESSAGES.PASSWORD_RESET_FAILED} ${error.message}`,
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  /**
+   * Service to handle Google Sign-In
+   * @param googleToken - The ID token from Google
+   * @returns {GlobalServiceResponse}
+   */
+  async signInWithGoogle(googleToken: string): Promise<GlobalServiceResponse> {
+    try {
+      // First, verify the Google ID token
+      const { OAuth2Client } = require('google-auth-library');
+      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+      
+      const ticket = await client.verifyIdToken({
+        idToken: googleToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
+      }
+
+      // Use the Google ID token to authenticate with Cognito
+      const command = new InitiateAuthCommand({
+        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+        ClientId: this.clientId || '',
+        AuthParameters: {
+          PROVIDER_TOKEN: googleToken,
+          PROVIDER_TYPE: 'Google',
+        },
+      });
+
+      const result = await this.cognitoClient.send(command);
+      
+      if (result['$metadata']?.httpStatusCode === HttpStatus.OK && result?.AuthenticationResult?.AccessToken) {
+        const cognitoPayload = await cognitoJwtVerify.verify(
+          result?.AuthenticationResult?.AccessToken || '',
+          {
+            tokenUse: 'access',
+            clientId: process.env.COGNITO_CLIENT_ID || '',
+          },
+        );
+
+        // Check if user exists in our database
+        let user = await this.userService.findUserByUserSub(cognitoPayload?.username);
+        
+        // If user doesn't exist, create them
+        if (!user) {
+          user = await this.userService.createUser({
+            name: payload.name || '',
+            email: payload.email || '',
+            role: [Roles.USER],
+            userSub: cognitoPayload?.username,
+            isConfirmed: true,
+            avatarUrl: payload.picture,
+          });
+        }
+
+        return {
+          statusCode: result['$metadata'].httpStatusCode,
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+          data: {
+            access_token: result?.AuthenticationResult?.AccessToken,
+            expires_in: result?.AuthenticationResult?.ExpiresIn,
+            refresh_token: result?.AuthenticationResult?.RefreshToken,
+            token_type: result?.AuthenticationResult?.TokenType,
+            user: {
+              ...user,
+              role: user?.role?.[0] || null,
+            },
+          },
+        };
+      }
+
+      return {
+        statusCode: HttpStatus.UNAUTHORIZED,
+        message: 'Authentication failed: Invalid Google credentials',
+      };
+    } catch (error) {
+      console.error('Google authentication error:', error);
+      throw new HttpException(
+        error.message || 'Google authentication failed',
+        error.status || HttpStatus.UNAUTHORIZED
       );
     }
   }

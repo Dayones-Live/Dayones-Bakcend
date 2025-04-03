@@ -8,7 +8,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { CognitoService } from '@libs/modules/aws/cognito/services/cognito.service';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import {
@@ -224,6 +224,63 @@ export class AuthController {
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ getCognitoUser ~ error:', error);
       throw error; // Handle the error appropriately
+    }
+  }
+
+  @Public()
+  @Post('google')
+  @ApiOperation({ summary: 'Sign in with Google' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        idToken: { type: 'string', description: 'Google ID token' },
+        name: { type: 'string', description: 'User\'s full name from Google' },
+        email: { type: 'string', description: 'User\'s email from Google' }
+      },
+      required: ['idToken', 'name', 'email']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully signed in with Google',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        token: { type: 'string', description: 'Application JWT token' },
+        role: { type: 'string', description: 'User\'s role' }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid Google token',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        message: { type: 'string' }
+      }
+    }
+  })
+  async signInWithGoogle(
+    @Body() body: { idToken: string; name: string; email: string },
+    @Res() res: Response,
+  ) {
+    try {
+      const result = await this.cognitoService.signInWithGoogle(body.idToken);
+      res.status(result?.statusCode).json({
+        success: result?.statusCode === HttpStatus.OK,
+        token: result?.data?.access_token,
+        role: result?.data?.user?.role,
+      });
+    } catch (error) {
+      console.error('🚀 ~ AuthController ~ signInWithGoogle ~ error:', error);
+      res.status(error.status || HttpStatus.UNAUTHORIZED).json({
+        success: false,
+        message: error.message,
+      });
     }
   }
 }
