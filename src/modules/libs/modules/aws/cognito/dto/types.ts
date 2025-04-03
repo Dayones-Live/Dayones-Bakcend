@@ -32,14 +32,17 @@ export class CreateUserInput {
   @IsNotEmpty({ message: 'Name is required' })
   name: string;
 
-  @IsNotEmpty({ message: 'Phone number is required' })
-  phoneNumber: string;
+  @IsOptional()
+  phoneNumber?: string;
 
   @IsNotEmpty({ message: 'User Sub is required' })
   userSub: string;
 
   @IsNotEmpty({ message: 'Is Confirmed is required' })
   isConfirmed: boolean;
+
+  @IsOptional()
+  avatarUrl?: string;
 }
 
 export class UserConfirmationInput {

@@ -29,7 +29,7 @@ import {
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
 } from '@app/shared/constants/constants';
-import { Roles } from '@app/shared/constants/roles';
+import { Roles } from '@app/shared/constants/constants';
 
 @Injectable()
 export class CognitoService {
@@ -497,7 +497,7 @@ export class CognitoService {
           user = await this.userService.createUser({
             name: payload.name || '',
             email: payload.email || '',
-            role: [Roles.USER],
+            role: Roles.USER,
             userSub: cognitoPayload?.username,
             isConfirmed: true,
             avatarUrl: payload.picture,
