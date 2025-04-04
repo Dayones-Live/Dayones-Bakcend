@@ -468,14 +468,15 @@ export class CognitoService {
         throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
       }
 
-      // Use the Google ID token to authenticate with Cognito
+      // Use Cognito's federated identity support
       const command = new InitiateAuthCommand({
-        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+        AuthFlow: 'CUSTOM_AUTH',
         ClientId: this.clientId || '',
         AuthParameters: {
-          USERNAME: payload.email,
-          PASSWORD: googleToken, // Use the Google token as the password
-          SECRET_HASH: computeSecretHash(payload.email)
+          'CUSTOM_CHALLENGE_NAME': 'GOOGLE',
+          'USERNAME': payload.email,
+          'SECRET_HASH': computeSecretHash(payload.email),
+          'CHALLENGE_ANSWER': googleToken
         },
       });
 
