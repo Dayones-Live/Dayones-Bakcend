@@ -458,10 +458,9 @@ export class CognitoService {
    */
   async signInWithGoogle(googleToken: string): Promise<GlobalServiceResponse> {
     try {
-      // First, verify the Google ID token
+      // 1. Verify the Google token
       const { OAuth2Client } = require('google-auth-library');
       
-      // Verify Google Client ID is configured
       if (!process.env.GOOGLE_CLIENT_ID) {
         console.error('GOOGLE_CLIENT_ID environment variable is not set');
         throw new HttpException(
@@ -471,8 +470,7 @@ export class CognitoService {
       }
       
       const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-      
-      console.log('Verifying Google token with client ID:', process.env.GOOGLE_CLIENT_ID);
+      console.log('Verifying Google token');
       
       let ticket;
       try {
@@ -483,295 +481,264 @@ export class CognitoService {
       } catch (verifyError) {
         console.error('Google token verification failed:', verifyError);
         throw new HttpException(
-          'Invalid Google token: ' + verifyError.message,
+          'Invalid Google token. Please try again.',
           HttpStatus.UNAUTHORIZED
         );
       }
       
       const payload = ticket.getPayload();
-      if (!payload) {
-        throw new HttpException('Invalid Google token: empty payload', HttpStatus.UNAUTHORIZED);
+      if (!payload || !payload.email) {
+        throw new HttpException('Invalid Google token: missing email', HttpStatus.UNAUTHORIZED);
       }
       
-      console.log('Google authentication successful for email:', payload.email);
-      console.log('Google token payload:', JSON.stringify({
-        sub: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        picture: payload.picture,
-        exp: payload.exp
-      }));
+      console.log('Google token verified for email:', payload.email);
       
-      // Check if token is expired
-      const currentTime = Math.floor(Date.now() / 1000);
-      if (payload.exp && payload.exp < currentTime) {
-        throw new HttpException('Google token has expired', HttpStatus.UNAUTHORIZED);
-      }
-
-      // Create a deterministic password for this Google account
-      const googleUserId = payload.sub; // Google's unique user ID
-      const secretKey = process.env.COGNITO_CLIENT_SECRET || 'default-secret-key';
+      // 2. Create a deterministic password for this Google account
+      const googleUserId = payload.sub;
+      const secretKey = process.env.COGNITO_CLIENT_SECRET || '';
       const deterministicPassword = crypto
         .createHmac('sha256', secretKey)
         .update(googleUserId)
         .digest('hex')
-        .substring(0, 20) + 'Aa1!'; // Add complexity to meet Cognito password requirements
-
-      // Try simple sign-in first - this will work if the user already exists
-      console.log('Attempting to sign in existing user with email:', payload.email);
+        .substring(0, 20) + 'Aa1!';
+      
+      // 3. Try to sign in with USER_PASSWORD_AUTH flow
       try {
-        const signInCommand = new InitiateAuthCommand({
+        const signInParams = {
           AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
           ClientId: this.clientId || '',
           AuthParameters: {
             USERNAME: payload.email,
             PASSWORD: deterministicPassword,
             SECRET_HASH: computeSecretHash(payload.email)
-          },
-        });
+          }
+        };
         
+        console.log('Attempting to sign in user');
+        const signInCommand = new InitiateAuthCommand(signInParams);
         const result = await this.cognitoClient.send(signInCommand);
-        console.log('Successfully signed in existing user');
-        return this.handleSuccessfulAuth(result, payload);
-      } catch (signInError) {
-        console.error('Sign-in attempt failed:', signInError);
+        console.log('Successfully signed in user');
         
-        // Check if it's an "incorrect username/password" error which means user doesn't exist
-        if (!signInError.message.includes('Incorrect username or password')) {
-          // If it's some other error, try direct admin sign-in
-          if (process.env.COGNITO_POOL_ID) {
-            console.log('Attempting admin sign-in as fallback');
-            try {
-              const adminSignInCommand = new AdminInitiateAuthCommand({
-                UserPoolId: process.env.COGNITO_POOL_ID,
-                ClientId: this.clientId || '',
-                AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
-                AuthParameters: {
-                  USERNAME: payload.email,
-                  PASSWORD: deterministicPassword,
-                },
-              });
-              
-              const result = await this.cognitoClient.send(adminSignInCommand);
-              console.log('Successfully signed in with admin flow');
-              return this.handleSuccessfulAuth(result, payload);
-            } catch (adminSignInError) {
-              console.error('Admin sign-in also failed:', adminSignInError);
-              // If admin sign-in also fails, continue to user creation
+        // 4. Find or create user in our database
+        let user;
+        try {
+          console.log('Looking for user in database');
+          user = await this.userService.findUserByUserSub(payload.email);
+          console.log('Found existing user');
+        } catch (findError) {
+          console.log('User not found, creating new user');
+          try {
+            user = await this.userService.createUser({
+              name: payload.name || '',
+              email: payload.email,
+              phoneNumber: '+10000000000',
+              role: Roles.USER,
+              userSub: payload.email,
+              isConfirmed: true,
+              avatarUrl: payload.picture
+            });
+            console.log('Created new user');
+          } catch (createError) {
+            console.error('Failed to create user in database:', createError);
+            // Just return the authentication tokens without user info in worst case
+            if (result?.AuthenticationResult) {
+              return {
+                statusCode: 200,
+                message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+                data: {
+                  access_token: result.AuthenticationResult.AccessToken,
+                  expires_in: result.AuthenticationResult.ExpiresIn,
+                  refresh_token: result.AuthenticationResult.RefreshToken,
+                  token_type: result.AuthenticationResult.TokenType
+                }
+              };
             }
+            throw new HttpException('Failed to process user record', HttpStatus.INTERNAL_SERVER_ERROR);
           }
         }
         
-        // If we reach here, either:
-        // 1. User doesn't exist (Incorrect username/password)
-        // 2. Or all sign-in attempts failed, so we'll try creating a new user
-        console.log('User does not exist or sign-in failed, creating new account');
-          
+        // 5. Return successful response with tokens
+        return {
+          statusCode: 200,
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+          data: {
+            access_token: result.AuthenticationResult?.AccessToken,
+            expires_in: result.AuthenticationResult?.ExpiresIn,
+            refresh_token: result.AuthenticationResult?.RefreshToken,
+            token_type: result.AuthenticationResult?.TokenType,
+            user: {
+              ...user,
+              role: user?.role?.[0] || null
+            }
+          }
+        };
+      } catch (signInError) {
+        // If sign-in fails, user doesn't exist - try to create one
+        console.error('Sign-in failed, creating user:', signInError);
+        
         try {
-          // Create a new user with Google details
-          const signUpCommand = new SignUpCommand({
+          // 6. Try to create a user in Cognito
+          console.log('Creating new Cognito user');
+          const signUpParams = {
             ClientId: this.clientId || '',
             Username: payload.email,
             Password: deterministicPassword,
             SecretHash: computeSecretHash(payload.email),
             UserAttributes: [
               { Name: 'email', Value: payload.email },
-              { Name: 'phone_number', Value: '+10000000000' }, // Default phone number
-              { Name: 'name', Value: payload.name || '' },
-            ],
-          });
+              { Name: 'phone_number', Value: '+10000000000' }
+            ]
+          };
           
-          try {
-            await this.cognitoClient.send(signUpCommand);
-            console.log('Successfully created new user');
-          } catch (signUpError) {
-            console.error('SignUp error details:', signUpError);
-            console.error('Error message:', signUpError.message);
-            
-            // If it's a schema validation error, try with minimal attributes
-            if (signUpError.message && signUpError.message.includes('schema')) {
-              console.log('Attempting signup with minimal attributes');
-              const minimalSignUpCommand = new SignUpCommand({
-                ClientId: this.clientId || '',
-                Username: payload.email,
-                Password: deterministicPassword,
-                SecretHash: computeSecretHash(payload.email),
-                UserAttributes: [
-                  { Name: 'email', Value: payload.email }
-                ],
-              });
-              
-              await this.cognitoClient.send(minimalSignUpCommand);
-              console.log('Successfully created user with minimal attributes');
-            } else {
-              throw signUpError;
-            }
-          }
+          const signUpCommand = new SignUpCommand(signUpParams);
+          await this.cognitoClient.send(signUpCommand);
+          console.log('User created in Cognito');
           
-          // Auto-confirm the new user's email
+          // 7. Auto-confirm the email
           if (process.env.COGNITO_POOL_ID) {
             try {
-              const confirmCommand = new AdminUpdateUserAttributesCommand({
+              console.log('Auto-confirming user email');
+              const confirmParams = {
                 UserPoolId: process.env.COGNITO_POOL_ID,
                 Username: payload.email,
                 UserAttributes: [
                   { Name: 'email_verified', Value: 'true' }
                 ]
-              });
+              };
               
+              const confirmCommand = new AdminUpdateUserAttributesCommand(confirmParams);
               await this.cognitoClient.send(confirmCommand);
-              console.log('Successfully confirmed new user');
+              console.log('User email confirmed');
             } catch (confirmError) {
-              console.error('Error confirming user:', confirmError);
-              // Continue with sign-in attempt even if confirmation fails
+              console.error('Failed to confirm email:', confirmError);
+              // Continue anyway, this isn't critical
             }
           }
           
-          // Now sign in the newly created user
+          // 8. Now try to sign in with the newly created user
+          console.log('Signing in with new user');
+          const newSignInParams = {
+            AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+            ClientId: this.clientId || '',
+            AuthParameters: {
+              USERNAME: payload.email,
+              PASSWORD: deterministicPassword,
+              SECRET_HASH: computeSecretHash(payload.email)
+            }
+          };
+          
+          const newSignInCommand = new InitiateAuthCommand(newSignInParams);
+          const result = await this.cognitoClient.send(newSignInCommand);
+          console.log('Successfully signed in new user');
+          
+          // 9. Create user in our database
           try {
-            const newSignInCommand = new InitiateAuthCommand({
-              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-              ClientId: this.clientId || '',
-              AuthParameters: {
-                USERNAME: payload.email,
-                PASSWORD: deterministicPassword,
-                SECRET_HASH: computeSecretHash(payload.email)
-              },
+            console.log('Creating user in our database');
+            const user = await this.userService.createUser({
+              name: payload.name || '',
+              email: payload.email,
+              phoneNumber: '+10000000000',
+              role: Roles.USER,
+              userSub: payload.email,
+              isConfirmed: true,
+              avatarUrl: payload.picture
             });
+            console.log('User created in database');
             
-            const result = await this.cognitoClient.send(newSignInCommand);
-            console.log('Successfully signed in new user');
-            return this.handleSuccessfulAuth(result, payload);
-          } catch (newSignInError) {
-            console.error('Error signing in new user:', newSignInError);
+            return {
+              statusCode: 200,
+              message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+              data: {
+                access_token: result.AuthenticationResult?.AccessToken,
+                expires_in: result.AuthenticationResult?.ExpiresIn,
+                refresh_token: result.AuthenticationResult?.RefreshToken,
+                token_type: result.AuthenticationResult?.TokenType,
+                user: {
+                  ...user,
+                  role: user?.role?.[0] || null
+                }
+              }
+            };
+          } catch (createUserError) {
+            console.error('Failed to create user in database:', createUserError);
+            // Still return tokens even if database user creation fails
+            if (result?.AuthenticationResult) {
+              return {
+                statusCode: 200,
+                message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+                data: {
+                  access_token: result.AuthenticationResult.AccessToken,
+                  expires_in: result.AuthenticationResult.ExpiresIn,
+                  refresh_token: result.AuthenticationResult.RefreshToken,
+                  token_type: result.AuthenticationResult.TokenType
+                }
+              };
+            }
+          }
+        } catch (signUpError) {
+          console.error('Failed to create user in Cognito:', signUpError);
+          
+          // Handle case where user already exists but sign-in failed for some reason
+          if (signUpError.name === 'UsernameExistsException') {
+            console.log('User already exists, trying admin sign-in');
             
-            // Try admin sign-in as a last resort
+            // Try admin sign-in as last resort
             if (process.env.COGNITO_POOL_ID) {
               try {
-                console.log('Attempting admin sign-in flow');
-                const adminSignInCommand = new AdminInitiateAuthCommand({
+                const adminAuthParams = {
                   UserPoolId: process.env.COGNITO_POOL_ID,
                   ClientId: this.clientId || '',
-                  AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
+                  AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
                   AuthParameters: {
                     USERNAME: payload.email,
-                    PASSWORD: deterministicPassword,
-                  },
-                });
+                    PASSWORD: deterministicPassword
+                  }
+                };
                 
-                const result = await this.cognitoClient.send(adminSignInCommand);
-                console.log('Successfully signed in with admin flow');
-                return this.handleSuccessfulAuth(result, payload);
-              } catch (adminSignInError) {
-                console.error('Admin sign-in failed:', adminSignInError);
-                throw adminSignInError;
+                const adminAuthCommand = new AdminInitiateAuthCommand(adminAuthParams);
+                const result = await this.cognitoClient.send(adminAuthCommand);
+                console.log('Admin authentication successful');
+                
+                // Just return tokens in this case
+                return {
+                  statusCode: 200,
+                  message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+                  data: {
+                    access_token: result.AuthenticationResult?.AccessToken,
+                    expires_in: result.AuthenticationResult?.ExpiresIn,
+                    refresh_token: result.AuthenticationResult?.RefreshToken,
+                    token_type: result.AuthenticationResult?.TokenType
+                  }
+                };
+              } catch (adminAuthError) {
+                console.error('Admin authentication failed:', adminAuthError);
               }
-            } else {
-              throw newSignInError;
             }
           }
-        } catch (createError) {
-          // User creation failed
-          console.error('Error creating user:', createError);
           
-          // If user already exists (which might happen in race conditions), try signing in again
-          if (createError.name === 'UsernameExistsException' || 
-              createError.message.includes('already exists')) {
-            console.log('User already exists, attempting sign-in again');
-            
-            const retrySignInCommand = new InitiateAuthCommand({
-              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-              ClientId: this.clientId || '',
-              AuthParameters: {
-                USERNAME: payload.email,
-                PASSWORD: deterministicPassword,
-                SECRET_HASH: computeSecretHash(payload.email)
-              },
-            });
-            
-            const result = await this.cognitoClient.send(retrySignInCommand);
-            console.log('Successfully signed in existing user on retry');
-            return this.handleSuccessfulAuth(result, payload);
-          }
-          
-          throw createError;
+          throw new HttpException(
+            'Failed to authenticate with Google. Please try again.',
+            HttpStatus.UNAUTHORIZED
+          );
         }
       }
+      
+      // This should never be reached but is here as a fallback
+      throw new HttpException(
+        'Google authentication failed due to unknown reason',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
     } catch (error) {
       console.error('Google authentication error:', error);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
       throw new HttpException(
         error.message || 'Google authentication failed',
-        error.status || HttpStatus.UNAUTHORIZED
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
-  }
-
-  private async handleSuccessfulAuth(result: any, payload: any): Promise<GlobalServiceResponse> {
-    if (result['$metadata']?.httpStatusCode === HttpStatus.OK && result?.AuthenticationResult?.AccessToken) {
-      try {
-        const cognitoPayload = await cognitoJwtVerify.verify(
-          result?.AuthenticationResult?.AccessToken || '',
-          {
-            tokenUse: 'access',
-            clientId: process.env.COGNITO_CLIENT_ID || '',
-          },
-        );
-
-        // Check if user exists in our database
-        let user = await this.userService.findUserByUserSub(cognitoPayload?.username);
-        
-        // If user doesn't exist, create them
-        if (!user) {
-          try {
-            user = await this.userService.createUser({
-              name: payload.name || '',
-              email: payload.email || '',
-              phoneNumber: '+10000000000', // Default phone number
-              role: Roles.USER,
-              userSub: cognitoPayload?.username,
-              isConfirmed: true,
-              avatarUrl: payload.picture,
-            });
-          } catch (createUserError) {
-            console.error('Error creating user in database:', createUserError);
-            // If user creation fails, try to find the user again
-            // This handles race conditions where another request might have created the user
-            user = await this.userService.findUserByUserSub(cognitoPayload?.username);
-            if (!user) {
-              throw new HttpException(
-                'Failed to create user account', 
-                HttpStatus.INTERNAL_SERVER_ERROR
-              );
-            }
-          }
-        }
-
-        return {
-          statusCode: result['$metadata'].httpStatusCode,
-          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-          data: {
-            access_token: result?.AuthenticationResult?.AccessToken,
-            expires_in: result?.AuthenticationResult?.ExpiresIn,
-            refresh_token: result?.AuthenticationResult?.RefreshToken,
-            token_type: result?.AuthenticationResult?.TokenType,
-            user: {
-              ...user,
-              role: user?.role?.[0] || null,
-            },
-          },
-        };
-      } catch (error) {
-        console.error('Error during token verification or user handling:', error);
-        throw new HttpException(
-          'Authentication succeeded but user processing failed', 
-          HttpStatus.INTERNAL_SERVER_ERROR
-        );
-      }
-    }
-
-    return {
-      statusCode: HttpStatus.UNAUTHORIZED,
-      message: 'Authentication failed: Invalid Google credentials',
-    };
   }
 }
