@@ -273,12 +273,21 @@ export class AuthController {
     } catch (error) {
       console.error('Google sign-in error:', error);
       
+      // Log detailed error information for debugging
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+        stack: error.stack
+      });
+      
       // For specific error cases, provide friendly messages
       if (error.message && error.message.includes('Attributes did not conform to the schema')) {
         return res
           .status(HttpStatus.BAD_REQUEST)
           .json({ 
-            message: 'Could not complete Google sign-in. Please contact support.', 
+            message: 'Could not complete Google sign-in due to attribute requirements. Please contact support.', 
+            details: error.message,
             error: true 
           });
       }

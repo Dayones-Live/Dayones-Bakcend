@@ -513,41 +513,100 @@ export class CognitoService {
               SecretHash: computeSecretHash(payload.email),
               UserAttributes: [
                 { Name: 'email', Value: payload.email },
-                { Name: 'phone_number', Value: '+10000000000' } // Default phone number
+                { Name: 'phone_number', Value: '+10000000000' }, // Default phone number
+                { Name: 'name', Value: payload.name || '' },
               ],
             });
             
-            await this.cognitoClient.send(signUpCommand);
-            console.log('Successfully created new user');
+            try {
+              await this.cognitoClient.send(signUpCommand);
+              console.log('Successfully created new user');
+            } catch (signUpError) {
+              console.error('SignUp error details:', signUpError);
+              console.error('Error message:', signUpError.message);
+              
+              // If it's a schema validation error, try with minimal attributes
+              if (signUpError.message && signUpError.message.includes('schema')) {
+                console.log('Attempting signup with minimal attributes');
+                const minimalSignUpCommand = new SignUpCommand({
+                  ClientId: this.clientId || '',
+                  Username: payload.email,
+                  Password: deterministicPassword,
+                  SecretHash: computeSecretHash(payload.email),
+                  UserAttributes: [
+                    { Name: 'email', Value: payload.email }
+                  ],
+                });
+                
+                await this.cognitoClient.send(minimalSignUpCommand);
+                console.log('Successfully created user with minimal attributes');
+              } else {
+                throw signUpError;
+              }
+            }
             
             // Auto-confirm the new user's email
             if (process.env.COGNITO_POOL_ID) {
-              const confirmCommand = new AdminUpdateUserAttributesCommand({
-                UserPoolId: process.env.COGNITO_POOL_ID,
-                Username: payload.email,
-                UserAttributes: [
-                  { Name: 'email_verified', Value: 'true' }
-                ]
-              });
-              
-              await this.cognitoClient.send(confirmCommand);
-              console.log('Successfully confirmed new user');
+              try {
+                const confirmCommand = new AdminUpdateUserAttributesCommand({
+                  UserPoolId: process.env.COGNITO_POOL_ID,
+                  Username: payload.email,
+                  UserAttributes: [
+                    { Name: 'email_verified', Value: 'true' }
+                  ]
+                });
+                
+                await this.cognitoClient.send(confirmCommand);
+                console.log('Successfully confirmed new user');
+              } catch (confirmError) {
+                console.error('Error confirming user:', confirmError);
+                // Continue with sign-in attempt even if confirmation fails
+              }
             }
             
             // Now sign in the newly created user
-            const newSignInCommand = new InitiateAuthCommand({
-              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-              ClientId: this.clientId || '',
-              AuthParameters: {
-                USERNAME: payload.email,
-                PASSWORD: deterministicPassword,
-                SECRET_HASH: computeSecretHash(payload.email)
-              },
-            });
-            
-            const result = await this.cognitoClient.send(newSignInCommand);
-            console.log('Successfully signed in new user');
-            return this.handleSuccessfulAuth(result, payload);
+            try {
+              const newSignInCommand = new InitiateAuthCommand({
+                AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+                ClientId: this.clientId || '',
+                AuthParameters: {
+                  USERNAME: payload.email,
+                  PASSWORD: deterministicPassword,
+                  SECRET_HASH: computeSecretHash(payload.email)
+                },
+              });
+              
+              const result = await this.cognitoClient.send(newSignInCommand);
+              console.log('Successfully signed in new user');
+              return this.handleSuccessfulAuth(result, payload);
+            } catch (newSignInError) {
+              console.error('Error signing in new user:', newSignInError);
+              
+              // Try admin sign-in as a last resort
+              if (process.env.COGNITO_POOL_ID) {
+                try {
+                  console.log('Attempting admin sign-in flow');
+                  const adminSignInCommand = new AdminInitiateAuthCommand({
+                    UserPoolId: process.env.COGNITO_POOL_ID,
+                    ClientId: this.clientId || '',
+                    AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
+                    AuthParameters: {
+                      USERNAME: payload.email,
+                      PASSWORD: deterministicPassword,
+                    },
+                  });
+                  
+                  const result = await this.cognitoClient.send(adminSignInCommand);
+                  console.log('Successfully signed in with admin flow');
+                  return this.handleSuccessfulAuth(result, payload);
+                } catch (adminSignInError) {
+                  console.error('Admin sign-in failed:', adminSignInError);
+                  throw adminSignInError;
+                }
+              } else {
+                throw newSignInError;
+              }
+            }
           } catch (createError) {
             // User creation failed
             console.error('Error creating user:', createError);
