@@ -470,13 +470,14 @@ export class CognitoService {
 
       // Use Cognito's federated identity support
       const command = new InitiateAuthCommand({
-        AuthFlow: 'CUSTOM_AUTH',
+        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
         AuthParameters: {
-          'CUSTOM_CHALLENGE_NAME': 'GOOGLE',
-          'USERNAME': payload.email,
-          'SECRET_HASH': computeSecretHash(payload.email),
-          'CHALLENGE_ANSWER': googleToken
+          USERNAME: payload.email,
+          PASSWORD: googleToken,
+          SECRET_HASH: computeSecretHash(payload.email),
+          PROVIDER_NAME: 'Google',
+          PROVIDER_TOKEN: googleToken
         },
       });
 
