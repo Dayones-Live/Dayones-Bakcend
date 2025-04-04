@@ -251,8 +251,9 @@ export class AuthController {
           type: 'object',
           properties: {
             access_token: { type: 'string' },
-            expires_in: { type: 'number' },
+            id_token: { type: 'string' },
             refresh_token: { type: 'string' },
+            expires_in: { type: 'number' },
             token_type: { type: 'string' },
             user: { type: 'object' }
           }
@@ -265,77 +266,40 @@ export class AuthController {
     @Res() res: Response,
   ) {
     try {
-      // Log token info for debugging (safely - not the whole token)
-      const tokenStart = body.idToken.substring(0, 10);
-      const tokenEnd = body.idToken.substring(body.idToken.length - 10);
-      console.log(`Received Google sign-in request with token: ${tokenStart}...${tokenEnd}`);
-      console.log(`Token length: ${body.idToken.length} characters`);
-      
-      // Basic token format validation
-      if (!body.idToken || body.idToken.split('.').length !== 3) {
+      // Validate token format
+      if (!body.idToken || typeof body.idToken !== 'string') {
         return res
           .status(HttpStatus.BAD_REQUEST)
           .json({ 
-            message: 'Invalid token format. Please try again with a valid Google ID token.', 
+            message: 'Invalid Google token format', 
             error: true 
           });
       }
       
+      console.log('Processing Google sign-in request');
       const result = await this.cognitoService.signInWithGoogle(body.idToken);
+      
       return res
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });
     } catch (error) {
-      console.error('Google sign-in error:', error);
+      console.error('Google sign-in error in controller:', error);
       
-      // Log detailed error information for debugging
-      console.error('Error details:', {
-        message: error.message,
-        status: error.status,
-        name: error.name,
-        stack: error.stack
-      });
-      
-      // For specific error cases, provide friendly messages
-      if (error.message && error.message.includes('Attributes did not conform to the schema')) {
-        return res
-          .status(HttpStatus.BAD_REQUEST)
-          .json({ 
-            message: 'Could not complete Google sign-in due to attribute requirements. Please contact support.', 
-            details: error.message,
-            error: true 
-          });
-      }
-      
-      // For unauthorized errors
-      if (error.message && (
-        error.message.includes('Invalid token') || 
-        error.message.includes('expired') ||
-        error.message.includes('Unauthorized')
-      )) {
-        return res
-          .status(HttpStatus.UNAUTHORIZED)
-          .json({ 
-            message: 'Your Google sign-in session is invalid or expired. Please try again.', 
-            error: true 
-          });
-      }
-      
-      // If it's an HttpException, use its status and message
+      // Pass through the status code and message from the service
       if (error instanceof HttpException) {
         return res
           .status(error.getStatus())
           .json({ 
-            message: 'Google sign-in failed. Please try again.', 
+            message: error.message,
             error: true 
           });
       }
       
-      // Otherwise, return a 500 error
+      // Default error response
       return res
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .json({ 
-          message: 'Something went wrong with Google sign-in. Please try again later.', 
+          message: 'Google sign-in failed. Please try again later.', 
           error: true 
         });
     }
