@@ -30,6 +30,7 @@ import {
   SUCCESS_MESSAGES,
 } from '@app/shared/constants/constants';
 import { Roles } from '@app/shared/constants/constants';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class CognitoService {
@@ -468,6 +469,12 @@ export class CognitoService {
         throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
       }
 
+      // Hash the token to use as password (will always be the same for the same Google account)
+      const hashedToken = crypto
+        .createHash('sha256')
+        .update(googleToken)
+        .digest('hex');
+
       try {
         // Try to sign in first
         const signInCommand = new InitiateAuthCommand({
@@ -475,7 +482,7 @@ export class CognitoService {
           ClientId: this.clientId || '',
           AuthParameters: {
             USERNAME: payload.email,
-            PASSWORD: googleToken,
+            PASSWORD: hashedToken,
             SECRET_HASH: computeSecretHash(payload.email)
           },
         });
@@ -489,7 +496,7 @@ export class CognitoService {
           const signUpCommand = new SignUpCommand({
             ClientId: this.clientId || '',
             Username: payload.email,
-            Password: googleToken,
+            Password: hashedToken,
             SecretHash: computeSecretHash(payload.email),
             UserAttributes: [
               { Name: 'email', Value: payload.email },
@@ -506,7 +513,7 @@ export class CognitoService {
             ClientId: this.clientId || '',
             AuthParameters: {
               USERNAME: payload.email,
-              PASSWORD: googleToken,
+              PASSWORD: hashedToken,
               SECRET_HASH: computeSecretHash(payload.email)
             },
           });
