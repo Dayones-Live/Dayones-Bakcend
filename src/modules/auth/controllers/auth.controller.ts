@@ -235,7 +235,8 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        idToken: { type: 'string', description: 'Google ID token' }
+        idToken: { type: 'string', description: 'Google ID token' },
+        clientId: { type: 'string', description: 'Google Client ID (optional)' }
       },
       required: ['idToken']
     }
@@ -262,7 +263,7 @@ export class AuthController {
     }
   })
   async signInWithGoogle(
-    @Body() body: { idToken: string },
+    @Body() body: { idToken: string; clientId?: string },
     @Res() res: Response,
   ) {
     try {
@@ -277,7 +278,7 @@ export class AuthController {
       }
       
       console.log('Processing Google sign-in request');
-      const result = await this.cognitoService.signInWithGoogle(body.idToken);
+      const result = await this.cognitoService.signInWithGoogle(body.idToken, body.clientId);
       
       return res
         .status(result?.statusCode)

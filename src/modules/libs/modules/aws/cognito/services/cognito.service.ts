@@ -36,6 +36,7 @@ import {
 } from '@app/shared/constants/constants';
 import { Roles } from '@app/shared/constants/constants';
 import * as crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class CognitoService {
@@ -458,51 +459,49 @@ export class CognitoService {
    * @param googleToken - The ID token from Google
    * @returns {GlobalServiceResponse}
    */
-  async signInWithGoogle(googleToken: string): Promise<GlobalServiceResponse> {
+  async signInWithGoogle(googleToken: string, clientId?: string): Promise<GlobalServiceResponse> {
+    console.log('Google sign in with token', googleToken);
     try {
-      if (!process.env.COGNITO_CLIENT_ID) {
+      // Initialize Google OAuth client
+      const client = new OAuth2Client();
+      
+      // Use clientId from parameters if provided, otherwise use environment variable
+      const googleClientId = clientId || process.env.GOOGLE_CLIENT_ID;
+      
+      if (!googleClientId) {
         throw new HttpException(
-          'Server configuration error: Cognito client ID is not configured',
-          HttpStatus.INTERNAL_SERVER_ERROR
+          'Server configuration error: Google authentication is not properly configured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
 
-      // First, verify the Google ID token
-      const { OAuth2Client } = require('google-auth-library');
-      
-      // Verify Google Client ID is configured
-      if (!process.env.GOOGLE_CLIENT_ID) {
-        console.error('GOOGLE_CLIENT_ID environment variable is not set');
-        throw new HttpException(
-          'Server configuration error: Google authentication is not properly configured',
-          HttpStatus.INTERNAL_SERVER_ERROR
-        );
-      }
-      
-      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-      
-      console.log('Verifying Google token');
-      
+      // Verify the token
       let ticket;
       try {
         ticket = await client.verifyIdToken({
           idToken: googleToken,
-          audience: process.env.GOOGLE_CLIENT_ID,
+          audience: googleClientId,
         });
-      } catch (verifyError) {
-        console.error('Google token verification failed:', verifyError);
+      } catch (error) {
+        console.error('Google token verification failed:', error);
         throw new HttpException(
-          'Invalid Google token: ' + verifyError.message,
-          HttpStatus.UNAUTHORIZED
+          'Invalid Google token',
+          HttpStatus.UNAUTHORIZED,
         );
       }
       
       const payload = ticket.getPayload();
-      if (!payload) {
-        throw new HttpException('Invalid Google token: empty payload', HttpStatus.UNAUTHORIZED);
+      if (!payload || !payload.email) {
+        throw new HttpException('Invalid Google token: missing email in payload', HttpStatus.UNAUTHORIZED);
       }
       
-      console.log('Google authentication successful for email:', payload.email);
+      // Now we know payload.email exists
+      const userEmail = payload.email;
+      const userName = payload.name || '';
+      const userPicture = payload.picture || '';
+      const userSub = payload.sub || '';
+      
+      console.log('Google authentication successful for email:', userEmail);
       
       // For Cognito integration, we'll use the Admin APIs to handle federated sign-in
       // This pattern works when your backend server is trusted and has admin privileges
@@ -519,8 +518,8 @@ export class CognitoService {
       try {
         // Try to find the user in Cognito by email
         const listUsersCommand = {
-          UserPoolId: process.env.COGNITO_POOL_ID,
-          Filter: `email = "${payload.email}"`,
+          UserPoolId: process.env.COGNITO_POOL_ID as string,
+          Filter: `email = "${userEmail}"`,
           Limit: 1
         };
         
@@ -538,17 +537,25 @@ export class CognitoService {
       // If the user doesn't exist, create them in Cognito
       if (!userExists) {
         try {
-          console.log('Creating user in Cognito');
-          // Create the user with admin APIs
+          console.log('Creating new user in Cognito');
+          // Make sure we have the pool ID
+          const poolId = process.env.COGNITO_POOL_ID;
+          if (!poolId) {
+            throw new HttpException(
+              'Server configuration error: Cognito pool ID is missing',
+              HttpStatus.INTERNAL_SERVER_ERROR
+            );
+          }
+          
           const createUserCommand = {
-            UserPoolId: process.env.COGNITO_POOL_ID,
-            Username: payload.email,
+            UserPoolId: poolId,
+            Username: userEmail,
             UserAttributes: [
-              { Name: 'email', Value: payload.email },
+              { Name: 'email', Value: userEmail },
               { Name: 'email_verified', Value: 'true' },
-              { Name: 'name', Value: payload.name || '' },
+              { Name: 'name', Value: userName },
               // Using a Google sub claim as an external ID to link with Google
-              { Name: 'custom:googleId', Value: payload.sub },
+              { Name: 'custom:googleId', Value: userSub },
             ],
             MessageAction: MessageActionType.SUPPRESS // Use the enum value
           };
@@ -572,13 +579,25 @@ export class CognitoService {
       // Now, we'll authenticate the user with admin APIs
       try {
         console.log('Initiating admin auth for user');
+        
+        // Ensure we have the required configuration
+        const poolId = process.env.COGNITO_POOL_ID;
+        const cognitoClientId = process.env.COGNITO_CLIENT_ID;
+        
+        if (!poolId || !cognitoClientId) {
+          throw new HttpException(
+            'Server configuration error: Cognito pool ID or client ID is missing',
+            HttpStatus.INTERNAL_SERVER_ERROR
+          );
+        }
+        
         const initiateAuthResponse = await this.cognitoClient.send(
           new AdminInitiateAuthCommand({
-            UserPoolId: process.env.COGNITO_POOL_ID,
-            ClientId: this.clientId || '',
+            UserPoolId: poolId,
+            ClientId: cognitoClientId,
             AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
             AuthParameters: {
-              USERNAME: payload.email,
+              USERNAME: userEmail,
               // For federated users, we need to either:
               // 1. Set a password when creating them
               // 2. Or use a passwordless authentication method
@@ -596,19 +615,19 @@ export class CognitoService {
         try {
           // Try to find the user by email in our database
           try {
-            user = await this.userService.findUserByUserSub(payload.email);
+            user = await this.userService.findUserByUserSub(userEmail);
             console.log('Found existing user in database');
           } catch (notFoundError) {
             console.log('User not found in database, creating new user');
             // Create the user in our database
             user = await this.userService.createUser({
-              name: payload.name || '',
-              email: payload.email,
+              name: userName,
+              email: userEmail,
               phoneNumber: '+10000000000', // Default phone number
               role: Roles.USER,
-              userSub: payload.email, // Using email as the userSub
+              userSub: userEmail, // Using email as the userSub
               isConfirmed: true,
-              avatarUrl: payload.picture
+              avatarUrl: userPicture
             });
             console.log('User created in database');
           }
@@ -654,35 +673,61 @@ export class CognitoService {
           // Let's set a password for this user
           try {
             console.log('Setting password for federated user');
-            // Create a deterministic password based on Google ID
-            const googleUserId = payload.sub;
-            const secretKey = process.env.COGNITO_CLIENT_SECRET || '';
-            const password = crypto
-              .createHmac('sha256', secretKey)
-              .update(googleUserId)
-              .digest('hex')
-              .substring(0, 20) + 'Aa1!';
             
-            // Set the password using admin APIs
+            // Make sure we have the client secret
+            const secretKey = process.env.COGNITO_CLIENT_SECRET;
+            if (!secretKey) {
+              throw new HttpException(
+                'Server configuration error: Cognito client secret is missing',
+                HttpStatus.INTERNAL_SERVER_ERROR
+              );
+            }
+            
+            // Create a deterministic password for this user based on their Google ID
+            const temporaryPassword = crypto
+              .createHmac('sha256', secretKey)
+              .update(userSub)
+              .digest('hex');
+            
+            // Get Cognito pool ID
+            const poolId = process.env.COGNITO_POOL_ID;
+            if (!poolId) {
+              throw new HttpException(
+                'Server configuration error: Cognito pool ID is missing',
+                HttpStatus.INTERNAL_SERVER_ERROR
+              );
+            }
+            
+            // Set a password for the user so we can use password-based auth flow
             await this.cognitoClient.send(
               new AdminSetUserPasswordCommand({
-                UserPoolId: process.env.COGNITO_POOL_ID,
-                Username: payload.email,
-                Password: password,
+                UserPoolId: poolId,
+                Username: userEmail,
+                Password: temporaryPassword,
                 Permanent: true
               })
             );
             
-            // Now try to authenticate again
-            console.log('Trying authentication again after setting password');
+            console.log('Password set for user, retrying authentication');
+            
+            // Get Cognito client ID
+            const cognitoClientId = process.env.COGNITO_CLIENT_ID;
+            if (!cognitoClientId) {
+              throw new HttpException(
+                'Server configuration error: Cognito client ID is missing',
+                HttpStatus.INTERNAL_SERVER_ERROR
+              );
+            }
+            
+            // Retry authentication with the password
             const retryAuthResponse = await this.cognitoClient.send(
               new AdminInitiateAuthCommand({
-                UserPoolId: process.env.COGNITO_POOL_ID,
-                ClientId: this.clientId || '',
+                UserPoolId: poolId,
+                ClientId: cognitoClientId,
                 AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
                 AuthParameters: {
-                  USERNAME: payload.email,
-                  PASSWORD: password
+                  USERNAME: userEmail,
+                  PASSWORD: temporaryPassword
                 }
               })
             );
@@ -692,19 +737,19 @@ export class CognitoService {
             try {
               // Try to find the user by email in our database
               try {
-                user = await this.userService.findUserByUserSub(payload.email);
+                user = await this.userService.findUserByUserSub(userEmail);
                 console.log('Found existing user in database');
               } catch (notFoundError) {
                 console.log('User not found in database, creating new user');
                 // Create the user in our database
                 user = await this.userService.createUser({
-                  name: payload.name || '',
-                  email: payload.email,
+                  name: userName,
+                  email: userEmail,
                   phoneNumber: '+10000000000', // Default phone number
                   role: Roles.USER,
-                  userSub: payload.email, // Using email as the userSub
+                  userSub: userEmail, // Using email as the userSub
                   isConfirmed: true,
-                  avatarUrl: payload.picture
+                  avatarUrl: userPicture
                 });
                 console.log('User created in database');
               }
