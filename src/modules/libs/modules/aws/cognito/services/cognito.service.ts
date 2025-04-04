@@ -468,65 +468,54 @@ export class CognitoService {
         throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
       }
 
-      // Use Cognito's federated identity support
-      const command = new InitiateAuthCommand({
-        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-        ClientId: this.clientId || '',
-        AuthParameters: {
-          USERNAME: payload.email,
-          PASSWORD: googleToken,
-          SECRET_HASH: computeSecretHash(payload.email),
-          PROVIDER_NAME: 'Google',
-          PROVIDER_TOKEN: googleToken
-        },
-      });
-
-      const result = await this.cognitoClient.send(command);
-      
-      if (result['$metadata']?.httpStatusCode === HttpStatus.OK && result?.AuthenticationResult?.AccessToken) {
-        const cognitoPayload = await cognitoJwtVerify.verify(
-          result?.AuthenticationResult?.AccessToken || '',
-          {
-            tokenUse: 'access',
-            clientId: process.env.COGNITO_CLIENT_ID || '',
+      try {
+        // Try to sign in first
+        const signInCommand = new InitiateAuthCommand({
+          AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+          ClientId: this.clientId || '',
+          AuthParameters: {
+            USERNAME: payload.email,
+            PASSWORD: googleToken,
+            SECRET_HASH: computeSecretHash(payload.email)
           },
-        );
+        });
 
-        // Check if user exists in our database
-        let user = await this.userService.findUserByUserSub(cognitoPayload?.username);
-        
-        // If user doesn't exist, create them
-        if (!user) {
-          user = await this.userService.createUser({
-            name: payload.name || '',
-            email: payload.email || '',
-            role: Roles.USER,
-            userSub: cognitoPayload?.username,
-            isConfirmed: true,
-            avatarUrl: payload.picture,
+        const result = await this.cognitoClient.send(signInCommand);
+        return this.handleSuccessfulAuth(result, payload);
+      } catch (signInError) {
+        // If sign in fails, try to create the user
+        if (signInError.message.includes('Incorrect username or password')) {
+          // Create user in Cognito
+          const signUpCommand = new SignUpCommand({
+            ClientId: this.clientId || '',
+            Username: payload.email,
+            Password: googleToken,
+            SecretHash: computeSecretHash(payload.email),
+            UserAttributes: [
+              { Name: 'email', Value: payload.email },
+              { Name: 'name', Value: payload.name },
+              { Name: 'email_verified', Value: 'true' }
+            ],
           });
-        }
 
-        return {
-          statusCode: result['$metadata'].httpStatusCode,
-          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-          data: {
-            access_token: result?.AuthenticationResult?.AccessToken,
-            expires_in: result?.AuthenticationResult?.ExpiresIn,
-            refresh_token: result?.AuthenticationResult?.RefreshToken,
-            token_type: result?.AuthenticationResult?.TokenType,
-            user: {
-              ...user,
-              role: user?.role || null,
+          await this.cognitoClient.send(signUpCommand);
+
+          // Now try to sign in again
+          const signInCommand = new InitiateAuthCommand({
+            AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+            ClientId: this.clientId || '',
+            AuthParameters: {
+              USERNAME: payload.email,
+              PASSWORD: googleToken,
+              SECRET_HASH: computeSecretHash(payload.email)
             },
-          },
-        };
-      }
+          });
 
-      return {
-        statusCode: HttpStatus.UNAUTHORIZED,
-        message: 'Authentication failed: Invalid Google credentials',
-      };
+          const result = await this.cognitoClient.send(signInCommand);
+          return this.handleSuccessfulAuth(result, payload);
+        }
+        throw signInError;
+      }
     } catch (error) {
       console.error('Google authentication error:', error);
       throw new HttpException(
@@ -534,5 +523,52 @@ export class CognitoService {
         error.status || HttpStatus.UNAUTHORIZED
       );
     }
+  }
+
+  private async handleSuccessfulAuth(result: any, payload: any): Promise<GlobalServiceResponse> {
+    if (result['$metadata']?.httpStatusCode === HttpStatus.OK && result?.AuthenticationResult?.AccessToken) {
+      const cognitoPayload = await cognitoJwtVerify.verify(
+        result?.AuthenticationResult?.AccessToken || '',
+        {
+          tokenUse: 'access',
+          clientId: process.env.COGNITO_CLIENT_ID || '',
+        },
+      );
+
+      // Check if user exists in our database
+      let user = await this.userService.findUserByUserSub(cognitoPayload?.username);
+      
+      // If user doesn't exist, create them
+      if (!user) {
+        user = await this.userService.createUser({
+          name: payload.name || '',
+          email: payload.email || '',
+          role: Roles.USER,
+          userSub: cognitoPayload?.username,
+          isConfirmed: true,
+          avatarUrl: payload.picture,
+        });
+      }
+
+      return {
+        statusCode: result['$metadata'].httpStatusCode,
+        message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+        data: {
+          access_token: result?.AuthenticationResult?.AccessToken,
+          expires_in: result?.AuthenticationResult?.ExpiresIn,
+          refresh_token: result?.AuthenticationResult?.RefreshToken,
+          token_type: result?.AuthenticationResult?.TokenType,
+          user: {
+            ...user,
+            role: user?.role || null,
+          },
+        },
+      };
+    }
+
+    return {
+      statusCode: HttpStatus.UNAUTHORIZED,
+      message: 'Authentication failed: Invalid Google credentials',
+    };
   }
 }
