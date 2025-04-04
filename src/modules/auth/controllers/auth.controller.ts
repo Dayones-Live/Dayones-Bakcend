@@ -6,6 +6,7 @@ import {
   UseGuards,
   HttpStatus,
   Req,
+  HttpException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
@@ -234,9 +235,7 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        idToken: { type: 'string', description: 'Google ID token' },
-        name: { type: 'string', description: 'User\'s full name from Google' },
-        email: { type: 'string', description: 'User\'s email from Google' }
+        idToken: { type: 'string', description: 'Google ID token' }
       },
       required: ['idToken']
     }
@@ -247,7 +246,6 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        success: { type: 'boolean' },
         message: { type: 'string' },
         data: { 
           type: 'object',
@@ -263,17 +261,29 @@ export class AuthController {
     }
   })
   async signInWithGoogle(
-    @Body() body: { idToken: string; name?: string; email?: string },
+    @Body() body: { idToken: string },
     @Res() res: Response,
   ) {
     try {
+      console.log('Received Google sign-in request with token');
       const result = await this.cognitoService.signInWithGoogle(body.idToken);
-      res
+      return res
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });
     } catch (error) {
       console.error('🚀 ~ AuthController ~ signInWithGoogle ~ error:', error);
-      throw error;
+      
+      // If it's an HttpException, use its status and message
+      if (error instanceof HttpException) {
+        return res
+          .status(error.getStatus())
+          .json({ message: error.message, error: true });
+      }
+      
+      // Otherwise, return a 500 error
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .json({ message: 'An unexpected error occurred during Google sign-in', error: true });
     }
   }
 }

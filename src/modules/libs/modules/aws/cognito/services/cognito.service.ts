@@ -461,13 +461,15 @@ export class CognitoService {
       
       const ticket = await client.verifyIdToken({
         idToken: googleToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: process.env.GOOGLE_CLIENT_ID,  // Make sure this matches exactly with the client ID used by your frontend
       });
       
       const payload = ticket.getPayload();
       if (!payload) {
         throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
       }
+      
+      console.log('Google payload:', JSON.stringify(payload)); // Add logging to see token payload
 
       // Create a deterministic password for this Google account
       // This ensures the same Google user will always have the same password
@@ -498,33 +500,53 @@ export class CognitoService {
       } catch (signInError) {
         // If user doesn't exist, create them
         if (signInError.message.includes('Incorrect username or password')) {
-          // Create the user in Cognito
+          // Create the user in Cognito with minimal attributes
           const signUpCommand = new SignUpCommand({
             ClientId: this.clientId || '',
             Username: payload.email,
             Password: deterministicPassword,
             SecretHash: computeSecretHash(payload.email),
             UserAttributes: [
-              { Name: 'email', Value: payload.email },
-              { Name: 'email_verified', Value: 'true' }
+              { Name: 'email', Value: payload.email }
+              // Only include email as mandatory attribute
             ],
           });
 
-          await this.cognitoClient.send(signUpCommand);
+          try {
+            await this.cognitoClient.send(signUpCommand);
+            
+            // After signup, update user attributes if needed via admin APIs
+            if (process.env.COGNITO_POOL_ID) {
+              const adminUpdateCommand = new AdminUpdateUserAttributesCommand({
+                UserPoolId: process.env.COGNITO_POOL_ID,
+                Username: payload.email,
+                UserAttributes: [
+                  { Name: 'email_verified', Value: 'true' },
+                  { Name: 'name', Value: payload.name || '' },
+                  { Name: 'custom:role', Value: Roles.USER }
+                ]
+              });
+              
+              await this.cognitoClient.send(adminUpdateCommand);
+            }
 
-          // Now try to sign in again
-          const signInCommand = new InitiateAuthCommand({
-            AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-            ClientId: this.clientId || '',
-            AuthParameters: {
-              USERNAME: payload.email,
-              PASSWORD: deterministicPassword,
-              SECRET_HASH: computeSecretHash(payload.email)
-            },
-          });
+            // Now try to sign in
+            const signInCommand = new InitiateAuthCommand({
+              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+              ClientId: this.clientId || '',
+              AuthParameters: {
+                USERNAME: payload.email,
+                PASSWORD: deterministicPassword,
+                SECRET_HASH: computeSecretHash(payload.email)
+              },
+            });
 
-          const result = await this.cognitoClient.send(signInCommand);
-          return this.handleSuccessfulAuth(result, payload);
+            const result = await this.cognitoClient.send(signInCommand);
+            return this.handleSuccessfulAuth(result, payload);
+          } catch (signUpError) {
+            console.error('Error during Google user signup:', signUpError);
+            throw signUpError;
+          }
         }
         
         // Other error
@@ -532,6 +554,13 @@ export class CognitoService {
       }
     } catch (error) {
       console.error('Google authentication error:', error);
+      // Log more detailed error information
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+      }
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      
       throw new HttpException(
         error.message || 'Google authentication failed',
         error.status || HttpStatus.UNAUTHORIZED
