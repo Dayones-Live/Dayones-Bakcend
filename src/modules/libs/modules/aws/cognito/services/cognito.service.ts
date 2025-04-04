@@ -708,57 +708,65 @@ export class CognitoService {
 
   private async handleSuccessfulAuth(result: any, payload: any): Promise<GlobalServiceResponse> {
     if (result['$metadata']?.httpStatusCode === HttpStatus.OK && result?.AuthenticationResult?.AccessToken) {
-      const cognitoPayload = await cognitoJwtVerify.verify(
-        result?.AuthenticationResult?.AccessToken || '',
-        {
-          tokenUse: 'access',
-          clientId: process.env.COGNITO_CLIENT_ID || '',
-        },
-      );
+      try {
+        const cognitoPayload = await cognitoJwtVerify.verify(
+          result?.AuthenticationResult?.AccessToken || '',
+          {
+            tokenUse: 'access',
+            clientId: process.env.COGNITO_CLIENT_ID || '',
+          },
+        );
 
-      // Check if user exists in our database
-      let user = await this.userService.findUserByUserSub(cognitoPayload?.username);
-      
-      // If user doesn't exist, create them
-      if (!user) {
-        try {
-          user = await this.userService.createUser({
-            name: payload.name || '',
-            email: payload.email || '',
-            phoneNumber: '+10000000000', // Default phone number
-            role: Roles.USER,
-            userSub: cognitoPayload?.username,
-            isConfirmed: true,
-            avatarUrl: payload.picture,
-          });
-        } catch (createUserError) {
-          console.error('Error creating user in database:', createUserError);
-          // If user creation fails, try to find the user again
-          // This handles race conditions where another request might have created the user
-          user = await this.userService.findUserByUserSub(cognitoPayload?.username);
-          if (!user) {
-            throw new HttpException(
-              'Failed to create user account', 
-              HttpStatus.INTERNAL_SERVER_ERROR
-            );
+        // Check if user exists in our database
+        let user = await this.userService.findUserByUserSub(cognitoPayload?.username);
+        
+        // If user doesn't exist, create them
+        if (!user) {
+          try {
+            user = await this.userService.createUser({
+              name: payload.name || '',
+              email: payload.email || '',
+              phoneNumber: '+10000000000', // Default phone number
+              role: Roles.USER,
+              userSub: cognitoPayload?.username,
+              isConfirmed: true,
+              avatarUrl: payload.picture,
+            });
+          } catch (createUserError) {
+            console.error('Error creating user in database:', createUserError);
+            // If user creation fails, try to find the user again
+            // This handles race conditions where another request might have created the user
+            user = await this.userService.findUserByUserSub(cognitoPayload?.username);
+            if (!user) {
+              throw new HttpException(
+                'Failed to create user account', 
+                HttpStatus.INTERNAL_SERVER_ERROR
+              );
+            }
           }
         }
-      }
 
-      return {
-        statusCode: result['$metadata'].httpStatusCode,
-        message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-        data: {
-          access_token: result?.AuthenticationResult?.AccessToken,
-          expires_in: result?.AuthenticationResult?.ExpiresIn,
-          refresh_token: result?.AuthenticationResult?.RefreshToken,
-          token_type: result?.AuthenticationResult?.TokenType,
-          user: {
-            ...user,
-            role: user?.role || null,
+        return {
+          statusCode: result['$metadata'].httpStatusCode,
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+          data: {
+            access_token: result?.AuthenticationResult?.AccessToken,
+            expires_in: result?.AuthenticationResult?.ExpiresIn,
+            refresh_token: result?.AuthenticationResult?.RefreshToken,
+            token_type: result?.AuthenticationResult?.TokenType,
+            user: {
+              ...user,
+              role: user?.role?.[0] || null,
+            },
           },
-        },
-      };
+        };
+      } catch (error) {
+        console.error('Error during token verification or user handling:', error);
+        throw new HttpException(
+          'Authentication succeeded but user processing failed', 
+          HttpStatus.INTERNAL_SERVER_ERROR
+        );
+      }
     }
 
     return {
