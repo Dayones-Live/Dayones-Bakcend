@@ -273,6 +273,17 @@ export class AuthController {
     } catch (error) {
       console.error('🚀 ~ AuthController ~ signInWithGoogle ~ error:', error);
       
+      // Handle schema validation errors specifically
+      if (error.message && error.message.includes('Attributes did not conform to the schema')) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .json({ 
+            message: 'Google sign-in failed due to missing required attributes in Cognito schema', 
+            details: error.message,
+            error: true 
+          });
+      }
+      
       // If it's an HttpException, use its status and message
       if (error instanceof HttpException) {
         return res

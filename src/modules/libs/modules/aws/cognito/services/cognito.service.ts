@@ -507,13 +507,17 @@ export class CognitoService {
             Password: deterministicPassword,
             SecretHash: computeSecretHash(payload.email),
             UserAttributes: [
-              { Name: 'email', Value: payload.email }
-              // Only include email as mandatory attribute
+              { Name: 'email', Value: payload.email },
+              { Name: 'phone_number', Value: '+10000000000' }, // Default phone number as placeholder
+              { Name: 'name', Value: payload.name || '' },
+              // Add formatted name to satisfy schema requirement
+              { Name: 'custom:name_formatted', Value: payload.name || '' },
             ],
           });
 
           try {
             await this.cognitoClient.send(signUpCommand);
+            console.log('Successfully created Cognito user with Google credentials');
             
             // After signup, update user attributes if needed via admin APIs
             if (process.env.COGNITO_POOL_ID) {
@@ -523,7 +527,10 @@ export class CognitoService {
                 UserAttributes: [
                   { Name: 'email_verified', Value: 'true' },
                   { Name: 'name', Value: payload.name || '' },
-                  { Name: 'custom:role', Value: Roles.USER }
+                  { Name: 'custom:role', Value: Roles.USER },
+                  // Add or update any additional required attributes
+                  { Name: 'phone_number', Value: '+10000000000' },
+                  { Name: 'custom:name_formatted', Value: payload.name || '' },
                 ]
               });
               
@@ -545,6 +552,12 @@ export class CognitoService {
             return this.handleSuccessfulAuth(result, payload);
           } catch (signUpError) {
             console.error('Error during Google user signup:', signUpError);
+            console.error('Error details:', JSON.stringify({
+              message: signUpError.message,
+              code: signUpError.code,
+              statusCode: signUpError.$metadata?.httpStatusCode,
+              requestId: signUpError.$metadata?.requestId,
+            }, null, 2));
             throw signUpError;
           }
         }
