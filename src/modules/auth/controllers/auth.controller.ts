@@ -265,31 +265,34 @@ export class AuthController {
     @Res() res: Response,
   ) {
     try {
-      console.log('Received Google sign-in request with token');
+      console.log('Received Google sign-in request');
       const result = await this.cognitoService.signInWithGoogle(body.idToken);
       return res
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });
     } catch (error) {
-      console.error('🚀 ~ AuthController ~ signInWithGoogle ~ error:', error);
+      console.error('Google sign-in error:', error);
       
-      // Handle schema validation errors specifically
+      // For specific error cases, provide friendly messages
       if (error.message && error.message.includes('Attributes did not conform to the schema')) {
         return res
           .status(HttpStatus.BAD_REQUEST)
           .json({ 
-            message: 'Google sign-in failed due to missing required attributes in Cognito schema', 
-            details: error.message,
+            message: 'Could not complete Google sign-in. Please contact support.', 
             error: true 
           });
       }
       
-      // Handle user already exists case
-      if (error.message && error.message.includes('Account already exists')) {
+      // For unauthorized errors
+      if (error.message && (
+        error.message.includes('Invalid token') || 
+        error.message.includes('expired') ||
+        error.message.includes('Unauthorized')
+      )) {
         return res
-          .status(HttpStatus.CONFLICT)
+          .status(HttpStatus.UNAUTHORIZED)
           .json({ 
-            message: 'Account already exists with this email. Please use regular sign-in instead.', 
+            message: 'Your Google sign-in session is invalid or expired. Please try again.', 
             error: true 
           });
       }
@@ -298,13 +301,19 @@ export class AuthController {
       if (error instanceof HttpException) {
         return res
           .status(error.getStatus())
-          .json({ message: error.message, error: true });
+          .json({ 
+            message: 'Google sign-in failed. Please try again.', 
+            error: true 
+          });
       }
       
       // Otherwise, return a 500 error
       return res
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .json({ message: 'An unexpected error occurred during Google sign-in', error: true });
+        .json({ 
+          message: 'Something went wrong with Google sign-in. Please try again later.', 
+          error: true 
+        });
     }
   }
 }
