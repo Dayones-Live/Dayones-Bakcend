@@ -484,126 +484,166 @@ export class CognitoService {
         .digest('hex')
         .substring(0, 20) + 'Aa1!'; // Add complexity to meet Cognito password requirements
 
+      // Try sign-in with admin auth flow first - since this works for both existing and new users
       try {
-        // Try to sign in with regular USER_PASSWORD_AUTH flow
-        const signInCommand = new InitiateAuthCommand({
-          AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+        console.log('Attempting admin sign-in flow for existing Google user');
+        
+        // Skip user creation and try admin sign-in directly
+        if (!process.env.COGNITO_POOL_ID) {
+          throw new Error('Cognito Pool ID not configured');
+        }
+        
+        const adminSignInCommand = new AdminInitiateAuthCommand({
+          UserPoolId: process.env.COGNITO_POOL_ID,
           ClientId: this.clientId || '',
+          AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
           AuthParameters: {
             USERNAME: payload.email,
             PASSWORD: deterministicPassword,
             SECRET_HASH: computeSecretHash(payload.email)
-          },
+          }
         });
-
-        const result = await this.cognitoClient.send(signInCommand);
         
-        // User exists and signed in successfully
+        const result = await this.cognitoClient.send(adminSignInCommand);
+        console.log('Successfully signed in existing user with admin flow');
+        
         return this.handleSuccessfulAuth(result, payload);
-      } catch (signInError) {
-        // If user doesn't exist, attempt admin-based creation
-        if (signInError.message.includes('Incorrect username or password')) {
+      } catch (adminAuthError) {
+        console.error('Admin auth flow failed:', adminAuthError);
+        
+        // If error is not "user does not exist", try regular sign-in flow
+        if (!adminAuthError.message.includes('User does not exist')) {
+          // Try regular sign-in flow
           try {
-            console.log('User not found in Cognito, creating via admin API...');
-            
-            // Use the AdminCreateUserCommand instead of SignUpCommand
-            if (!process.env.COGNITO_POOL_ID) {
-              throw new HttpException('Cognito Pool ID not configured', HttpStatus.INTERNAL_SERVER_ERROR);
-            }
-            
-            // Create user with admin privileges
-            const adminCreateCommand = new AdminCreateUserCommand({
-              UserPoolId: process.env.COGNITO_POOL_ID,
-              Username: payload.email,
-              TemporaryPassword: deterministicPassword,
-              MessageAction: 'SUPPRESS', // Don't send welcome email
-              UserAttributes: [
-                { Name: 'email', Value: payload.email },
-                { Name: 'email_verified', Value: 'true' },
-                { Name: 'name', Value: payload.name || '' },
-                // Add a default phone number to satisfy the schema requirement
-                { Name: 'phone_number', Value: '+10000000000' }
-              ]
+            console.log('Attempting regular sign-in flow for existing Google user');
+            const signInCommand = new InitiateAuthCommand({
+              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+              ClientId: this.clientId || '',
+              AuthParameters: {
+                USERNAME: payload.email,
+                PASSWORD: deterministicPassword,
+                SECRET_HASH: computeSecretHash(payload.email)
+              },
             });
             
-            await this.cognitoClient.send(adminCreateCommand);
-            console.log('Successfully created user via admin API');
+            const result = await this.cognitoClient.send(signInCommand);
+            console.log('Successfully signed in with regular flow');
             
-            try {
-              // Set permanent password
-              const setPasswordCommand = new AdminSetUserPasswordCommand({
-                UserPoolId: process.env.COGNITO_POOL_ID,
-                Username: payload.email,
-                Password: deterministicPassword,
-                Permanent: true
-              });
-              
-              await this.cognitoClient.send(setPasswordCommand);
-              console.log('Successfully set permanent password');
-            } catch (passwordError) {
-              console.error('Error setting permanent password:', passwordError);
-              // Continue with the sign-in flow even if setting password fails
+            return this.handleSuccessfulAuth(result, payload);
+          } catch (signInError) {
+            console.error('Regular sign-in failed:', signInError);
+            
+            // If not a "user doesn't exist" error, pass through the error
+            if (!signInError.message.includes('Incorrect username or password')) {
+              throw signInError;
             }
             
-            // Now sign in the user with the admin flow
-            try {
-              const adminSignInCommand = new AdminInitiateAuthCommand({
-                UserPoolId: process.env.COGNITO_POOL_ID,
-                ClientId: this.clientId || '',
-                AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
-                AuthParameters: {
-                  USERNAME: payload.email,
-                  PASSWORD: deterministicPassword,
-                  SECRET_HASH: computeSecretHash(payload.email)
-                }
-              });
-              
-              const result = await this.cognitoClient.send(adminSignInCommand);
-              console.log('Successfully signed in user with admin flow');
-              
-              return this.handleSuccessfulAuth(result, payload);
-            } catch (adminSignInError) {
-              console.error('Admin sign-in failed, trying regular sign-in:', adminSignInError);
-              
-              // Fallback to regular sign-in
-              const signInCommand = new InitiateAuthCommand({
-                AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-                ClientId: this.clientId || '',
-                AuthParameters: {
-                  USERNAME: payload.email,
-                  PASSWORD: deterministicPassword,
-                  SECRET_HASH: computeSecretHash(payload.email)
-                },
-              });
-
-              const result = await this.cognitoClient.send(signInCommand);
-              console.log('Successfully signed in user with regular flow');
-              
-              return this.handleSuccessfulAuth(result, payload);
-            }
-          } catch (createError) {
-            console.error('Error during Google user creation:', createError);
-            console.error('Error details:', JSON.stringify({
-              message: createError.message,
-              code: createError.code,
-              statusCode: createError.$metadata?.httpStatusCode,
-              requestId: createError.$metadata?.requestId,
-            }, null, 2));
-            
-            // Provide a clearer error message
-            if (createError.message.includes('A client attempted to write unauthorized attribute')) {
-              throw new HttpException(
-                'Unable to create account with Google credentials - attribute permission issue in Cognito',
-                HttpStatus.BAD_REQUEST
-              );
-            }
-            
-            throw createError;
+            // Only try to create a new user if both admin and regular auth fail with "user doesn't exist"
+            console.log('User not found, attempting to create account');
           }
         }
         
-        // Other error
-        throw signInError;
+        // Only create new user if they don't exist
+        try {
+          console.log('Creating new Google user account');
+          
+          // Check if user already exists
+          try {
+            // Attempt to get the user - if this succeeds, the user exists
+            const getUserCommand = new GetUserCommand({
+              AccessToken: 'dummy_token_will_fail'
+            });
+            
+            await this.cognitoClient.send(getUserCommand);
+            // If we get here, user exists (unlikely since auth failed)
+            throw new HttpException('User account already exists', HttpStatus.CONFLICT);
+          } catch (getUserError) {
+            // Expected to fail, proceed with user creation
+            if (!getUserError.message.includes('Invalid Access Token')) {
+              // If error isn't about the token, user might exist
+              console.log('GetUser error indicates user might exist already');
+            }
+          }
+          
+          // Create user with admin privileges
+          const adminCreateCommand = new AdminCreateUserCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: payload.email,
+            TemporaryPassword: deterministicPassword,
+            MessageAction: 'SUPPRESS', // Don't send welcome email
+            UserAttributes: [
+              { Name: 'email', Value: payload.email },
+              { Name: 'email_verified', Value: 'true' },
+              { Name: 'name', Value: payload.name || '' },
+              // Add a default phone number to satisfy the schema requirement
+              { Name: 'phone_number', Value: '+10000000000' }
+            ]
+          });
+          
+          await this.cognitoClient.send(adminCreateCommand);
+          console.log('Successfully created new user');
+          
+          // Now sign in the user with the regular sign-in flow
+          try {
+            console.log('Attempting regular sign-in flow for new Google user');
+            const signInCommand = new InitiateAuthCommand({
+              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+              ClientId: this.clientId || '',
+              AuthParameters: {
+                USERNAME: payload.email,
+                PASSWORD: deterministicPassword,
+                SECRET_HASH: computeSecretHash(payload.email)
+              },
+            });
+            
+            const result = await this.cognitoClient.send(signInCommand);
+            console.log('Successfully signed in new user with regular flow');
+            
+            return this.handleSuccessfulAuth(result, payload);
+          } catch (signInError) {
+            console.error('Regular sign-in failed:', signInError);
+            
+            // If not a "user doesn't exist" error, pass through the error
+            if (!signInError.message.includes('Incorrect username or password')) {
+              throw signInError;
+            }
+            
+            // Couldn't sign in the newly created user
+            throw new HttpException(
+              'Failed to authenticate newly created Google user',
+              HttpStatus.INTERNAL_SERVER_ERROR
+            );
+          }
+        } catch (createError) {
+          console.error('Error during Google user creation:', createError);
+          console.error('Error details:', JSON.stringify({
+            message: createError.message,
+            code: createError.code,
+            statusCode: createError.$metadata?.httpStatusCode,
+            requestId: createError.$metadata?.requestId,
+          }, null, 2));
+          
+          // Provide a specific error for user already exists
+          if (createError.name === 'UsernameExistsException' || 
+              createError.message.includes('User account already exists') ||
+              createError.message.includes('already exists')) {
+            // If user exists but we couldn't sign in, something is wrong with credentials
+            throw new HttpException(
+              'Account already exists with this email. Please use regular sign-in or reset your password.',
+              HttpStatus.CONFLICT
+            );
+          }
+          
+          // Provide a clearer error message
+          if (createError.message.includes('A client attempted to write unauthorized attribute')) {
+            throw new HttpException(
+              'Unable to create account with Google credentials - attribute permission issue in Cognito',
+              HttpStatus.BAD_REQUEST
+            );
+          }
+          
+          throw createError;
+        }
       }
     } catch (error) {
       console.error('Google authentication error:', error);

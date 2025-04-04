@@ -284,6 +284,16 @@ export class AuthController {
           });
       }
       
+      // Handle user already exists case
+      if (error.message && error.message.includes('Account already exists')) {
+        return res
+          .status(HttpStatus.CONFLICT)
+          .json({ 
+            message: 'Account already exists with this email. Please use regular sign-in instead.', 
+            error: true 
+          });
+      }
+      
       // If it's an HttpException, use its status and message
       if (error instanceof HttpException) {
         return res
