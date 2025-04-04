@@ -265,7 +265,22 @@ export class AuthController {
     @Res() res: Response,
   ) {
     try {
-      console.log('Received Google sign-in request');
+      // Log token info for debugging (safely - not the whole token)
+      const tokenStart = body.idToken.substring(0, 10);
+      const tokenEnd = body.idToken.substring(body.idToken.length - 10);
+      console.log(`Received Google sign-in request with token: ${tokenStart}...${tokenEnd}`);
+      console.log(`Token length: ${body.idToken.length} characters`);
+      
+      // Basic token format validation
+      if (!body.idToken || body.idToken.split('.').length !== 3) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .json({ 
+            message: 'Invalid token format. Please try again with a valid Google ID token.', 
+            error: true 
+          });
+      }
+      
       const result = await this.cognitoService.signInWithGoogle(body.idToken);
       return res
         .status(result?.statusCode)

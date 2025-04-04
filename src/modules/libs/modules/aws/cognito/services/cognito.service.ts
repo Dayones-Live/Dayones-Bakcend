@@ -460,19 +460,53 @@ export class CognitoService {
     try {
       // First, verify the Google ID token
       const { OAuth2Client } = require('google-auth-library');
+      
+      // Verify Google Client ID is configured
+      if (!process.env.GOOGLE_CLIENT_ID) {
+        console.error('GOOGLE_CLIENT_ID environment variable is not set');
+        throw new HttpException(
+          'Server configuration error: Google authentication is not properly configured',
+          HttpStatus.INTERNAL_SERVER_ERROR
+        );
+      }
+      
       const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
       
-      const ticket = await client.verifyIdToken({
-        idToken: googleToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
+      console.log('Verifying Google token with client ID:', process.env.GOOGLE_CLIENT_ID);
+      
+      let ticket;
+      try {
+        ticket = await client.verifyIdToken({
+          idToken: googleToken,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
+      } catch (verifyError) {
+        console.error('Google token verification failed:', verifyError);
+        throw new HttpException(
+          'Invalid Google token: ' + verifyError.message,
+          HttpStatus.UNAUTHORIZED
+        );
+      }
       
       const payload = ticket.getPayload();
       if (!payload) {
-        throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
+        throw new HttpException('Invalid Google token: empty payload', HttpStatus.UNAUTHORIZED);
       }
       
-      console.log('Google authentication successful');
+      console.log('Google authentication successful for email:', payload.email);
+      console.log('Google token payload:', JSON.stringify({
+        sub: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+        exp: payload.exp
+      }));
+      
+      // Check if token is expired
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < currentTime) {
+        throw new HttpException('Google token has expired', HttpStatus.UNAUTHORIZED);
+      }
 
       // Create a deterministic password for this Google account
       const googleUserId = payload.sub; // Google's unique user ID
@@ -483,9 +517,9 @@ export class CognitoService {
         .digest('hex')
         .substring(0, 20) + 'Aa1!'; // Add complexity to meet Cognito password requirements
 
+      // Try simple sign-in first - this will work if the user already exists
+      console.log('Attempting to sign in existing user with email:', payload.email);
       try {
-        // Try simple sign-in first - this will work if the user already exists
-        console.log('Attempting to sign in existing user');
         const signInCommand = new InitiateAuthCommand({
           AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
           ClientId: this.clientId || '',
@@ -500,143 +534,167 @@ export class CognitoService {
         console.log('Successfully signed in existing user');
         return this.handleSuccessfulAuth(result, payload);
       } catch (signInError) {
-        // If user doesn't exist (username/password error), create a new account
-        if (signInError.message.includes('Incorrect username or password')) {
-          console.log('User does not exist, creating new account');
+        console.error('Sign-in attempt failed:', signInError);
+        
+        // Check if it's an "incorrect username/password" error which means user doesn't exist
+        if (!signInError.message.includes('Incorrect username or password')) {
+          // If it's some other error, try direct admin sign-in
+          if (process.env.COGNITO_POOL_ID) {
+            console.log('Attempting admin sign-in as fallback');
+            try {
+              const adminSignInCommand = new AdminInitiateAuthCommand({
+                UserPoolId: process.env.COGNITO_POOL_ID,
+                ClientId: this.clientId || '',
+                AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
+                AuthParameters: {
+                  USERNAME: payload.email,
+                  PASSWORD: deterministicPassword,
+                },
+              });
+              
+              const result = await this.cognitoClient.send(adminSignInCommand);
+              console.log('Successfully signed in with admin flow');
+              return this.handleSuccessfulAuth(result, payload);
+            } catch (adminSignInError) {
+              console.error('Admin sign-in also failed:', adminSignInError);
+              // If admin sign-in also fails, continue to user creation
+            }
+          }
+        }
+        
+        // If we reach here, either:
+        // 1. User doesn't exist (Incorrect username/password)
+        // 2. Or all sign-in attempts failed, so we'll try creating a new user
+        console.log('User does not exist or sign-in failed, creating new account');
+          
+        try {
+          // Create a new user with Google details
+          const signUpCommand = new SignUpCommand({
+            ClientId: this.clientId || '',
+            Username: payload.email,
+            Password: deterministicPassword,
+            SecretHash: computeSecretHash(payload.email),
+            UserAttributes: [
+              { Name: 'email', Value: payload.email },
+              { Name: 'phone_number', Value: '+10000000000' }, // Default phone number
+              { Name: 'name', Value: payload.name || '' },
+            ],
+          });
           
           try {
-            // Create a new user with Google details
-            const signUpCommand = new SignUpCommand({
+            await this.cognitoClient.send(signUpCommand);
+            console.log('Successfully created new user');
+          } catch (signUpError) {
+            console.error('SignUp error details:', signUpError);
+            console.error('Error message:', signUpError.message);
+            
+            // If it's a schema validation error, try with minimal attributes
+            if (signUpError.message && signUpError.message.includes('schema')) {
+              console.log('Attempting signup with minimal attributes');
+              const minimalSignUpCommand = new SignUpCommand({
+                ClientId: this.clientId || '',
+                Username: payload.email,
+                Password: deterministicPassword,
+                SecretHash: computeSecretHash(payload.email),
+                UserAttributes: [
+                  { Name: 'email', Value: payload.email }
+                ],
+              });
+              
+              await this.cognitoClient.send(minimalSignUpCommand);
+              console.log('Successfully created user with minimal attributes');
+            } else {
+              throw signUpError;
+            }
+          }
+          
+          // Auto-confirm the new user's email
+          if (process.env.COGNITO_POOL_ID) {
+            try {
+              const confirmCommand = new AdminUpdateUserAttributesCommand({
+                UserPoolId: process.env.COGNITO_POOL_ID,
+                Username: payload.email,
+                UserAttributes: [
+                  { Name: 'email_verified', Value: 'true' }
+                ]
+              });
+              
+              await this.cognitoClient.send(confirmCommand);
+              console.log('Successfully confirmed new user');
+            } catch (confirmError) {
+              console.error('Error confirming user:', confirmError);
+              // Continue with sign-in attempt even if confirmation fails
+            }
+          }
+          
+          // Now sign in the newly created user
+          try {
+            const newSignInCommand = new InitiateAuthCommand({
+              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
               ClientId: this.clientId || '',
-              Username: payload.email,
-              Password: deterministicPassword,
-              SecretHash: computeSecretHash(payload.email),
-              UserAttributes: [
-                { Name: 'email', Value: payload.email },
-                { Name: 'phone_number', Value: '+10000000000' }, // Default phone number
-                { Name: 'name', Value: payload.name || '' },
-              ],
+              AuthParameters: {
+                USERNAME: payload.email,
+                PASSWORD: deterministicPassword,
+                SECRET_HASH: computeSecretHash(payload.email)
+              },
             });
             
-            try {
-              await this.cognitoClient.send(signUpCommand);
-              console.log('Successfully created new user');
-            } catch (signUpError) {
-              console.error('SignUp error details:', signUpError);
-              console.error('Error message:', signUpError.message);
-              
-              // If it's a schema validation error, try with minimal attributes
-              if (signUpError.message && signUpError.message.includes('schema')) {
-                console.log('Attempting signup with minimal attributes');
-                const minimalSignUpCommand = new SignUpCommand({
-                  ClientId: this.clientId || '',
-                  Username: payload.email,
-                  Password: deterministicPassword,
-                  SecretHash: computeSecretHash(payload.email),
-                  UserAttributes: [
-                    { Name: 'email', Value: payload.email }
-                  ],
-                });
-                
-                await this.cognitoClient.send(minimalSignUpCommand);
-                console.log('Successfully created user with minimal attributes');
-              } else {
-                throw signUpError;
-              }
-            }
+            const result = await this.cognitoClient.send(newSignInCommand);
+            console.log('Successfully signed in new user');
+            return this.handleSuccessfulAuth(result, payload);
+          } catch (newSignInError) {
+            console.error('Error signing in new user:', newSignInError);
             
-            // Auto-confirm the new user's email
+            // Try admin sign-in as a last resort
             if (process.env.COGNITO_POOL_ID) {
               try {
-                const confirmCommand = new AdminUpdateUserAttributesCommand({
+                console.log('Attempting admin sign-in flow');
+                const adminSignInCommand = new AdminInitiateAuthCommand({
                   UserPoolId: process.env.COGNITO_POOL_ID,
-                  Username: payload.email,
-                  UserAttributes: [
-                    { Name: 'email_verified', Value: 'true' }
-                  ]
+                  ClientId: this.clientId || '',
+                  AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
+                  AuthParameters: {
+                    USERNAME: payload.email,
+                    PASSWORD: deterministicPassword,
+                  },
                 });
                 
-                await this.cognitoClient.send(confirmCommand);
-                console.log('Successfully confirmed new user');
-              } catch (confirmError) {
-                console.error('Error confirming user:', confirmError);
-                // Continue with sign-in attempt even if confirmation fails
+                const result = await this.cognitoClient.send(adminSignInCommand);
+                console.log('Successfully signed in with admin flow');
+                return this.handleSuccessfulAuth(result, payload);
+              } catch (adminSignInError) {
+                console.error('Admin sign-in failed:', adminSignInError);
+                throw adminSignInError;
               }
+            } else {
+              throw newSignInError;
             }
-            
-            // Now sign in the newly created user
-            try {
-              const newSignInCommand = new InitiateAuthCommand({
-                AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-                ClientId: this.clientId || '',
-                AuthParameters: {
-                  USERNAME: payload.email,
-                  PASSWORD: deterministicPassword,
-                  SECRET_HASH: computeSecretHash(payload.email)
-                },
-              });
-              
-              const result = await this.cognitoClient.send(newSignInCommand);
-              console.log('Successfully signed in new user');
-              return this.handleSuccessfulAuth(result, payload);
-            } catch (newSignInError) {
-              console.error('Error signing in new user:', newSignInError);
-              
-              // Try admin sign-in as a last resort
-              if (process.env.COGNITO_POOL_ID) {
-                try {
-                  console.log('Attempting admin sign-in flow');
-                  const adminSignInCommand = new AdminInitiateAuthCommand({
-                    UserPoolId: process.env.COGNITO_POOL_ID,
-                    ClientId: this.clientId || '',
-                    AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
-                    AuthParameters: {
-                      USERNAME: payload.email,
-                      PASSWORD: deterministicPassword,
-                    },
-                  });
-                  
-                  const result = await this.cognitoClient.send(adminSignInCommand);
-                  console.log('Successfully signed in with admin flow');
-                  return this.handleSuccessfulAuth(result, payload);
-                } catch (adminSignInError) {
-                  console.error('Admin sign-in failed:', adminSignInError);
-                  throw adminSignInError;
-                }
-              } else {
-                throw newSignInError;
-              }
-            }
-          } catch (createError) {
-            // User creation failed
-            console.error('Error creating user:', createError);
-            
-            // If user already exists (which might happen in race conditions), try signing in again
-            if (createError.name === 'UsernameExistsException' || 
-                createError.message.includes('already exists')) {
-              console.log('User already exists, attempting sign-in again');
-              
-              const retrySignInCommand = new InitiateAuthCommand({
-                AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-                ClientId: this.clientId || '',
-                AuthParameters: {
-                  USERNAME: payload.email,
-                  PASSWORD: deterministicPassword,
-                  SECRET_HASH: computeSecretHash(payload.email)
-                },
-              });
-              
-              const result = await this.cognitoClient.send(retrySignInCommand);
-              console.log('Successfully signed in existing user on retry');
-              return this.handleSuccessfulAuth(result, payload);
-            }
-            
-            throw createError;
           }
-        } else {
-          // For other errors besides "user doesn't exist"
-          console.error('Sign-in error:', signInError);
-          throw signInError;
+        } catch (createError) {
+          // User creation failed
+          console.error('Error creating user:', createError);
+          
+          // If user already exists (which might happen in race conditions), try signing in again
+          if (createError.name === 'UsernameExistsException' || 
+              createError.message.includes('already exists')) {
+            console.log('User already exists, attempting sign-in again');
+            
+            const retrySignInCommand = new InitiateAuthCommand({
+              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+              ClientId: this.clientId || '',
+              AuthParameters: {
+                USERNAME: payload.email,
+                PASSWORD: deterministicPassword,
+                SECRET_HASH: computeSecretHash(payload.email)
+              },
+            });
+            
+            const result = await this.cognitoClient.send(retrySignInCommand);
+            console.log('Successfully signed in existing user on retry');
+            return this.handleSuccessfulAuth(result, payload);
+          }
+          
+          throw createError;
         }
       }
     } catch (error) {
