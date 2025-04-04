@@ -1,6 +1,9 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import {
   AdminUpdateUserAttributesCommand,
+  AdminCreateUserCommand,
+  AdminInitiateAuthCommand,
+  AdminSetUserPasswordCommand,
   AuthFlowType,
   ChangePasswordCommand,
   CognitoIdentityProviderClient,
@@ -498,67 +501,104 @@ export class CognitoService {
         // User exists and signed in successfully
         return this.handleSuccessfulAuth(result, payload);
       } catch (signInError) {
-        // If user doesn't exist, create them
+        // If user doesn't exist, attempt admin-based creation
         if (signInError.message.includes('Incorrect username or password')) {
-          // Create the user in Cognito with minimal attributes
-          const signUpCommand = new SignUpCommand({
-            ClientId: this.clientId || '',
-            Username: payload.email,
-            Password: deterministicPassword,
-            SecretHash: computeSecretHash(payload.email),
-            UserAttributes: [
-              { Name: 'email', Value: payload.email },
-              { Name: 'phone_number', Value: '+10000000000' }, // Default phone number as placeholder
-              { Name: 'name', Value: payload.name || '' },
-              // Add formatted name to satisfy schema requirement
-              { Name: 'custom:name_formatted', Value: payload.name || '' },
-            ],
-          });
-
           try {
-            await this.cognitoClient.send(signUpCommand);
-            console.log('Successfully created Cognito user with Google credentials');
+            console.log('User not found in Cognito, creating via admin API...');
             
-            // After signup, update user attributes if needed via admin APIs
-            if (process.env.COGNITO_POOL_ID) {
-              const adminUpdateCommand = new AdminUpdateUserAttributesCommand({
+            // Use the AdminCreateUserCommand instead of SignUpCommand
+            if (!process.env.COGNITO_POOL_ID) {
+              throw new HttpException('Cognito Pool ID not configured', HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+            
+            // Create user with admin privileges
+            const adminCreateCommand = new AdminCreateUserCommand({
+              UserPoolId: process.env.COGNITO_POOL_ID,
+              Username: payload.email,
+              TemporaryPassword: deterministicPassword,
+              MessageAction: 'SUPPRESS', // Don't send welcome email
+              UserAttributes: [
+                { Name: 'email', Value: payload.email },
+                { Name: 'email_verified', Value: 'true' },
+                { Name: 'name', Value: payload.name || '' },
+                // Add a default phone number to satisfy the schema requirement
+                { Name: 'phone_number', Value: '+10000000000' }
+              ]
+            });
+            
+            await this.cognitoClient.send(adminCreateCommand);
+            console.log('Successfully created user via admin API');
+            
+            try {
+              // Set permanent password
+              const setPasswordCommand = new AdminSetUserPasswordCommand({
                 UserPoolId: process.env.COGNITO_POOL_ID,
                 Username: payload.email,
-                UserAttributes: [
-                  { Name: 'email_verified', Value: 'true' },
-                  { Name: 'name', Value: payload.name || '' },
-                  { Name: 'custom:role', Value: Roles.USER },
-                  // Add or update any additional required attributes
-                  { Name: 'phone_number', Value: '+10000000000' },
-                  { Name: 'custom:name_formatted', Value: payload.name || '' },
-                ]
+                Password: deterministicPassword,
+                Permanent: true
               });
               
-              await this.cognitoClient.send(adminUpdateCommand);
+              await this.cognitoClient.send(setPasswordCommand);
+              console.log('Successfully set permanent password');
+            } catch (passwordError) {
+              console.error('Error setting permanent password:', passwordError);
+              // Continue with the sign-in flow even if setting password fails
             }
+            
+            // Now sign in the user with the admin flow
+            try {
+              const adminSignInCommand = new AdminInitiateAuthCommand({
+                UserPoolId: process.env.COGNITO_POOL_ID,
+                ClientId: this.clientId || '',
+                AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
+                AuthParameters: {
+                  USERNAME: payload.email,
+                  PASSWORD: deterministicPassword,
+                  SECRET_HASH: computeSecretHash(payload.email)
+                }
+              });
+              
+              const result = await this.cognitoClient.send(adminSignInCommand);
+              console.log('Successfully signed in user with admin flow');
+              
+              return this.handleSuccessfulAuth(result, payload);
+            } catch (adminSignInError) {
+              console.error('Admin sign-in failed, trying regular sign-in:', adminSignInError);
+              
+              // Fallback to regular sign-in
+              const signInCommand = new InitiateAuthCommand({
+                AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+                ClientId: this.clientId || '',
+                AuthParameters: {
+                  USERNAME: payload.email,
+                  PASSWORD: deterministicPassword,
+                  SECRET_HASH: computeSecretHash(payload.email)
+                },
+              });
 
-            // Now try to sign in
-            const signInCommand = new InitiateAuthCommand({
-              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-              ClientId: this.clientId || '',
-              AuthParameters: {
-                USERNAME: payload.email,
-                PASSWORD: deterministicPassword,
-                SECRET_HASH: computeSecretHash(payload.email)
-              },
-            });
-
-            const result = await this.cognitoClient.send(signInCommand);
-            return this.handleSuccessfulAuth(result, payload);
-          } catch (signUpError) {
-            console.error('Error during Google user signup:', signUpError);
+              const result = await this.cognitoClient.send(signInCommand);
+              console.log('Successfully signed in user with regular flow');
+              
+              return this.handleSuccessfulAuth(result, payload);
+            }
+          } catch (createError) {
+            console.error('Error during Google user creation:', createError);
             console.error('Error details:', JSON.stringify({
-              message: signUpError.message,
-              code: signUpError.code,
-              statusCode: signUpError.$metadata?.httpStatusCode,
-              requestId: signUpError.$metadata?.requestId,
+              message: createError.message,
+              code: createError.code,
+              statusCode: createError.$metadata?.httpStatusCode,
+              requestId: createError.$metadata?.requestId,
             }, null, 2));
-            throw signUpError;
+            
+            // Provide a clearer error message
+            if (createError.message.includes('A client attempted to write unauthorized attribute')) {
+              throw new HttpException(
+                'Unable to create account with Google credentials - attribute permission issue in Cognito',
+                HttpStatus.BAD_REQUEST
+              );
+            }
+            
+            throw createError;
           }
         }
         
@@ -596,14 +636,28 @@ export class CognitoService {
       
       // If user doesn't exist, create them
       if (!user) {
-        user = await this.userService.createUser({
-          name: payload.name || '',
-          email: payload.email || '',
-          role: Roles.USER,
-          userSub: cognitoPayload?.username,
-          isConfirmed: true,
-          avatarUrl: payload.picture,
-        });
+        try {
+          user = await this.userService.createUser({
+            name: payload.name || '',
+            email: payload.email || '',
+            phoneNumber: '+10000000000', // Default phone number
+            role: Roles.USER,
+            userSub: cognitoPayload?.username,
+            isConfirmed: true,
+            avatarUrl: payload.picture,
+          });
+        } catch (createUserError) {
+          console.error('Error creating user in database:', createUserError);
+          // If user creation fails, try to find the user again
+          // This handles race conditions where another request might have created the user
+          user = await this.userService.findUserByUserSub(cognitoPayload?.username);
+          if (!user) {
+            throw new HttpException(
+              'Failed to create user account', 
+              HttpStatus.INTERNAL_SERVER_ERROR
+            );
+          }
+        }
       }
 
       return {
