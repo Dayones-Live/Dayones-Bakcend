@@ -470,14 +470,12 @@ export class CognitoService {
 
       // Use the Google ID token to authenticate with Cognito
       const command = new InitiateAuthCommand({
-        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+        AuthFlow: 'CUSTOM_AUTH',
         ClientId: this.clientId || '',
         AuthParameters: {
-          USERNAME: payload.email,
-          PASSWORD: 'dummy-password', // Required but not used for Google auth
+          TOKEN: googleToken,
           SECRET_HASH: computeSecretHash(payload.email),
-          PROVIDER_TOKEN: googleToken,
-          PROVIDER_TYPE: 'Google',
+          PROVIDER: 'Google'
         },
       });
 
