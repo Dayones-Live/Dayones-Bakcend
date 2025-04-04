@@ -474,10 +474,8 @@ export class CognitoService {
         ClientId: this.clientId || '',
         AuthParameters: {
           USERNAME: payload.email,
-          SECRET_HASH: computeSecretHash(payload.email),
-          TOKEN: googleToken,
-          PROVIDER_NAME: 'Google',
-          PROVIDER_TOKEN: googleToken
+          PASSWORD: googleToken, // Use the Google token as the password
+          SECRET_HASH: computeSecretHash(payload.email)
         },
       });
 
