@@ -238,7 +238,7 @@ export class AuthController {
         name: { type: 'string', description: 'User\'s full name from Google' },
         email: { type: 'string', description: 'User\'s email from Google' }
       },
-      required: ['idToken', 'name', 'email']
+      required: ['idToken']
     }
   })
   @ApiResponse({
@@ -248,39 +248,32 @@ export class AuthController {
       type: 'object',
       properties: {
         success: { type: 'boolean' },
-        token: { type: 'string', description: 'Application JWT token' },
-        role: { type: 'string', description: 'User\'s role' }
-      }
-    }
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid Google token',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean' },
-        message: { type: 'string' }
+        message: { type: 'string' },
+        data: { 
+          type: 'object',
+          properties: {
+            access_token: { type: 'string' },
+            expires_in: { type: 'number' },
+            refresh_token: { type: 'string' },
+            token_type: { type: 'string' },
+            user: { type: 'object' }
+          }
+        }
       }
     }
   })
   async signInWithGoogle(
-    @Body() body: { idToken: string; name: string; email: string },
+    @Body() body: { idToken: string; name?: string; email?: string },
     @Res() res: Response,
   ) {
     try {
       const result = await this.cognitoService.signInWithGoogle(body.idToken);
-      res.status(result?.statusCode).json({
-        success: result?.statusCode === HttpStatus.OK,
-        token: result?.data?.access_token,
-        role: result?.data?.user?.role,
-      });
+      res
+        .status(result?.statusCode)
+        .json({ message: result?.message, data: result?.data || '' });
     } catch (error) {
       console.error('🚀 ~ AuthController ~ signInWithGoogle ~ error:', error);
-      res.status(error.status || HttpStatus.UNAUTHORIZED).json({
-        success: false,
-        message: error.message,
-      });
+      throw error;
     }
   }
 }

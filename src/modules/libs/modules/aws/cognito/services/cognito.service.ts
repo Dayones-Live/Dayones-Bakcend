@@ -469,38 +469,43 @@ export class CognitoService {
         throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
       }
 
-      // Hash the token to use as password (will always be the same for the same Google account)
-      const hashedToken = crypto
-        .createHash('sha256')
-        .update(googleToken)
-        .digest('hex');
+      // Create a deterministic password for this Google account
+      // This ensures the same Google user will always have the same password
+      const googleUserId = payload.sub; // Google's unique user ID
+      const secretKey = process.env.COGNITO_CLIENT_SECRET || 'default-secret-key';
+      const deterministicPassword = crypto
+        .createHmac('sha256', secretKey)
+        .update(googleUserId)
+        .digest('hex')
+        .substring(0, 20) + 'Aa1!'; // Add complexity to meet Cognito password requirements
 
       try {
-        // Try to sign in first
+        // Try to sign in with regular USER_PASSWORD_AUTH flow
         const signInCommand = new InitiateAuthCommand({
           AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
           ClientId: this.clientId || '',
           AuthParameters: {
             USERNAME: payload.email,
-            PASSWORD: hashedToken,
+            PASSWORD: deterministicPassword,
             SECRET_HASH: computeSecretHash(payload.email)
           },
         });
 
         const result = await this.cognitoClient.send(signInCommand);
+        
+        // User exists and signed in successfully
         return this.handleSuccessfulAuth(result, payload);
       } catch (signInError) {
-        // If sign in fails, try to create the user
+        // If user doesn't exist, create them
         if (signInError.message.includes('Incorrect username or password')) {
-          // Create user in Cognito
+          // Create the user in Cognito
           const signUpCommand = new SignUpCommand({
             ClientId: this.clientId || '',
             Username: payload.email,
-            Password: hashedToken,
+            Password: deterministicPassword,
             SecretHash: computeSecretHash(payload.email),
             UserAttributes: [
               { Name: 'email', Value: payload.email },
-              { Name: 'name', Value: payload.name },
               { Name: 'email_verified', Value: 'true' }
             ],
           });
@@ -513,7 +518,7 @@ export class CognitoService {
             ClientId: this.clientId || '',
             AuthParameters: {
               USERNAME: payload.email,
-              PASSWORD: hashedToken,
+              PASSWORD: deterministicPassword,
               SECRET_HASH: computeSecretHash(payload.email)
             },
           });
@@ -521,6 +526,8 @@ export class CognitoService {
           const result = await this.cognitoClient.send(signInCommand);
           return this.handleSuccessfulAuth(result, payload);
         }
+        
+        // Other error
         throw signInError;
       }
     } catch (error) {
