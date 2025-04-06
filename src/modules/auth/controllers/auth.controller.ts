@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
-import { CognitoService } from '@libs/modules/aws/cognito/services/cognito.service';
+import { CognitoService } from '@aws/cognito/services/cognito.service';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
 import {
   ConfirmForgotPasswordInput,
@@ -22,13 +22,17 @@ import {
   UserSignUpInput,
 } from '@cognito/dto/types';
 import { Token } from '@auth/decorators/auth.decorator';
-import { Public } from '../decorators/public.decorator';
+import { Public } from '@auth/decorators/public.decorator';
 import { GlobalServiceResponse } from '@app/shared/types/types';
+import { GoogleService } from '@auth/services/google.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private cognitoService: CognitoService) {}
+  constructor(
+    private cognitoService: CognitoService,
+    private googleService: GoogleService,
+  ) {}
 
   @Post('signup')
   @Public()
@@ -236,73 +240,40 @@ export class AuthController {
       type: 'object',
       properties: {
         idToken: { type: 'string', description: 'Google ID token' },
-        clientId: { type: 'string', description: 'Google Client ID (optional)' }
       },
-      required: ['idToken']
-    }
+      required: ['idToken'],
+    },
   })
   @ApiResponse({
     status: 200,
     description: 'Successfully signed in with Google',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        data: { 
-          type: 'object',
-          properties: {
-            access_token: { type: 'string' },
-            id_token: { type: 'string' },
-            refresh_token: { type: 'string' },
-            expires_in: { type: 'number' },
-            token_type: { type: 'string' },
-            user: { type: 'object' }
-          }
-        }
-      }
-    }
   })
-  async signInWithGoogle(
-    @Body() body: { idToken: string; clientId?: string },
+  async googleSignIn(
+    @Body('idToken') idToken: string,
     @Res() res: Response,
   ) {
     try {
-      // Validate token format
-      if (!body.idToken || typeof body.idToken !== 'string') {
-        return res
-          .status(HttpStatus.BAD_REQUEST)
-          .json({ 
-            message: 'Invalid Google token format', 
-            error: true 
-          });
-      }
+      const googleUser = await this.googleService.verifyIdToken(idToken);
       
-      console.log('Processing Google sign-in request');
-      const result = await this.cognitoService.signInWithGoogle(body.idToken, body.clientId);
-      
-      return res
-        .status(result?.statusCode)
-        .json({ message: result?.message, data: result?.data || '' });
+      // Here you can implement your logic to:
+      // 1. Check if user exists in your database
+      // 2. Create user if doesn't exist
+      // 3. Generate your own JWT token
+      // 4. Return user data and token
+
+      res.status(HttpStatus.OK).json({
+        message: 'Successfully signed in with Google',
+        data: {
+          user: googleUser,
+          // Add your JWT token here when implemented
+        },
+      });
     } catch (error) {
-      console.error('Google sign-in error in controller:', error);
-      
-      // Pass through the status code and message from the service
-      if (error instanceof HttpException) {
-        return res
-          .status(error.getStatus())
-          .json({ 
-            message: error.message,
-            error: true 
-          });
-      }
-      
-      // Default error response
-      return res
-        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .json({ 
-          message: 'Google sign-in failed. Please try again later.', 
-          error: true 
-        });
+      console.error('Google sign-in error:', error);
+      throw new HttpException(
+        error.message || 'Google sign-in failed',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
   }
 }
