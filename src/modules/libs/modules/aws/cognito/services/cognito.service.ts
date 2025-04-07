@@ -471,8 +471,8 @@ export class CognitoService {
       });
       
       const payload = ticket.getPayload();
-      if (!payload || !payload.email) {
-        throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
+      if (!payload || !payload.email || !payload.name || !payload.sub) {
+        throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
       // First try to find the user by email
@@ -488,20 +488,17 @@ export class CognitoService {
           user = updateResponse.data;
         }
       } catch (error) {
-        // If user is not found, that's fine - we'll just return the Google user info
-        return {
-          statusCode: HttpStatus.OK,
-          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-          data: {
-            user: {
-              email: payload.email,
-              name: payload.name,
-              picture: payload.picture,
-              sub: payload.sub,
-              user: null
-            }
-          }
-        };
+        // If user is not found, create a new user with USER role
+        const newUser = await this.userService.createUser({
+          name: payload.name,
+          email: payload.email,
+          role: Roles.USER, // Default to USER role
+          userSub: payload.sub,
+          isConfirmed: true,
+          avatarUrl: payload.picture || undefined
+        });
+
+        user = newUser;
       }
 
       // Return user data
