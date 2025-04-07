@@ -17,7 +17,8 @@ import {
   SignUpCommand,
   GetUserCommand,
   ListUsersCommand,
-  MessageActionType
+  MessageActionType,
+  AdminRespondToAuthChallengeCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import { cognitoJwtVerify } from '../constants/cognito.constants';
 import { computeSecretHash } from '../utils/cognito.utils';
@@ -495,32 +496,46 @@ export class CognitoService {
       const authParams = {
         AuthFlow: AuthFlowType.CUSTOM_AUTH,
         ClientId: this.clientId || '',
+        UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
           USERNAME: user.email,
-          SECRET_HASH: computeSecretHash(user.email),
-          CHALLENGE_NAME: 'CUSTOM_CHALLENGE',
-          ANSWER: googleToken  // Add the Google token as the challenge answer
+          SECRET_HASH: computeSecretHash(user.email)
         },
       };
 
-      const authCommand = new InitiateAuthCommand(authParams);
+      const authCommand = new AdminInitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
 
-      if (authResult['$metadata']?.httpStatusCode === HttpStatus.OK && authResult?.AuthenticationResult?.AccessToken) {
-        return {
-          statusCode: HttpStatus.OK,
-          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-          data: {
-            access_token: authResult?.AuthenticationResult?.AccessToken,
-            expires_in: authResult?.AuthenticationResult?.ExpiresIn,
-            refresh_token: authResult?.AuthenticationResult?.RefreshToken,
-            token_type: authResult?.AuthenticationResult?.TokenType,
-            user: {
-              ...user,
-              role: user?.role?.[0] || null
+      if (authResult.ChallengeName === 'CUSTOM_CHALLENGE') {
+        const challengeResponse = await this.cognitoClient.send(
+          new AdminRespondToAuthChallengeCommand({
+            ChallengeName: 'CUSTOM_CHALLENGE',
+            ClientId: this.clientId || '',
+            UserPoolId: process.env.COGNITO_POOL_ID || '',
+            ChallengeResponses: {
+              USERNAME: user.email,
+              ANSWER: googleToken,
+              SECRET_HASH: computeSecretHash(user.email)
             }
-          }
-        };
+          })
+        );
+
+        if (challengeResponse?.AuthenticationResult?.AccessToken) {
+          return {
+            statusCode: HttpStatus.OK,
+            message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+            data: {
+              access_token: challengeResponse.AuthenticationResult.AccessToken,
+              expires_in: challengeResponse.AuthenticationResult.ExpiresIn,
+              refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
+              token_type: challengeResponse.AuthenticationResult.TokenType,
+              user: {
+                ...user,
+                role: user?.role?.[0] || null
+              }
+            }
+          };
+        }
       }
 
       throw new HttpException('Failed to get Cognito tokens', HttpStatus.UNAUTHORIZED);
