@@ -494,7 +494,6 @@ export class CognitoService {
           const cognitoParams = {
             UserPoolId: process.env.COGNITO_POOL_ID,
             Username: payload.email,
-            TemporaryPassword: process.env.GOOGLE_USER_PASSWORD || 'GoogleUserPassword123!',
             UserAttributes: [
               {
                 Name: 'email',
@@ -509,7 +508,7 @@ export class CognitoService {
                 Value: payload.name,
               },
             ],
-            MessageAction: MessageActionType.SUPPRESS, // Use the correct enum value
+            MessageAction: MessageActionType.SUPPRESS,
           };
 
           const createCommand = new AdminCreateUserCommand(cognitoParams);
@@ -531,29 +530,29 @@ export class CognitoService {
         }
       }
 
-      // Get Cognito tokens for the user
-      const params = {
-        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+      // Get Cognito tokens using AdminInitiateAuth for Google users
+      const authParams = {
+        UserPoolId: process.env.COGNITO_POOL_ID,
         ClientId: this.clientId || '',
+        AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
         AuthParameters: {
           USERNAME: user.email,
           PASSWORD: process.env.GOOGLE_USER_PASSWORD || 'GoogleUserPassword123!',
-          SECRET_HASH: computeSecretHash(user.email),
         },
       };
 
-      const command = new InitiateAuthCommand(params);
-      const result = await this.cognitoClient.send(command);
+      const authCommand = new AdminInitiateAuthCommand(authParams);
+      const authResult = await this.cognitoClient.send(authCommand);
 
-      if (result['$metadata']?.httpStatusCode === HttpStatus.OK && result?.AuthenticationResult?.AccessToken) {
+      if (authResult['$metadata']?.httpStatusCode === HttpStatus.OK && authResult?.AuthenticationResult?.AccessToken) {
         return {
           statusCode: HttpStatus.OK,
           message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
           data: {
-            access_token: result?.AuthenticationResult?.AccessToken,
-            expires_in: result?.AuthenticationResult?.ExpiresIn,
-            refresh_token: result?.AuthenticationResult?.RefreshToken,
-            token_type: result?.AuthenticationResult?.TokenType,
+            access_token: authResult?.AuthenticationResult?.AccessToken,
+            expires_in: authResult?.AuthenticationResult?.ExpiresIn,
+            refresh_token: authResult?.AuthenticationResult?.RefreshToken,
+            token_type: authResult?.AuthenticationResult?.TokenType,
             user: {
               ...user,
               role: user?.role?.[0] || null
