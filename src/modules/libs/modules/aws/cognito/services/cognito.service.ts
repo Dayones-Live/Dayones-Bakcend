@@ -459,357 +459,73 @@ export class CognitoService {
    * @param googleToken - The ID token from Google
    * @returns {GlobalServiceResponse}
    */
-  async signInWithGoogle(googleToken: string, clientId?: string): Promise<GlobalServiceResponse> {
-    console.log('Google sign in with token', googleToken);
+  async signInWithGoogle(googleToken: string): Promise<GlobalServiceResponse> {
     try {
       // Initialize Google OAuth client
       const client = new OAuth2Client();
       
-      // Use clientId from parameters if provided, otherwise use environment variable
-      const googleClientId = clientId || process.env.GOOGLE_CLIENT_ID;
-      
-      if (!googleClientId) {
-        throw new HttpException(
-          'Server configuration error: Google authentication is not properly configured',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // Verify the token
-      let ticket;
-      try {
-        ticket = await client.verifyIdToken({
-          idToken: googleToken,
-          audience: googleClientId,
-        });
-      } catch (error) {
-        console.error('Google token verification failed:', error);
-        throw new HttpException(
-          'Invalid Google token',
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
+      // Verify the Google token
+      const ticket = await client.verifyIdToken({
+        idToken: googleToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
       
       const payload = ticket.getPayload();
       if (!payload || !payload.email) {
-        throw new HttpException('Invalid Google token: missing email in payload', HttpStatus.UNAUTHORIZED);
-      }
-      
-      // Now we know payload.email exists
-      const userEmail = payload.email;
-      const userName = payload.name || '';
-      const userPicture = payload.picture || '';
-      const userSub = payload.sub || '';
-      
-      console.log('Google authentication successful for email:', userEmail);
-      
-      // For Cognito integration, we'll use the Admin APIs to handle federated sign-in
-      // This pattern works when your backend server is trusted and has admin privileges
-      
-      if (!process.env.COGNITO_POOL_ID) {
-        throw new HttpException(
-          'Server configuration error: Cognito pool ID is not configured',
-          HttpStatus.INTERNAL_SERVER_ERROR
-        );
+        throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED);
       }
 
-      // We'll search for the user in Cognito to see if they already exist
-      let userExists = false;
+      // First try to find the user by email
+      let user;
       try {
-        // Try to find the user in Cognito by email
-        const listUsersCommand = {
-          UserPoolId: process.env.COGNITO_POOL_ID as string,
-          Filter: `email = "${userEmail}"`,
-          Limit: 1
+        user = await this.userService.findUserByUserSub(payload.email);
+        
+        // Update avatar URL if it's different from Google's picture
+        if (user.avatar_url !== payload.picture) {
+          const updateResponse = await this.userService.updateUser({
+            avatarUrl: payload.picture
+          }, user.id);
+          user = updateResponse.data;
+        }
+      } catch (error) {
+        // If user is not found, that's fine - we'll just return the Google user info
+        return {
+          statusCode: HttpStatus.OK,
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+          data: {
+            user: {
+              email: payload.email,
+              name: payload.name,
+              picture: payload.picture,
+              sub: payload.sub,
+              user: null
+            }
+          }
         };
-        
-        const listUsersResponse = await this.cognitoClient.send(
-          new ListUsersCommand(listUsersCommand)
-        );
-        
-        userExists = !!(listUsersResponse.Users && listUsersResponse.Users.length > 0);
-        console.log(`User ${userExists ? 'exists' : 'does not exist'} in Cognito`);
-      } catch (listError) {
-        console.error('Error checking if user exists:', listError);
-        // Continue even if we couldn't check if user exists
       }
-      
-      // If the user doesn't exist, create them in Cognito
-      if (!userExists) {
-        try {
-          console.log('Creating new user in Cognito');
-          // Make sure we have the pool ID
-          const poolId = process.env.COGNITO_POOL_ID;
-          if (!poolId) {
-            throw new HttpException(
-              'Server configuration error: Cognito pool ID is missing',
-              HttpStatus.INTERNAL_SERVER_ERROR
-            );
-          }
-          
-          const createUserCommand = {
-            UserPoolId: poolId,
-            Username: userEmail,
-            UserAttributes: [
-              { Name: 'email', Value: userEmail },
-              { Name: 'email_verified', Value: 'true' },
-              { Name: 'name', Value: userName },
-              // Using a Google sub claim as an external ID to link with Google
-              { Name: 'custom:googleId', Value: userSub },
-            ],
-            MessageAction: MessageActionType.SUPPRESS // Use the enum value
-          };
-          
-          await this.cognitoClient.send(
-            new AdminCreateUserCommand(createUserCommand)
-          );
-          console.log('User created successfully in Cognito');
-        } catch (createError) {
-          // If user already exists (race condition or other error), continue
-          if (createError.name !== 'UsernameExistsException') {
-            console.error('Error creating user in Cognito:', createError);
-            throw new HttpException(
-              'Error creating user account: ' + createError.message,
-              HttpStatus.INTERNAL_SERVER_ERROR
-            );
+
+      // Return user data
+      return {
+        statusCode: HttpStatus.OK,
+        message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+        data: {
+          user: {
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+            sub: payload.sub,
+            user: {
+              ...user,
+              role: user?.role?.[0] || null
+            }
           }
         }
-      }
-      
-      // Now, we'll authenticate the user with admin APIs
-      try {
-        console.log('Initiating admin auth for user');
-        
-        // Ensure we have the required configuration
-        const poolId = process.env.COGNITO_POOL_ID;
-        const cognitoClientId = process.env.COGNITO_CLIENT_ID;
-        
-        if (!poolId || !cognitoClientId) {
-          throw new HttpException(
-            'Server configuration error: Cognito pool ID or client ID is missing',
-            HttpStatus.INTERNAL_SERVER_ERROR
-          );
-        }
-        
-        const initiateAuthResponse = await this.cognitoClient.send(
-          new AdminInitiateAuthCommand({
-            UserPoolId: poolId,
-            ClientId: cognitoClientId,
-            AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
-            AuthParameters: {
-              USERNAME: userEmail,
-              // For federated users, we need to either:
-              // 1. Set a password when creating them
-              // 2. Or use a passwordless authentication method
-              // For this implementation, we'll use an admin auth flow since passwords aren't used
-              // in federated identities
-            }
-          })
-        );
-        
-        // If we get here, authentication succeeded and we have tokens
-        console.log('Admin auth successful, got tokens');
-        
-        // Let's get or create the user in our database
-        let user;
-        try {
-          // Try to find the user by email in our database
-          try {
-            user = await this.userService.findUserByUserSub(userEmail);
-            console.log('Found existing user in database');
-          } catch (notFoundError) {
-            console.log('User not found in database, creating new user');
-            // Create the user in our database
-            user = await this.userService.createUser({
-              name: userName,
-              email: userEmail,
-              phoneNumber: '+10000000000', // Default phone number
-              role: Roles.USER,
-              userSub: userEmail, // Using email as the userSub
-              isConfirmed: true,
-              avatarUrl: userPicture
-            });
-            console.log('User created in database');
-          }
-          
-          // Return successful response with tokens
-          return {
-            statusCode: HttpStatus.OK,
-            message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-            data: {
-              access_token: initiateAuthResponse.AuthenticationResult?.AccessToken,
-              id_token: initiateAuthResponse.AuthenticationResult?.IdToken,
-              refresh_token: initiateAuthResponse.AuthenticationResult?.RefreshToken,
-              expires_in: initiateAuthResponse.AuthenticationResult?.ExpiresIn,
-              token_type: initiateAuthResponse.AuthenticationResult?.TokenType,
-              user: {
-                ...user,
-                role: user?.role?.[0] || null
-              }
-            }
-          };
-        } catch (dbError) {
-          console.error('Error handling user in database:', dbError);
-          
-          // Still return tokens even if database operations fail
-          return {
-            statusCode: HttpStatus.OK,
-            message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-            data: {
-              access_token: initiateAuthResponse.AuthenticationResult?.AccessToken,
-              id_token: initiateAuthResponse.AuthenticationResult?.IdToken,
-              refresh_token: initiateAuthResponse.AuthenticationResult?.RefreshToken,
-              expires_in: initiateAuthResponse.AuthenticationResult?.ExpiresIn,
-              token_type: initiateAuthResponse.AuthenticationResult?.TokenType
-            }
-          };
-        }
-      } catch (authError) {
-        console.error('Error during admin authentication:', authError);
-        
-        // Special handling for invalid password (expected for federated users)
-        if (authError.message && authError.message.includes('Incorrect username or password')) {
-          // For federated users, we need to set a password or use a different auth flow
-          // Let's set a password for this user
-          try {
-            console.log('Setting password for federated user');
-            
-            // Make sure we have the client secret
-            const secretKey = process.env.COGNITO_CLIENT_SECRET;
-            if (!secretKey) {
-              throw new HttpException(
-                'Server configuration error: Cognito client secret is missing',
-                HttpStatus.INTERNAL_SERVER_ERROR
-              );
-            }
-            
-            // Create a deterministic password for this user based on their Google ID
-            const temporaryPassword = crypto
-              .createHmac('sha256', secretKey)
-              .update(userSub)
-              .digest('hex');
-            
-            // Get Cognito pool ID
-            const poolId = process.env.COGNITO_POOL_ID;
-            if (!poolId) {
-              throw new HttpException(
-                'Server configuration error: Cognito pool ID is missing',
-                HttpStatus.INTERNAL_SERVER_ERROR
-              );
-            }
-            
-            // Set a password for the user so we can use password-based auth flow
-            await this.cognitoClient.send(
-              new AdminSetUserPasswordCommand({
-                UserPoolId: poolId,
-                Username: userEmail,
-                Password: temporaryPassword,
-                Permanent: true
-              })
-            );
-            
-            console.log('Password set for user, retrying authentication');
-            
-            // Get Cognito client ID
-            const cognitoClientId = process.env.COGNITO_CLIENT_ID;
-            if (!cognitoClientId) {
-              throw new HttpException(
-                'Server configuration error: Cognito client ID is missing',
-                HttpStatus.INTERNAL_SERVER_ERROR
-              );
-            }
-            
-            // Retry authentication with the password
-            const retryAuthResponse = await this.cognitoClient.send(
-              new AdminInitiateAuthCommand({
-                UserPoolId: poolId,
-                ClientId: cognitoClientId,
-                AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
-                AuthParameters: {
-                  USERNAME: userEmail,
-                  PASSWORD: temporaryPassword
-                }
-              })
-            );
-            
-            // Now let's get or create the user in our database
-            let user;
-            try {
-              // Try to find the user by email in our database
-              try {
-                user = await this.userService.findUserByUserSub(userEmail);
-                console.log('Found existing user in database');
-              } catch (notFoundError) {
-                console.log('User not found in database, creating new user');
-                // Create the user in our database
-                user = await this.userService.createUser({
-                  name: userName,
-                  email: userEmail,
-                  phoneNumber: '+10000000000', // Default phone number
-                  role: Roles.USER,
-                  userSub: userEmail, // Using email as the userSub
-                  isConfirmed: true,
-                  avatarUrl: userPicture
-                });
-                console.log('User created in database');
-              }
-              
-              // Return successful response with tokens
-              return {
-                statusCode: HttpStatus.OK,
-                message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-                data: {
-                  access_token: retryAuthResponse.AuthenticationResult?.AccessToken,
-                  id_token: retryAuthResponse.AuthenticationResult?.IdToken,
-                  refresh_token: retryAuthResponse.AuthenticationResult?.RefreshToken,
-                  expires_in: retryAuthResponse.AuthenticationResult?.ExpiresIn,
-                  token_type: retryAuthResponse.AuthenticationResult?.TokenType,
-                  user: {
-                    ...user,
-                    role: user?.role?.[0] || null
-                  }
-                }
-              };
-            } catch (dbError) {
-              console.error('Error handling user in database:', dbError);
-              
-              // Still return tokens even if database operations fail
-              return {
-                statusCode: HttpStatus.OK,
-                message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-                data: {
-                  access_token: retryAuthResponse.AuthenticationResult?.AccessToken,
-                  id_token: retryAuthResponse.AuthenticationResult?.IdToken,
-                  refresh_token: retryAuthResponse.AuthenticationResult?.RefreshToken,
-                  expires_in: retryAuthResponse.AuthenticationResult?.ExpiresIn,
-                  token_type: retryAuthResponse.AuthenticationResult?.TokenType
-                }
-              };
-            }
-          } catch (passwordError) {
-            console.error('Error setting user password:', passwordError);
-            throw new HttpException(
-              'Could not set up federated user authentication: ' + passwordError.message,
-              HttpStatus.INTERNAL_SERVER_ERROR
-            );
-          }
-        }
-        
-        throw new HttpException(
-          'Failed to authenticate with Google credentials: ' + authError.message,
-          HttpStatus.UNAUTHORIZED
-        );
-      }
+      };
     } catch (error) {
       console.error('Google sign-in error:', error);
-      
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      
       throw new HttpException(
-        'Google authentication failed: ' + error.message,
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR
+        `Google sign-in failed: ${error.message}`,
+        HttpStatus.UNAUTHORIZED
       );
     }
   }

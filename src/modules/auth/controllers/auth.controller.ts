@@ -253,20 +253,10 @@ export class AuthController {
     @Res() res: Response,
   ) {
     try {
-      const googleUser = await this.googleService.verifyIdToken(idToken);
-      
-      // Here you can implement your logic to:
-      // 1. Check if user exists in your database
-      // 2. Create user if doesn't exist
-      // 3. Generate your own JWT token
-      // 4. Return user data and token
-
-      res.status(HttpStatus.OK).json({
-        message: 'Successfully signed in with Google',
-        data: {
-          user: googleUser,
-          // Add your JWT token here when implemented
-        },
+      const result = await this.cognitoService.signInWithGoogle(idToken);
+      res.status(result.statusCode).json({
+        message: result.message,
+        data: result.data
       });
     } catch (error) {
       console.error('Google sign-in error:', error);
