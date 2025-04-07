@@ -475,33 +475,7 @@ export class CognitoService {
         throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
-      // First try to find the user by email
-      let user;
-      try {
-        user = await this.userService.findUserByUserSub(payload.email);
-        
-        // Update avatar URL if it's different from Google's picture
-        if (user.avatar_url !== payload.picture) {
-          const updateResponse = await this.userService.updateUser({
-            avatarUrl: payload.picture
-          }, user.id);
-          user = updateResponse.data;
-        }
-      } catch (error) {
-        // If user is not found, create a new user with USER role
-        const newUser = await this.userService.createUser({
-          name: payload.name,
-          email: payload.email,
-          role: Roles.USER, // Default to USER role
-          userSub: payload.sub,
-          isConfirmed: true,
-          avatarUrl: payload.picture || undefined
-        });
-
-        user = newUser;
-      }
-
-      // Return user data
+      // Return Google user info
       return {
         statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -511,10 +485,7 @@ export class CognitoService {
             name: payload.name,
             picture: payload.picture,
             sub: payload.sub,
-            user: {
-              ...user,
-              role: user?.role?.[0] || null
-            }
+            user: null
           }
         }
       };
