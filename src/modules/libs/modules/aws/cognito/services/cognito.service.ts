@@ -538,6 +538,7 @@ export class CognitoService {
         AuthParameters: {
           USERNAME: user.email,
           PASSWORD: process.env.GOOGLE_USER_PASSWORD || 'GoogleUserPassword123!',
+          SECRET_HASH: computeSecretHash(user.email),
         },
       };
 
