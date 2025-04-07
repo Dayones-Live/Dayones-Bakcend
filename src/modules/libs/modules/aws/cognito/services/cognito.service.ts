@@ -516,7 +516,8 @@ export class CognitoService {
               USERNAME: user.email,
               ANSWER: googleToken,
               SECRET_HASH: computeSecretHash(user.email)
-            }
+            },
+            Session: authResult.Session
           })
         );
 
