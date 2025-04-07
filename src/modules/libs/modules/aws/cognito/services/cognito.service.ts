@@ -475,7 +475,7 @@ export class CognitoService {
         throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
-      // Return Google user info
+      // Return Google user info with default USER role
       return {
         statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -485,6 +485,7 @@ export class CognitoService {
             name: payload.name,
             picture: payload.picture,
             sub: payload.sub,
+            role: Roles.USER, // Default to USER role
             user: null
           }
         }
