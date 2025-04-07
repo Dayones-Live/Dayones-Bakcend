@@ -498,6 +498,8 @@ export class CognitoService {
         AuthParameters: {
           USERNAME: user.email,
           SECRET_HASH: computeSecretHash(user.email),
+          CHALLENGE_NAME: 'CUSTOM_CHALLENGE',
+          ANSWER: googleToken  // Add the Google token as the challenge answer
         },
       };
 
