@@ -488,60 +488,20 @@ export class CognitoService {
           user = updateResponse.data;
         }
       } catch (error) {
-        // If user not found, create new user
-        if (error.status === HttpStatus.BAD_REQUEST) {
-          // Create Cognito user
-          const cognitoParams = {
-            UserPoolId: process.env.COGNITO_POOL_ID,
-            Username: payload.email,
-            UserAttributes: [
-              {
-                Name: 'email',
-                Value: payload.email,
-              },
-              {
-                Name: 'email_verified',
-                Value: 'true',
-              },
-              {
-                Name: 'name',
-                Value: payload.name,
-              },
-            ],
-            MessageAction: MessageActionType.SUPPRESS,
-          };
-
-          const createCommand = new AdminCreateUserCommand(cognitoParams);
-          const cognitoResult = await this.cognitoClient.send(createCommand);
-
-          // Create user in our database
-          const newUser = await this.userService.createUser({
-            name: payload.name,
-            email: payload.email,
-            role: Roles.USER,
-            userSub: cognitoResult.User?.Username || payload.email,
-            isConfirmed: true,
-            avatarUrl: payload.picture
-          });
-
-          user = newUser;
-        } else {
-          throw error;
-        }
+        throw new HttpException('User not found', HttpStatus.UNAUTHORIZED);
       }
 
-      // Get Cognito tokens using CUSTOM_AUTH flow for Google users
+      // Get Cognito tokens using CUSTOM_AUTH flow
       const authParams = {
-        UserPoolId: process.env.COGNITO_POOL_ID,
-        ClientId: this.clientId || '',
         AuthFlow: AuthFlowType.CUSTOM_AUTH,
+        ClientId: this.clientId || '',
         AuthParameters: {
           USERNAME: user.email,
           SECRET_HASH: computeSecretHash(user.email),
         },
       };
 
-      const authCommand = new AdminInitiateAuthCommand(authParams);
+      const authCommand = new InitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
 
       if (authResult['$metadata']?.httpStatusCode === HttpStatus.OK && authResult?.AuthenticationResult?.AccessToken) {
