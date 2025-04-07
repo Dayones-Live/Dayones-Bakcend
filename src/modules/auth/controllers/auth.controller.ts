@@ -25,6 +25,10 @@ import { Token } from '@auth/decorators/auth.decorator';
 import { Public } from '@auth/decorators/public.decorator';
 import { GlobalServiceResponse } from '@app/shared/types/types';
 import { GoogleService } from '@auth/services/google.service';
+import { TokenRequestDto } from '../dto/token.dto';
+import { UserService } from '@user/services/user.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -32,6 +36,9 @@ export class AuthController {
   constructor(
     private cognitoService: CognitoService,
     private googleService: GoogleService,
+    private userService: UserService,
+    private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   @Post('signup')
@@ -263,6 +270,58 @@ export class AuthController {
       throw new HttpException(
         error.message || 'Google sign-in failed',
         HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  @Public()
+  @Post('token')
+  @ApiOperation({ summary: 'Generate access token for authenticated user' })
+  @ApiBody({ type: TokenRequestDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully generated access token',
+  })
+  async generateToken(
+    @Body() tokenRequest: TokenRequestDto,
+    @Res() res: Response,
+  ) {
+    try {
+      // Find user by email
+      const user = await this.userService.findUserByUserSub(tokenRequest.email);
+      
+      if (!user) {
+        throw new HttpException(
+          'User not found',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Generate JWT token
+      const payload = {
+        sub: user.user_sub,
+        email: user.email,
+        role: user.role[0],
+      };
+
+      const accessToken = this.jwtService.sign(payload, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+        expiresIn: '1h',
+      });
+
+      res.status(HttpStatus.OK).json({
+        message: 'Token generated successfully',
+        data: {
+          access_token: accessToken,
+          token_type: 'Bearer',
+          expires_in: 3600, // 1 hour in seconds
+        },
+      });
+    } catch (error) {
+      console.error('Token generation error:', error);
+      throw new HttpException(
+        error.message || 'Token generation failed',
+        error.status || HttpStatus.UNAUTHORIZED,
       );
     }
   }
