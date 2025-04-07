@@ -475,21 +475,94 @@ export class CognitoService {
         throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
-      // Return Google user info with default USER role
-      return {
-        statusCode: HttpStatus.OK,
-        message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-        data: {
-          user: {
-            email: payload.email,
-            name: payload.name,
-            picture: payload.picture,
-            sub: payload.sub,
-            role: Roles.USER, // Default to USER role
-            user: null
-          }
+      // Find existing user by email
+      let user;
+      try {
+        user = await this.userService.findUserByEmail(payload.email);
+        
+        // Update user info if needed
+        if (user.avatar_url !== payload.picture) {
+          const updateResponse = await this.userService.updateUser({
+            avatarUrl: payload.picture
+          }, user.id);
+          user = updateResponse.data;
         }
+      } catch (error) {
+        // If user not found, create new user
+        if (error.status === HttpStatus.BAD_REQUEST) {
+          // Create Cognito user
+          const cognitoParams = {
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: payload.email,
+            TemporaryPassword: process.env.GOOGLE_USER_PASSWORD || 'GoogleUserPassword123!',
+            UserAttributes: [
+              {
+                Name: 'email',
+                Value: payload.email,
+              },
+              {
+                Name: 'email_verified',
+                Value: 'true',
+              },
+              {
+                Name: 'name',
+                Value: payload.name,
+              },
+            ],
+            MessageAction: MessageActionType.SUPPRESS, // Use the correct enum value
+          };
+
+          const createCommand = new AdminCreateUserCommand(cognitoParams);
+          const cognitoResult = await this.cognitoClient.send(createCommand);
+
+          // Create user in our database
+          const newUser = await this.userService.createUser({
+            name: payload.name,
+            email: payload.email,
+            role: Roles.USER,
+            userSub: cognitoResult.User?.Username || payload.email,
+            isConfirmed: true,
+            avatarUrl: payload.picture
+          });
+
+          user = newUser;
+        } else {
+          throw error;
+        }
+      }
+
+      // Get Cognito tokens for the user
+      const params = {
+        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+        ClientId: this.clientId || '',
+        AuthParameters: {
+          USERNAME: user.email,
+          PASSWORD: process.env.GOOGLE_USER_PASSWORD || 'GoogleUserPassword123!',
+          SECRET_HASH: computeSecretHash(user.email),
+        },
       };
+
+      const command = new InitiateAuthCommand(params);
+      const result = await this.cognitoClient.send(command);
+
+      if (result['$metadata']?.httpStatusCode === HttpStatus.OK && result?.AuthenticationResult?.AccessToken) {
+        return {
+          statusCode: HttpStatus.OK,
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+          data: {
+            access_token: result?.AuthenticationResult?.AccessToken,
+            expires_in: result?.AuthenticationResult?.ExpiresIn,
+            refresh_token: result?.AuthenticationResult?.RefreshToken,
+            token_type: result?.AuthenticationResult?.TokenType,
+            user: {
+              ...user,
+              role: user?.role?.[0] || null
+            }
+          }
+        };
+      }
+
+      throw new HttpException('Failed to get Cognito tokens', HttpStatus.UNAUTHORIZED);
     } catch (error) {
       console.error('Google sign-in error:', error);
       throw new HttpException(

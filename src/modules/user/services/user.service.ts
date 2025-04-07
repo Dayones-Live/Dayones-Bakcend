@@ -553,4 +553,31 @@ export class UserService {
       throw new HttpException(`${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }
+
+  /**
+   * Fetch a user by email
+   *
+   * @param email
+   * @returns {User}
+   */
+  async findUserByEmail(email: string): Promise<User> {
+    try {
+      const user: User | null = await this.userRepository.findOne({
+        where: { email: email, is_deleted: false },
+      });
+      if (!user) {
+        throw new HttpException(
+          ERROR_MESSAGES.USER_DELETED_ERROR,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      return user;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts ~ UserService ~ findUserByEmail ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
 }
