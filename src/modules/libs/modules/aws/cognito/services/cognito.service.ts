@@ -530,14 +530,13 @@ export class CognitoService {
         }
       }
 
-      // Get Cognito tokens using AdminInitiateAuth for Google users
+      // Get Cognito tokens using CUSTOM_AUTH flow for Google users
       const authParams = {
         UserPoolId: process.env.COGNITO_POOL_ID,
         ClientId: this.clientId || '',
-        AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
+        AuthFlow: AuthFlowType.CUSTOM_AUTH,
         AuthParameters: {
           USERNAME: user.email,
-          PASSWORD: process.env.GOOGLE_USER_PASSWORD || 'GoogleUserPassword123!',
           SECRET_HASH: computeSecretHash(user.email),
         },
       };
