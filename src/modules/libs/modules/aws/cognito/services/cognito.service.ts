@@ -461,13 +461,13 @@ export class CognitoService {
    */
   async signInWithGoogle(googleToken: string): Promise<GlobalServiceResponse> {
     try {
-      // Initialize Google OAuth client
-      const client = new OAuth2Client();
+      // Initialize Google OAuth client with explicit client ID
+      const client = new OAuth2Client('918802616844-2rkeh1hqa9jga6r90g0tpphqoocs0rm3.apps.googleusercontent.com');
       
       // Verify the Google token
       const ticket = await client.verifyIdToken({
         idToken: googleToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: '918802616844-2rkeh1hqa9jga6r90g0tpphqoocs0rm3.apps.googleusercontent.com',
       });
       
       const payload = ticket.getPayload();
