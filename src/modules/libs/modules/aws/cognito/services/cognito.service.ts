@@ -509,6 +509,22 @@ export class CognitoService {
         );
 
         if (challengeResponse?.AuthenticationResult?.AccessToken) {
+          // Get the user's Cognito attributes
+          const getUserCommand = new GetUserCommand({
+            AccessToken: challengeResponse.AuthenticationResult.AccessToken
+          });
+          const cognitoUser = await this.cognitoClient.send(getUserCommand);
+
+          // Map Cognito attributes to our response structure
+          const cognitoAttributes: Record<string, string> = {};
+          if (cognitoUser.UserAttributes) {
+            cognitoUser.UserAttributes.forEach(attr => {
+              if (attr.Name && attr.Value) {
+                cognitoAttributes[attr.Name] = attr.Value;
+              }
+            });
+          }
+
           return {
             statusCode: HttpStatus.OK,
             message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -518,8 +534,19 @@ export class CognitoService {
               refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
               token_type: challengeResponse.AuthenticationResult.TokenType,
               user: {
-                ...user,
-                role: user?.role?.[0] || null
+                full_name: cognitoAttributes['name'] || user.full_name,
+                email: cognitoAttributes['email'] || user.email,
+                role: cognitoAttributes['custom:role'] || user?.role?.[0] || null,
+                phone_number: cognitoAttributes['phone_number'] || user.phone_number,
+                is_confirmed: user.is_confirmed,
+                is_deleted: user.is_deleted,
+                latitude: user.latitude,
+                longitude: user.longitude,
+                notifications_enabled: user.notifications_enabled,
+                notification_status_valid_till: user.notification_status_valid_till,
+                created_at: user.created_at,
+                updated_at: user.updated_at,
+                id: user.id
               }
             }
           };
