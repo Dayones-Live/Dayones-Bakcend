@@ -35,6 +35,14 @@ export class GoogleService {
       let user;
       try {
         user = await this.userService.findUserByUserSub(payload.email);
+        
+        // Only update avatar if user doesn't have one
+        if (!user.avatar_url) {
+          const updateResponse = await this.userService.updateUser({
+            avatarUrl: payload.picture
+          }, user.id);
+          user = updateResponse.data;
+        }
       } catch (error) {
         // If user is not found, that's fine - we'll just return the Google user info
         return {
