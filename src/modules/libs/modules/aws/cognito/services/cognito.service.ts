@@ -531,8 +531,20 @@ export class CognitoService {
               refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
               token_type: challengeResponse.AuthenticationResult.TokenType,
               user: {
-                ...user,
-                role: user?.role?.[0] || null
+                full_name: user.full_name,
+                email: user.email,
+                role: user?.role?.[0] || null,
+                avatar_url: user.avatar_url,
+                phone_number: user.phone_number,
+                is_confirmed: user.is_confirmed,
+                is_deleted: user.is_deleted,
+                latitude: user.latitude,
+                longitude: user.longitude,
+                notifications_enabled: user.notifications_enabled,
+                notification_status_valid_till: user.notification_status_valid_till,
+                created_at: user.created_at,
+                updated_at: user.updated_at,
+                id: user.id
               }
             }
           };
