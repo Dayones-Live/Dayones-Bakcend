@@ -476,8 +476,22 @@ export class CognitoService {
         throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
-      // Find existing user by email
-      const user = await this.userService.findUserByEmail(payload.email);
+      // Find or create user in our database
+      let user;
+      try {
+        user = await this.userService.findUserByEmail(payload.email);
+      } catch (error) {
+        // If user doesn't exist in our database, create them
+        const newUser = await this.userService.createUser({
+          email: payload.email,
+          name: payload.name || '',
+          role: Roles.USER,
+          userSub: payload.sub,
+          isConfirmed: true,
+          avatarUrl: payload.picture
+        });
+        user = newUser;
+      }
 
       // Get Cognito tokens using CUSTOM_AUTH flow
       const authParams = {
