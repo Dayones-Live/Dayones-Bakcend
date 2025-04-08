@@ -480,14 +480,6 @@ export class CognitoService {
       let user;
       try {
         user = await this.userService.findUserByEmail(payload.email);
-        
-        // Update user info if needed
-        if (user.avatar_url !== payload.picture) {
-          const updateResponse = await this.userService.updateUser({
-            avatarUrl: payload.picture
-          }, user.id);
-          user = updateResponse.data;
-        }
       } catch (error) {
         throw new HttpException('User not found', HttpStatus.UNAUTHORIZED);
       }
