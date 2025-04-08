@@ -472,25 +472,12 @@ export class CognitoService {
       });
       
       const payload = ticket.getPayload();
-      if (!payload || !payload.email || !payload.name || !payload.sub) {
+      if (!payload || !payload.email || !payload.sub) {
         throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
       // Find existing user by email
-      let user;
-      try {
-        user = await this.userService.findUserByEmail(payload.email);
-        
-        // Only update avatar if user doesn't have one
-        if (!user.avatar_url) {
-          const updateResponse = await this.userService.updateUser({
-            avatarUrl: payload.picture
-          }, user.id);
-          user = updateResponse.data;
-        }
-      } catch (error) {
-        throw new HttpException('User not found', HttpStatus.UNAUTHORIZED);
-      }
+      const user = await this.userService.findUserByEmail(payload.email);
 
       // Get Cognito tokens using CUSTOM_AUTH flow
       const authParams = {
@@ -531,20 +518,8 @@ export class CognitoService {
               refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
               token_type: challengeResponse.AuthenticationResult.TokenType,
               user: {
-                full_name: user.full_name,
-                email: user.email,
-                role: user?.role?.[0] || null,
-                avatar_url: user.avatar_url,
-                phone_number: user.phone_number,
-                is_confirmed: user.is_confirmed,
-                is_deleted: user.is_deleted,
-                latitude: user.latitude,
-                longitude: user.longitude,
-                notifications_enabled: user.notifications_enabled,
-                notification_status_valid_till: user.notification_status_valid_till,
-                created_at: user.created_at,
-                updated_at: user.updated_at,
-                id: user.id
+                ...user,
+                role: user?.role?.[0] || null
               }
             }
           };
