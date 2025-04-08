@@ -476,21 +476,29 @@ export class CognitoService {
         throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
-      // Find or create user in our database
+      // Find existing user by email or create if doesn't exist
       let user;
       try {
         user = await this.userService.findUserByEmail(payload.email);
       } catch (error) {
-        // If user doesn't exist in our database, create them
-        const newUser = await this.userService.createUser({
-          email: payload.email,
-          name: payload.name || '',
-          role: Roles.USER,
-          userSub: payload.sub,
-          isConfirmed: true,
-          avatarUrl: payload.picture
-        });
-        user = newUser;
+        // Create user in our database if they don't exist
+        if (error.message.includes('User is deleted') || error.message.includes('User not found')) {
+          const newUser = await this.userService.createUser({
+            email: payload.email,
+            name: payload.name || '',
+            role: Roles.USER,
+            userSub: payload.sub,
+            isConfirmed: true,
+            avatarUrl: payload.picture
+          });
+          user = newUser;
+        } else {
+          throw error;
+        }
+      }
+
+      if (!user) {
+        throw new HttpException('Please sign up first', HttpStatus.UNAUTHORIZED);
       }
 
       // Get Cognito tokens using CUSTOM_AUTH flow
@@ -499,8 +507,8 @@ export class CognitoService {
         ClientId: this.clientId || '',
         UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
-          USERNAME: user.email,
-          SECRET_HASH: computeSecretHash(user.email)
+          USERNAME: payload.email, // Use email from Google payload
+          SECRET_HASH: computeSecretHash(payload.email)
         },
       };
 
@@ -514,31 +522,15 @@ export class CognitoService {
             ClientId: this.clientId || '',
             UserPoolId: process.env.COGNITO_POOL_ID || '',
             ChallengeResponses: {
-              USERNAME: user.email,
+              USERNAME: payload.email,
               ANSWER: googleToken,
-              SECRET_HASH: computeSecretHash(user.email)
+              SECRET_HASH: computeSecretHash(payload.email)
             },
             Session: authResult.Session
           })
         );
 
         if (challengeResponse?.AuthenticationResult?.AccessToken) {
-          // Get the user's Cognito attributes
-          const getUserCommand = new GetUserCommand({
-            AccessToken: challengeResponse.AuthenticationResult.AccessToken
-          });
-          const cognitoUser = await this.cognitoClient.send(getUserCommand);
-
-          // Map Cognito attributes to our response structure
-          const cognitoAttributes: Record<string, string> = {};
-          if (cognitoUser.UserAttributes) {
-            cognitoUser.UserAttributes.forEach(attr => {
-              if (attr.Name && attr.Value) {
-                cognitoAttributes[attr.Name] = attr.Value;
-              }
-            });
-          }
-
           return {
             statusCode: HttpStatus.OK,
             message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -548,10 +540,10 @@ export class CognitoService {
               refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
               token_type: challengeResponse.AuthenticationResult.TokenType,
               user: {
-                full_name: cognitoAttributes['name'] || user.full_name,
-                email: cognitoAttributes['email'] || user.email,
-                role: cognitoAttributes['custom:role'] || user?.role?.[0] || null,
-                phone_number: cognitoAttributes['phone_number'] || user.phone_number,
+                full_name: user.full_name,
+                email: user.email,
+                role: user.role?.[0] || null,
+                phone_number: user.phone_number,
                 is_confirmed: user.is_confirmed,
                 is_deleted: user.is_deleted,
                 latitude: user.latitude,
