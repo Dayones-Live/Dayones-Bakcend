@@ -14,7 +14,7 @@ export class UserMapper {
     existingUser.phone_number =
       updateUserInput.phoneNumber || existingUser.phone_number;
     existingUser.avatar_url =
-      updateUserInput.avatarUrl || existingUser.avatar_url;
+      updateUserInput.avatarUrl !== undefined ? updateUserInput.avatarUrl : existingUser.avatar_url;
     existingUser.is_confirmed =
       updateUserInput.isConfirmed ?? existingUser.is_confirmed;
     existingUser.is_deleted =
