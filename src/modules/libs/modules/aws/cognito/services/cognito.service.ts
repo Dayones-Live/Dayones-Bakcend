@@ -48,11 +48,7 @@ export class CognitoService {
   private clientId = process.env.COGNITO_CLIENT_ID; // Replace with your App Client ID
   private cognitoClient;
 
-  constructor(
-    private userService: UserService,
-    @InjectRepository(User)
-    private userRepository: Repository<User>
-  ) {
+  constructor(private userService: UserService) {
     this.cognitoClient = new CognitoIdentityProviderClient({
       region: process.env.AWS_REGION,
     });
@@ -579,7 +575,7 @@ export class CognitoService {
         if (localUser && (!localUser.user_sub || localUser.user_sub !== cognitoUserSub)) {
           console.log(`Updating local user ${userEmail} with Cognito userSub: ${cognitoUserSub}`);
           const updateData: UserUpdateInput = {};
-          if (localUser.avatar_url === null && userPicture) {
+          if (!localUser.avatar_url && userPicture) {
             updateData.avatarUrl = userPicture;
           }
           if (localUser.full_name !== userName && userName) {
@@ -587,21 +583,13 @@ export class CognitoService {
           }
           
           try {
-            // First update the user_sub directly in the database
-            await this.userRepository.update(localUser.id, { user_sub: cognitoUserSub });
-            
-            // Then update other fields if needed
-            if (Object.keys(updateData).length > 0) {
-              const updatedUserResponse = await this.userService.updateUser(updateData, localUser.id);
-              if (updatedUserResponse && updatedUserResponse.data) {
-                localUser = updatedUserResponse.data;
-                console.log('Local user updated successfully with new userSub');
-              } else {
-                console.warn('Update response structure unexpected. Refetching user.');
-                localUser = await this.userService.findUserByEmail(userEmail);
-              }
+            // Update user through UserService
+            const updatedUserResponse = await this.userService.updateUser(updateData, localUser.id);
+            if (updatedUserResponse && updatedUserResponse.data) {
+              localUser = updatedUserResponse.data;
+              console.log('Local user updated successfully with new userSub');
             } else {
-              // If no other fields to update, just refetch the user
+              console.warn('Update response structure unexpected. Refetching user.');
               localUser = await this.userService.findUserByEmail(userEmail);
             }
           } catch (updateError) {
