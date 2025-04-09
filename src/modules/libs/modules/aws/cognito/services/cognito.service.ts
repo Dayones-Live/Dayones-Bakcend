@@ -38,6 +38,8 @@ import {
 import { Roles } from '@app/shared/constants/constants';
 import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
+import { User } from '@user/entities/user.entity';
+import { UserUpdateInput } from '@user/dto/types';
 
 @Injectable()
 export class CognitoService {
@@ -465,7 +467,7 @@ export class CognitoService {
       // Initialize Google OAuth client with explicit client ID
       const client = new OAuth2Client('918802616844-2rkeh1hqa9jga6r90g0tpphqoocs0rm3.apps.googleusercontent.com');
       
-      // Verify the Google token
+      // 1. Verify the Google token
       const ticket = await client.verifyIdToken({
         idToken: googleToken,
         audience: '918802616844-2rkeh1hqa9jga6r90g0tpphqoocs0rm3.apps.googleusercontent.com',
@@ -476,61 +478,195 @@ export class CognitoService {
         throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
-      // Find existing user by email or create if doesn't exist
-      let user;
+      const userEmail = payload.email;
+      const userName = payload.name || '';
+      const userPicture = payload.picture;
+      const userSub = payload.sub; // Google's unique identifier
+
+      // 2. Check if user exists in Cognito
+      let cognitoUserExists = false;
       try {
-        user = await this.userService.findUserByEmail(payload.email);
+        const listUsersCommand = new ListUsersCommand({
+          UserPoolId: process.env.COGNITO_POOL_ID,
+          Filter: `email = \"${userEmail}\"`,
+          Limit: 1, // We only need to know if at least one exists
+        });
+        const listUsersResult = await this.cognitoClient.send(listUsersCommand);
+        cognitoUserExists = (listUsersResult.Users?.length || 0) > 0;
       } catch (error) {
-        // Create user in our database if they don't exist
-        if (error.message.includes('User is deleted') || error.message.includes('User not found')) {
-          const newUser = await this.userService.createUser({
-            email: payload.email,
-            name: payload.name || '',
-            role: Roles.USER,
-            userSub: payload.sub,
-            isConfirmed: true,
-            avatarUrl: payload.picture
+        // Handle potential errors during lookup (e.g., User Pool not found), but don't block sign-in
+        console.error('Error checking Cognito user existence:', error);
+        // Depending on the error, you might want to throw or handle differently
+      }
+
+      // 3. If user doesn't exist in Cognito, create them
+      if (!cognitoUserExists) {
+        console.log(`User ${userEmail} not found in Cognito. Creating...`);
+        try {
+          // Generate a secure random password (required but not used for login)
+          const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!'; // Ensure it meets complexity requirements if any
+
+          const createUserCommand = new AdminCreateUserCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: userEmail, // Use email as username
+            UserAttributes: [
+              { Name: 'email', Value: userEmail },
+              { Name: 'email_verified', Value: 'true' }, // Mark email as verified
+              { Name: 'name', Value: userName },
+              // Consider adding 'picture' if you have a custom attribute for it
+            ],
+            TemporaryPassword: randomPassword, // Provide a temporary password
+            MessageAction: 'SUPPRESS', // Prevent Cognito from sending default welcome email
+            DesiredDeliveryMediums: [], // No delivery needed as we suppress message
           });
-          user = newUser;
+
+          const createResult = await this.cognitoClient.send(createUserCommand);
+          console.log(`Cognito user ${userEmail} created successfully.`);
+
+          // Note: AdminCreateUserCommand with TemporaryPassword usually sets the user
+          // status such that they need to change password on first login.
+          // If using CUSTOM_AUTH bypasses this, great. If not, you might need
+          // AdminSetUserPasswordCommand instead or after creation. Let's assume CUSTOM_AUTH handles it for now.
+
+          // // Alternative: If AdminCreateUser doesn't set password correctly for CUSTOM_AUTH:
+          // await this.cognitoClient.send(new AdminSetUserPasswordCommand({
+          //   UserPoolId: process.env.COGNITO_POOL_ID,
+          //   Username: userEmail,
+          //   Password: randomPassword,
+          //   Permanent: true, // Make the password permanent
+          // }));
+
+        } catch (error) {
+          console.error(`Failed to create Cognito user ${userEmail}:`, error);
+          throw new HttpException(
+            `Failed to provision user in Cognito: ${error.message}`,
+            HttpStatus.INTERNAL_SERVER_ERROR, // Or appropriate status
+          );
+        }
+      } else {
+         console.log(`User ${userEmail} already exists in Cognito.`);
+      }
+
+
+      // 4. Find or create user in our local database
+      let localUser: User;
+      try {
+        // Use findUserByEmail now, as that's the primary identifier
+        localUser = await this.userService.findUserByEmail(userEmail);
+
+        // Optional: Update local user details if they logged in via Google again
+        if (localUser && (!localUser.avatar_url || localUser.full_name !== userName)) {
+           const updateData: UserUpdateInput = {};
+           if (!localUser.avatar_url && userPicture) {
+             updateData.avatarUrl = userPicture;
+           }
+           if (localUser.full_name !== userName && userName) {
+             updateData.fullName = userName;
+           }
+           if (Object.keys(updateData).length > 0) {
+             console.log(`Updating local user ${userEmail} details:`, updateData);
+             try {
+               const updatedUserResponse = await this.userService.updateUser(updateData, localUser.id);
+               if (updatedUserResponse && updatedUserResponse.data) {
+                  localUser = updatedUserResponse.data; 
+                  console.log('Local user updated successfully.');
+               } else {
+                  console.warn('Update response structure unexpected. Refetching user.');
+                  localUser = await this.userService.findUserByEmail(userEmail);
+               }
+             } catch (updateError) {
+                console.error(`Failed to update local user ${userEmail}:`, updateError);
+             }
+           }
+        }
+      } catch (error) {
+        // Create user in our database if they don't exist locally
+        if (error instanceof HttpException && (error.getStatus() === HttpStatus.NOT_FOUND || error.message.includes('User not found') || error.message.includes('User is deleted'))) {
+          console.log(`User ${userEmail} not found locally. Creating...`);
+          const newUserInput = {
+            email: userEmail,
+            name: userName,
+            role: Roles.USER, // Default role
+            userSub: '', // We might not have the Cognito sub *yet*. Can be updated later if needed.
+            isConfirmed: true, // User is confirmed via Google
+            avatarUrl: userPicture
+          };
+          console.log('Creating local user with input:', newUserInput);
+          try {
+             localUser = await this.userService.createUser(newUserInput);
+             if (!localUser) {
+                throw new Error('userService.createUser did not return a user object.');
+             }
+             console.log(`Local user ${userEmail} created successfully.`);
+          } catch (createError) {
+             console.error(`Failed to create local user ${userEmail}:`, createError);
+             throw new HttpException('Failed to create local user record.', HttpStatus.INTERNAL_SERVER_ERROR);
+          }
         } else {
+          // Rethrow unexpected errors during findUserByEmail
+          console.error('Unexpected error finding local user:', error);
           throw error;
         }
       }
 
-      if (!user) {
-        throw new HttpException('Please sign up first', HttpStatus.UNAUTHORIZED);
+      if (!localUser) {
+        // This case should ideally not be reached if error handling above is correct
+        throw new HttpException('Failed to find or create local user record.', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
-      // Get Cognito tokens using CUSTOM_AUTH flow
+      // 5. Get Cognito tokens using CUSTOM_AUTH flow
+      console.log(`Initiating CUSTOM_AUTH flow for ${userEmail}...`);
       const authParams = {
         AuthFlow: AuthFlowType.CUSTOM_AUTH,
         ClientId: this.clientId || '',
         UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
-          USERNAME: payload.email, // Use email from Google payload
-          SECRET_HASH: computeSecretHash(payload.email)
+          USERNAME: userEmail, // Use email from Google payload
+          SECRET_HASH: computeSecretHash(userEmail) // Still needed if App Client has a secret
         },
       };
 
       const authCommand = new AdminInitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
 
+      // 6. Respond to the CUSTOM_CHALLENGE
       if (authResult.ChallengeName === 'CUSTOM_CHALLENGE') {
+        console.log(`Responding to CUSTOM_CHALLENGE for ${userEmail}...`);
         const challengeResponse = await this.cognitoClient.send(
           new AdminRespondToAuthChallengeCommand({
             ChallengeName: 'CUSTOM_CHALLENGE',
             ClientId: this.clientId || '',
             UserPoolId: process.env.COGNITO_POOL_ID || '',
             ChallengeResponses: {
-              USERNAME: payload.email,
-              ANSWER: googleToken,
-              SECRET_HASH: computeSecretHash(payload.email)
+              USERNAME: userEmail,
+              ANSWER: googleToken, // Send the Google ID token as the answer
+              SECRET_HASH: computeSecretHash(userEmail) // Required again here
             },
-            Session: authResult.Session
+            Session: authResult.Session // Pass the session from the initiate auth result
           })
         );
 
+        // 7. Return tokens and user info
         if (challengeResponse?.AuthenticationResult?.AccessToken) {
+          console.log(`CUSTOM_AUTH successful for ${userEmail}. Returning tokens.`);
+          // Ensure the local user object has the correct shape for the response
+          const userDataForResponse = {
+              full_name: localUser.full_name,
+              email: localUser.email,
+              role: localUser.role?.[0] || null,
+              phone_number: localUser.phone_number,
+              is_confirmed: localUser.is_confirmed,
+              is_deleted: localUser.is_deleted,
+              latitude: localUser.latitude,
+              longitude: localUser.longitude,
+              notifications_enabled: localUser.notifications_enabled,
+              notification_status_valid_till: localUser.notification_status_valid_till,
+              created_at: localUser.created_at,
+              updated_at: localUser.updated_at,
+              id: localUser.id,
+              avatar_url: localUser.avatar_url // Include avatar URL
+            };
+
           return {
             statusCode: HttpStatus.OK,
             message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -539,33 +675,60 @@ export class CognitoService {
               expires_in: challengeResponse.AuthenticationResult.ExpiresIn,
               refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
               token_type: challengeResponse.AuthenticationResult.TokenType,
-              user: {
-                full_name: user.full_name,
-                email: user.email,
-                role: user.role?.[0] || null,
-                phone_number: user.phone_number,
-                is_confirmed: user.is_confirmed,
-                is_deleted: user.is_deleted,
-                latitude: user.latitude,
-                longitude: user.longitude,
-                notifications_enabled: user.notifications_enabled,
-                notification_status_valid_till: user.notification_status_valid_till,
-                created_at: user.created_at,
-                updated_at: user.updated_at,
-                id: user.id
-              }
+              user: userDataForResponse
             }
           };
+        } else {
+           console.error(`CUSTOM_AUTH challenge response failed for ${userEmail}. Response:`, challengeResponse);
+           throw new HttpException('CUSTOM_AUTH challenge response failed.', HttpStatus.UNAUTHORIZED);
         }
+      } else {
+         console.error(`Unexpected challenge or response from AdminInitiateAuth for ${userEmail}:`, authResult);
+         // If there's no challenge, but also no tokens, something is wrong
+         if (!authResult?.AuthenticationResult?.AccessToken) {
+             throw new HttpException('Expected CUSTOM_CHALLENGE, but received none or failed to authenticate.', HttpStatus.UNAUTHORIZED);
+         }
+         // Handle direct authentication result if CUSTOM_AUTH is somehow bypassed (unlikely based on flow)
+         console.log(`CUSTOM_AUTH bypassed? Direct authentication result for ${userEmail}.`);
+         const userDataForResponse = {
+            full_name: localUser.full_name,
+            email: localUser.email,
+            role: localUser.role?.[0] || null,
+            phone_number: localUser.phone_number,
+            is_confirmed: localUser.is_confirmed,
+            is_deleted: localUser.is_deleted,
+            latitude: localUser.latitude,
+            longitude: localUser.longitude,
+            notifications_enabled: localUser.notifications_enabled,
+            notification_status_valid_till: localUser.notification_status_valid_till,
+            created_at: localUser.created_at,
+            updated_at: localUser.updated_at,
+            id: localUser.id,
+            avatar_url: localUser.avatar_url
+          };
+         return {
+             statusCode: HttpStatus.OK,
+             message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+             data: {
+               access_token: authResult.AuthenticationResult.AccessToken,
+               expires_in: authResult.AuthenticationResult.ExpiresIn,
+               refresh_token: authResult.AuthenticationResult.RefreshToken,
+               token_type: authResult.AuthenticationResult.TokenType,
+               user: userDataForResponse
+             }
+         };
+
       }
 
-      throw new HttpException('Failed to get Cognito tokens', HttpStatus.UNAUTHORIZED);
+      // Fallback error if logic doesn't lead to a return
+      // throw new HttpException('Failed to complete Google Sign-In flow.', HttpStatus.INTERNAL_SERVER_ERROR);
+
     } catch (error) {
       console.error('Google sign-in error:', error);
-      throw new HttpException(
-        `Google sign-in failed: ${error.message}`,
-        HttpStatus.UNAUTHORIZED
-      );
+      // Provide more specific error messages if possible
+      const errorMessage = error instanceof HttpException ? error.message : `Google sign-in failed: ${error.message}`;
+      const errorStatus = error instanceof HttpException ? error.getStatus() : HttpStatus.UNAUTHORIZED;
+      throw new HttpException(errorMessage, errorStatus);
     }
   }
 }
