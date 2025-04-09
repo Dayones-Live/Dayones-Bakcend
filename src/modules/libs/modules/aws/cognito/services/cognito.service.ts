@@ -494,9 +494,7 @@ export class CognitoService {
         const listUsersResult = await this.cognitoClient.send(listUsersCommand);
         cognitoUserExists = (listUsersResult.Users?.length || 0) > 0;
       } catch (error) {
-        // Handle potential errors during lookup (e.g., User Pool not found), but don't block sign-in
         console.error('Error checking Cognito user existence:', error);
-        // Depending on the error, you might want to throw or handle differently
       }
 
       // 3. If user doesn't exist in Cognito, create them
@@ -504,16 +502,15 @@ export class CognitoService {
         console.log(`User ${userEmail} not found in Cognito. Creating...`);
         try {
           // Generate a secure random password (required but not used for login)
-          const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!'; // Ensure it meets complexity requirements if any
+          const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
 
           const createUserCommand = new AdminCreateUserCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
             Username: userEmail, // Use email as username
             UserAttributes: [
               { Name: 'email', Value: userEmail },
-              { Name: 'email_verified', Value: 'true' }, // Mark email as verified
+              { Name: 'email_verified', Value: 'true' },
               { Name: 'name', Value: userName },
-              // Consider adding 'picture' if you have a custom attribute for it
             ],
             TemporaryPassword: randomPassword, // Provide a temporary password
             MessageAction: 'SUPPRESS', // Prevent Cognito from sending default welcome email
@@ -521,32 +518,31 @@ export class CognitoService {
           });
 
           const createResult = await this.cognitoClient.send(createUserCommand);
-          console.log(`Cognito user ${userEmail} created successfully.`);
+          console.log(`Cognito user ${userEmail} created successfully with UserSub: ${createResult.User?.Username}`);
 
-          // Note: AdminCreateUserCommand with TemporaryPassword usually sets the user
-          // status such that they need to change password on first login.
-          // If using CUSTOM_AUTH bypasses this, great. If not, you might need
-          // AdminSetUserPasswordCommand instead or after creation. Let's assume CUSTOM_AUTH handles it for now.
-
-          // // Alternative: If AdminCreateUser doesn't set password correctly for CUSTOM_AUTH:
-          // await this.cognitoClient.send(new AdminSetUserPasswordCommand({
-          //   UserPoolId: process.env.COGNITO_POOL_ID,
-          //   Username: userEmail,
-          //   Password: randomPassword,
-          //   Permanent: true, // Make the password permanent
-          // }));
-
+          // Ensure the user is also created in the local database
+          const newUserInput = {
+            email: userEmail,
+            name: userName,
+            role: Roles.USER, // Default role
+            userSub: createResult.User?.Username || '', // Use the UserSub from Cognito
+            isConfirmed: true, // User is confirmed via Google
+            avatarUrl: userPicture
+          };
+          console.log('Creating local user with input:', newUserInput);
+          let localUser: User;
+          localUser = await this.userService.createUser(newUserInput);
+          if (!localUser) {
+              throw new Error('userService.createUser did not return a user object.');
+          }
+          console.log(`Local user ${userEmail} created successfully.`);
         } catch (error) {
           console.error(`Failed to create Cognito user ${userEmail}:`, error);
-          throw new HttpException(
-            `Failed to provision user in Cognito: ${error.message}`,
-            HttpStatus.INTERNAL_SERVER_ERROR, // Or appropriate status
-          );
+          throw new HttpException(`Failed to provision user in Cognito: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
         }
       } else {
-         console.log(`User ${userEmail} already exists in Cognito.`);
+        console.log(`User ${userEmail} already exists in Cognito.`);
       }
-
 
       // 4. Find or create user in our local database
       let localUser: User;
@@ -556,26 +552,29 @@ export class CognitoService {
 
         // Optional: Update local user details if they logged in via Google again
         if (localUser && (!localUser.avatar_url || localUser.full_name !== userName)) {
-           const updateData: UserUpdateInput = {};
+           const updateData: UserUpdateInput = {}; // Use UserUpdateInput type
            if (!localUser.avatar_url && userPicture) {
-             updateData.avatarUrl = userPicture;
+             updateData.avatarUrl = userPicture; // Correct property name to camelCase
            }
            if (localUser.full_name !== userName && userName) {
-             updateData.fullName = userName;
+             updateData.fullName = userName; // Correct property name to camelCase
            }
            if (Object.keys(updateData).length > 0) {
              console.log(`Updating local user ${userEmail} details:`, updateData);
              try {
                const updatedUserResponse = await this.userService.updateUser(updateData, localUser.id);
+               // Assuming updateUser returns { data: User } structure based on other code parts
                if (updatedUserResponse && updatedUserResponse.data) {
                   localUser = updatedUserResponse.data; 
                   console.log('Local user updated successfully.');
                } else {
+                  // If structure is different, adjust accordingly or refetch
                   console.warn('Update response structure unexpected. Refetching user.');
                   localUser = await this.userService.findUserByEmail(userEmail);
                }
              } catch (updateError) {
                 console.error(`Failed to update local user ${userEmail}:`, updateError);
+                // Decide if this error should prevent login or just be logged
              }
            }
         }
@@ -593,8 +592,9 @@ export class CognitoService {
           };
           console.log('Creating local user with input:', newUserInput);
           try {
+             // Assuming createUser returns the User entity directly
              localUser = await this.userService.createUser(newUserInput);
-             if (!localUser) {
+             if (!localUser) { // Add a check if createUser might return null/undefined
                 throw new Error('userService.createUser did not return a user object.');
              }
              console.log(`Local user ${userEmail} created successfully.`);
@@ -607,11 +607,6 @@ export class CognitoService {
           console.error('Unexpected error finding local user:', error);
           throw error;
         }
-      }
-
-      if (!localUser) {
-        // This case should ideally not be reached if error handling above is correct
-        throw new HttpException('Failed to find or create local user record.', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
       // 5. Get Cognito tokens using CUSTOM_AUTH flow
@@ -650,6 +645,7 @@ export class CognitoService {
         if (challengeResponse?.AuthenticationResult?.AccessToken) {
           console.log(`CUSTOM_AUTH successful for ${userEmail}. Returning tokens.`);
           // Ensure the local user object has the correct shape for the response
+          // Define userDataForResponse structure based on the actual User entity/return type
           const userDataForResponse = {
               full_name: localUser.full_name,
               email: localUser.email,
@@ -690,6 +686,7 @@ export class CognitoService {
          }
          // Handle direct authentication result if CUSTOM_AUTH is somehow bypassed (unlikely based on flow)
          console.log(`CUSTOM_AUTH bypassed? Direct authentication result for ${userEmail}.`);
+         // Replicate user data shaping from above
          const userDataForResponse = {
             full_name: localUser.full_name,
             email: localUser.email,
