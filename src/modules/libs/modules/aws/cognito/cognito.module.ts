@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
 import { CognitoService } from './services/cognito.service';
-import { UserModule } from '@user/user.module';
+import { UserService } from '@user/services/user.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from '@user/entities/user.entity';
 
 @Module({
-  imports: [UserModule],
+  imports: [
+    TypeOrmModule.forFeature([User])
+  ],
   controllers: [],
-  providers: [CognitoService],
-  exports: [CognitoService],
+  providers: [CognitoService, UserService],
+  exports: [CognitoService]
 })
 export class CognitoModule {}
