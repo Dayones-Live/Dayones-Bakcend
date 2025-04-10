@@ -465,11 +465,14 @@ export class CognitoService {
    * @returns {GlobalServiceResponse}
    */
   async signInWithGoogle(googleToken: string): Promise<GlobalServiceResponse> {
+    console.log('Starting Google sign-in process...');
     try {
       // Initialize Google OAuth client with explicit client ID
+      console.log('Initializing Google OAuth client...');
       const client = new OAuth2Client('918802616844-2rkeh1hqa9jga6r90g0tpphqoocs0rm3.apps.googleusercontent.com');
       
       // 1. Verify the Google token
+      console.log('Verifying Google token...');
       const ticket = await client.verifyIdToken({
         idToken: googleToken,
         audience: '918802616844-2rkeh1hqa9jga6r90g0tpphqoocs0rm3.apps.googleusercontent.com',
@@ -477,15 +480,19 @@ export class CognitoService {
       
       const payload = ticket.getPayload();
       if (!payload || !payload.email || !payload.sub) {
+        console.error('Invalid Google token payload:', payload);
         throw new HttpException('Invalid Google token payload', HttpStatus.UNAUTHORIZED);
       }
 
       const userEmail = payload.email;
       const userName = payload.name || '';
       const userPicture = payload.picture;
-      const userSub = payload.sub; // Google's unique identifier
+      const userSub = payload.sub;
 
-      // 2. Check if user exists in Cognito and get their userSub
+      console.log(`Google token verified successfully for user: ${userEmail}`);
+
+      // 2. Check if user exists in Cognito
+      console.log(`Checking if user ${userEmail} exists in Cognito...`);
       let cognitoUserExists = false;
       let cognitoUserSub = '';
       try {
@@ -499,16 +506,18 @@ export class CognitoService {
         if (cognitoUserExists && listUsersResult.Users?.[0]?.Username) {
           cognitoUserSub = listUsersResult.Users[0].Username;
           console.log(`Found existing Cognito user with sub: ${cognitoUserSub}`);
+        } else {
+          console.log(`No existing Cognito user found for ${userEmail}`);
         }
       } catch (error) {
         console.error('Error checking Cognito user existence:', error);
+        throw error;
       }
 
-      // 3. If user doesn't exist in Cognito, create them
+      // 3. Create user in Cognito if they don't exist
       if (!cognitoUserExists) {
-        console.log(`User ${userEmail} not found in Cognito. Creating...`);
+        console.log(`Creating new Cognito user for ${userEmail}...`);
         try {
-          // Generate a secure random password (required but not used for login)
           const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
 
           const createUserCommand = new AdminCreateUserCommand({
@@ -526,9 +535,10 @@ export class CognitoService {
 
           const createResult = await this.cognitoClient.send(createUserCommand);
           cognitoUserSub = createResult.User?.Username || '';
-          console.log(`Cognito user ${userEmail} created successfully with UserSub: ${cognitoUserSub}`);
+          console.log(`Cognito user created successfully with UserSub: ${cognitoUserSub}`);
 
-          // Ensure the user is also created in the local database
+          // Create user in local database
+          console.log('Creating local database user...');
           const newUserInput = {
             email: userEmail,
             name: userName,
@@ -537,26 +547,31 @@ export class CognitoService {
             isConfirmed: true,
             avatarUrl: userPicture
           };
-          console.log('Creating local user with input:', newUserInput);
-          let localUser: User;
-          localUser = await this.userService.createUser(newUserInput);
-          if (!localUser) {
+          console.log('Local user input:', newUserInput);
+          
+          try {
+            const localUser = await this.userService.createUser(newUserInput);
+            if (!localUser) {
+              console.error('Failed to create local user: userService.createUser returned null');
               throw new Error('userService.createUser did not return a user object.');
+            }
+            console.log(`Local user created successfully with ID: ${localUser.id}`);
+          } catch (createError) {
+            console.error('Failed to create local user:', createError);
+            throw new HttpException(`Failed to create local user: ${createError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
           }
-          console.log(`Local user ${userEmail} created successfully.`);
         } catch (error) {
           console.error(`Failed to create Cognito user ${userEmail}:`, error);
           throw new HttpException(`Failed to provision user in Cognito: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
         }
-      } else {
-        console.log(`User ${userEmail} already exists in Cognito with sub: ${cognitoUserSub}`);
       }
 
-      // 4. Find or create user in our local database
+      // 4. Find or create user in local database
+      console.log('Checking local database for user...');
       let localUser: User | null = null;
       try {
-        // First try to find by userSub if we have it
         if (cognitoUserSub) {
+          console.log(`Looking for local user by userSub: ${cognitoUserSub}`);
           try {
             localUser = await this.userService.findUserByUserSub(cognitoUserSub);
             console.log(`Found local user by userSub: ${cognitoUserSub}`);
@@ -565,13 +580,12 @@ export class CognitoService {
           }
         }
 
-        // If not found by userSub, try by email
         if (!localUser) {
+          console.log(`Looking for local user by email: ${userEmail}`);
           localUser = await this.userService.findUserByEmail(userEmail);
           console.log(`Found local user by email: ${userEmail}`);
         }
 
-        // If user exists but has no userSub or different userSub, update it
         if (localUser && (!localUser.user_sub || localUser.user_sub !== cognitoUserSub)) {
           console.log(`Updating local user ${userEmail} with Cognito userSub: ${cognitoUserSub}`);
           const updateData: UserUpdateInput = {};
@@ -583,13 +597,13 @@ export class CognitoService {
           }
           
           try {
-            // Update user through UserService
+            console.log('Updating local user with data:', updateData);
             const updatedUserResponse = await this.userService.updateUser(updateData, localUser.id);
             if (updatedUserResponse && updatedUserResponse.data) {
               localUser = updatedUserResponse.data;
-              console.log('Local user updated successfully with new userSub');
+              console.log('Local user updated successfully');
             } else {
-              console.warn('Update response structure unexpected. Refetching user.');
+              console.log('No update response, fetching user again');
               localUser = await this.userService.findUserByEmail(userEmail);
             }
           } catch (updateError) {
@@ -597,9 +611,8 @@ export class CognitoService {
           }
         }
       } catch (error) {
-        // Create user in our database if they don't exist locally
         if (error instanceof HttpException && (error.getStatus() === HttpStatus.NOT_FOUND || error.message.includes('User not found') || error.message.includes('User is deleted'))) {
-          console.log(`User ${userEmail} not found locally. Creating...`);
+          console.log(`Creating new local user for ${userEmail}...`);
           const newUserInput = {
             email: userEmail,
             name: userName,
@@ -612,12 +625,13 @@ export class CognitoService {
           try {
             localUser = await this.userService.createUser(newUserInput);
             if (!localUser) {
+              console.error('Failed to create local user: userService.createUser returned null');
               throw new Error('userService.createUser did not return a user object.');
             }
-            console.log(`Local user ${userEmail} created successfully.`);
+            console.log(`Local user created successfully with ID: ${localUser.id}`);
           } catch (createError) {
             console.error(`Failed to create local user ${userEmail}:`, createError);
-            throw new HttpException('Failed to create local user record.', HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new HttpException(`Failed to create local user: ${createError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
           }
         } else {
           console.error('Unexpected error finding local user:', error);
@@ -625,7 +639,7 @@ export class CognitoService {
         }
       }
 
-      // 5. Get Cognito tokens using CUSTOM_AUTH flow
+      // 5. Get Cognito tokens
       console.log(`Initiating CUSTOM_AUTH flow for ${userEmail}...`);
       const authParams = {
         AuthFlow: AuthFlowType.CUSTOM_AUTH,
@@ -639,8 +653,9 @@ export class CognitoService {
 
       const authCommand = new AdminInitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
+      console.log('Auth result:', authResult);
 
-      // 6. Respond to the CUSTOM_CHALLENGE
+      // 6. Respond to CUSTOM_CHALLENGE
       if (authResult.ChallengeName === 'CUSTOM_CHALLENGE') {
         console.log(`Responding to CUSTOM_CHALLENGE for ${userEmail}...`);
         const challengeResponse = await this.cognitoClient.send(
@@ -656,10 +671,10 @@ export class CognitoService {
             Session: authResult.Session
           })
         );
+        console.log('Challenge response:', challengeResponse);
 
-        // 7. Return tokens and user info
         if (challengeResponse?.AuthenticationResult?.AccessToken && localUser) {
-          console.log(`CUSTOM_AUTH successful for ${userEmail}. Returning tokens.`);
+          console.log(`Authentication successful for ${userEmail}`);
           const userDataForResponse = {
             full_name: localUser.full_name,
             email: localUser.email,
@@ -690,7 +705,7 @@ export class CognitoService {
             }
           };
         } else {
-          console.error(`CUSTOM_AUTH challenge response failed for ${userEmail}. Response:`, challengeResponse);
+          console.error('Authentication failed: No access token or local user');
           throw new HttpException('CUSTOM_AUTH challenge response failed.', HttpStatus.UNAUTHORIZED);
         }
       } else {
