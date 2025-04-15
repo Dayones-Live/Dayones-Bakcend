@@ -984,20 +984,20 @@ export class CognitoService {
       }
       console.log('Found local user:', { id: localUser.id, email: localUser.email });
 
-      // 5. Get Cognito tokens using CUSTOM_AUTH flow
-      console.log('6. Initiating CUSTOM_AUTH flow...');
+      // 5. Get Cognito tokens using regular authentication
+      console.log('6. Initiating regular authentication flow...');
       const authParams = {
-        AuthFlow: AuthFlowType.CUSTOM_AUTH,
+        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
-        UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
           USERNAME: userEmail,
+          PASSWORD: userSub, // Using the Apple sub as a temporary password
           SECRET_HASH: computeSecretHash(userEmail)
         },
       };
 
-      console.log('Auth params:', { ...authParams, AuthParameters: { ...authParams.AuthParameters, SECRET_HASH: '[REDACTED]' } });
-      const authCommand = new AdminInitiateAuthCommand(authParams);
+      console.log('Auth params:', { ...authParams, AuthParameters: { ...authParams.AuthParameters, PASSWORD: '[REDACTED]', SECRET_HASH: '[REDACTED]' } });
+      const authCommand = new InitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
       console.log('Auth result:', { 
         ChallengeName: authResult.ChallengeName,
@@ -1005,93 +1005,8 @@ export class CognitoService {
         AuthenticationResult: authResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
       });
 
-      // 6. Respond to CUSTOM_CHALLENGE
-      if (authResult.ChallengeName === 'CUSTOM_CHALLENGE') {
-        console.log('7. Responding to CUSTOM_CHALLENGE...');
-        try {
-          const challengeResponse = await this.cognitoClient.send(
-            new AdminRespondToAuthChallengeCommand({
-              ChallengeName: 'CUSTOM_CHALLENGE',
-              ClientId: this.clientId || '',
-              UserPoolId: process.env.COGNITO_POOL_ID || '',
-              ChallengeResponses: {
-                USERNAME: userEmail,
-                ANSWER: appleIdToken,
-                SECRET_HASH: computeSecretHash(userEmail)
-              },
-              Session: authResult.Session,
-            }),
-          );
-          console.log('Challenge response:', {
-            ChallengeName: challengeResponse.ChallengeName,
-            AuthenticationResult: challengeResponse.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
-          });
-
-          if (challengeResponse?.AuthenticationResult?.AccessToken && localUser) {
-            console.log('8. Authentication successful!');
-            return {
-              statusCode: HttpStatus.OK,
-              message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-              data: {
-                access_token: challengeResponse.AuthenticationResult.AccessToken,
-                expires_in: challengeResponse.AuthenticationResult.ExpiresIn,
-                refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
-                token_type: challengeResponse.AuthenticationResult.TokenType,
-                user: {
-                  ...localUser,
-                  role: localUser.role[0] || null,
-                },
-              },
-            };
-          }
-          console.error('CUSTOM_AUTH challenge response failed - no access token or local user');
-          throw new HttpException('CUSTOM_AUTH challenge response failed.', HttpStatus.UNAUTHORIZED);
-        } catch (error) {
-          console.error('Error during challenge response:', error);
-          // If the challenge response fails, try to get tokens using AdminInitiateAuth
-          try {
-            console.log('Attempting AdminInitiateAuth...');
-            const adminAuthParams = {
-              AuthFlow: AuthFlowType.CUSTOM_AUTH,
-              ClientId: this.clientId || '',
-              UserPoolId: process.env.COGNITO_POOL_ID || '',
-              AuthParameters: {
-                USERNAME: userEmail,
-                SECRET_HASH: computeSecretHash(userEmail)
-              },
-            };
-            
-            const adminAuthCommand = new AdminInitiateAuthCommand(adminAuthParams);
-            const adminAuthResult = await this.cognitoClient.send(adminAuthCommand);
-            
-            if (adminAuthResult?.AuthenticationResult?.AccessToken && localUser) {
-              console.log('AdminInitiateAuth successful!');
-              return {
-                statusCode: HttpStatus.OK,
-                message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-                data: {
-                  access_token: adminAuthResult.AuthenticationResult.AccessToken,
-                  expires_in: adminAuthResult.AuthenticationResult.ExpiresIn,
-                  refresh_token: adminAuthResult.AuthenticationResult.RefreshToken,
-                  token_type: adminAuthResult.AuthenticationResult.TokenType,
-                  user: {
-                    ...localUser,
-                    role: localUser.role[0] || null,
-                  },
-                },
-              };
-            }
-            throw new HttpException('AdminInitiateAuth failed - no access token', HttpStatus.UNAUTHORIZED);
-          } catch (adminAuthError) {
-            console.error('AdminInitiateAuth failed:', adminAuthError);
-            throw new HttpException(
-              'Authentication failed after all attempts',
-              HttpStatus.UNAUTHORIZED
-            );
-          }
-        }
-      } else if (authResult?.AuthenticationResult?.AccessToken) {
-        console.log('8. Authentication successful (no challenge)!');
+      if (authResult?.AuthenticationResult?.AccessToken && localUser) {
+        console.log('7. Authentication successful!');
         return {
           statusCode: HttpStatus.OK,
           message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -1107,9 +1022,44 @@ export class CognitoService {
           },
         };
       }
+
+      // If regular auth fails, try admin auth
+      console.log('Regular auth failed, attempting admin auth...');
+      const adminAuthParams = {
+        AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
+        ClientId: this.clientId || '',
+        UserPoolId: process.env.COGNITO_POOL_ID || '',
+        AuthParameters: {
+          USERNAME: userEmail,
+          PASSWORD: userSub,
+          SECRET_HASH: computeSecretHash(userEmail)
+        },
+      };
+
+      const adminAuthCommand = new AdminInitiateAuthCommand(adminAuthParams);
+      const adminAuthResult = await this.cognitoClient.send(adminAuthCommand);
+
+      if (adminAuthResult?.AuthenticationResult?.AccessToken && localUser) {
+        console.log('Admin auth successful!');
+        return {
+          statusCode: HttpStatus.OK,
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+          data: {
+            access_token: adminAuthResult.AuthenticationResult.AccessToken,
+            expires_in: adminAuthResult.AuthenticationResult.ExpiresIn,
+            refresh_token: adminAuthResult.AuthenticationResult.RefreshToken,
+            token_type: adminAuthResult.AuthenticationResult.TokenType,
+            user: {
+              ...localUser,
+              role: localUser.role[0] || null,
+            },
+          },
+        };
+      }
+
       throw new HttpException(
-        'Cognito authentication failed after Apple verification',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        'Authentication failed after all attempts',
+        HttpStatus.UNAUTHORIZED
       );
     } catch (error) {
       console.error('Apple sign-in process failed:', error);
