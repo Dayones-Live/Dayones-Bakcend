@@ -1051,78 +1051,48 @@ export class CognitoService {
       // 5. Get Cognito tokens using regular authentication
       console.log('6. Initiating authentication flow...');
       
-      // Use AdminInitiateAuth with CUSTOM_AUTH flow
-      console.log('Attempting CUSTOM_AUTH flow with AdminInitiateAuth...');
-      const customAuthParams = {
-        AuthFlow: AuthFlowType.CUSTOM_AUTH,
+      // Use USER_PASSWORD_AUTH flow
+      console.log('Attempting USER_PASSWORD_AUTH flow...');
+      const authParams = {
+        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
-        UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
-          USERNAME: cognitoUsername, // Use the Cognito username instead of email
-          SECRET_HASH: computeSecretHash(cognitoUsername)
+          USERNAME: userEmail,
+          PASSWORD: userSub, // Use Apple sub as password
+          SECRET_HASH: computeSecretHash(userEmail)
         },
       };
 
-      console.log('Sending AdminInitiateAuth request...');
-      const customAuthCommand = new AdminInitiateAuthCommand(customAuthParams);
-      const customAuthResult = await this.cognitoClient.send(customAuthCommand);
-      console.log('AdminInitiateAuth result:', {
-        ChallengeName: customAuthResult.ChallengeName,
-        Session: customAuthResult.Session ? '[PRESENT]' : '[MISSING]',
-        AuthenticationResult: customAuthResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
+      console.log('Sending authentication request...');
+      const authCommand = new InitiateAuthCommand(authParams);
+      const authResult = await this.cognitoClient.send(authCommand);
+      console.log('Auth result:', {
+        ChallengeName: authResult.ChallengeName,
+        Session: authResult.Session ? '[PRESENT]' : '[MISSING]',
+        AuthenticationResult: authResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
       });
 
-      if (customAuthResult.ChallengeName === 'CUSTOM_CHALLENGE') {
-        console.log('Responding to CUSTOM_CHALLENGE...');
-        try {
-          const challengeResponse = await this.cognitoClient.send(
-            new AdminRespondToAuthChallengeCommand({
-              ChallengeName: 'CUSTOM_CHALLENGE',
-              ClientId: this.clientId || '',
-              UserPoolId: process.env.COGNITO_POOL_ID || '',
-              ChallengeResponses: {
-                USERNAME: cognitoUsername,
-                ANSWER: cognitoUsername, // Use the Cognito username as the challenge answer
-                SECRET_HASH: computeSecretHash(cognitoUsername)
-              },
-              Session: customAuthResult.Session
-            })
-          );
-          console.log('Challenge response:', {
-            ChallengeName: challengeResponse.ChallengeName,
-            Session: challengeResponse.Session ? '[PRESENT]' : '[MISSING]',
-            AuthenticationResult: challengeResponse.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
-          });
-
-          if (challengeResponse?.AuthenticationResult?.AccessToken && localUser) {
-            console.log('CUSTOM_AUTH successful!');
-            return {
-              statusCode: HttpStatus.OK,
-              message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-              data: {
-                access_token: challengeResponse.AuthenticationResult.AccessToken,
-                expires_in: challengeResponse.AuthenticationResult.ExpiresIn,
-                refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
-                token_type: challengeResponse.AuthenticationResult.TokenType,
-                user: {
-                  ...localUser,
-                  role: localUser.role[0] || null,
-                },
-              },
-            };
-          }
-        } catch (error) {
-          console.error('Error during CUSTOM_AUTH challenge:', error);
-          throw new HttpException(
-            `Authentication failed: ${error.message}`,
-            HttpStatus.UNAUTHORIZED
-          );
-        }
+      if (authResult?.AuthenticationResult?.AccessToken && localUser) {
+        console.log('Authentication successful!');
+        return {
+          statusCode: HttpStatus.OK,
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+          data: {
+            access_token: authResult.AuthenticationResult.AccessToken,
+            expires_in: authResult.AuthenticationResult.ExpiresIn,
+            refresh_token: authResult.AuthenticationResult.RefreshToken,
+            token_type: authResult.AuthenticationResult.TokenType,
+            user: {
+              ...localUser,
+              role: localUser.role[0] || null,
+            },
+          },
+        };
       }
 
-      console.error('Authentication failed: No valid challenge received');
+      console.error('Authentication failed: No valid authentication result');
       throw new HttpException(
-        'Authentication failed: No valid challenge received',
+        'Authentication failed: No valid authentication result',
         HttpStatus.UNAUTHORIZED
       );
     } catch (error) {
