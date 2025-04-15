@@ -521,7 +521,7 @@ export class CognitoService {
             attributes: listUsersResult.Users[0].Attributes
           });
           // For existing users, we'll use the Apple sub as the password
-          storedPassword = userSub;
+          storedPassword = userSub + 'A'; // Add uppercase 'A' to meet password policy
           console.log('DEBUG - Using Apple sub as password:', {
             userSub: userSub,
             cognitoUsername: cognitoUsername,
@@ -533,7 +533,7 @@ export class CognitoService {
           const setPasswordCommand = new AdminSetUserPasswordCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
             Username: cognitoUsername,
-            Password: userSub,
+            Password: storedPassword, // Use the modified password
             Permanent: true
           });
           try {
@@ -948,7 +948,7 @@ export class CognitoService {
             attributes: listUsersResult.Users[0].Attributes
           });
           // For existing users, we'll use the Apple sub as the password
-          storedPassword = userSub;
+          storedPassword = userSub + 'A'; // Add uppercase 'A' to meet password policy
           console.log('DEBUG - Using Apple sub as password:', {
             userSub: userSub,
             cognitoUsername: cognitoUsername,
@@ -960,7 +960,7 @@ export class CognitoService {
           const setPasswordCommand = new AdminSetUserPasswordCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
             Username: cognitoUsername,
-            Password: userSub,
+            Password: storedPassword, // Use the modified password
             Permanent: true
           });
           try {
