@@ -813,6 +813,10 @@ export class CognitoService {
       const userName = applePayload.name || 'Apple User'; // Provide a default name if not provided
       const userSub = applePayload.sub;
 
+      // Format the Apple sub into a valid phone number format
+      // Take the first 10 characters of the sub and format as +1XXXXXXXXXX
+      const formattedPhoneNumber = `+1${userSub.replace(/[^0-9]/g, '').substring(0, 10)}`;
+
       console.log(`Processing Apple sign-in for user: ${userEmail}`);
 
       // 2. Check if user exists in Cognito
@@ -855,7 +859,7 @@ export class CognitoService {
               { Name: 'email_verified', Value: 'true' },
               { Name: 'name', Value: userName },
               { Name: 'name.formatted', Value: userName },
-              { Name: 'phone_number', Value: userSub },
+              { Name: 'phone_number', Value: formattedPhoneNumber }, // Use formatted phone number
               { Name: 'custom:role', Value: Roles.USER }
             ],
             TemporaryPassword: randomPassword,
@@ -875,7 +879,7 @@ export class CognitoService {
             role: Roles.USER,
             userSub: cognitoUsername,
             isConfirmed: true,
-            phoneNumber: userSub // Store the Apple sub as phone number
+            phoneNumber: formattedPhoneNumber // Use formatted phone number
           };
           
           try {
