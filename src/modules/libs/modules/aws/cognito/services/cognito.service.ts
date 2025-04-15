@@ -537,8 +537,8 @@ export class CognitoService {
               { Name: 'email', Value: userEmail },
               { Name: 'email_verified', Value: 'true' },
               { Name: 'name', Value: userName },
-              { Name: 'name.formatted', Value: userName },
               { Name: 'phone_number', Value: userSub },
+              { Name: 'phone_number_verified', Value: 'true' },
               { Name: 'custom:role', Value: Roles.USER }
             ],
             TemporaryPassword: randomPassword,
@@ -858,8 +858,8 @@ export class CognitoService {
               { Name: 'email', Value: userEmail },
               { Name: 'email_verified', Value: 'true' },
               { Name: 'name', Value: userName },
-              { Name: 'name.formatted', Value: userName },
-              { Name: 'phone_number', Value: formattedPhoneNumber }, // Use formatted phone number
+              { Name: 'phone_number', Value: formattedPhoneNumber },
+              { Name: 'phone_number_verified', Value: 'true' },
               { Name: 'custom:role', Value: Roles.USER }
             ],
             TemporaryPassword: randomPassword,
