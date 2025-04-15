@@ -29,6 +29,7 @@ import { TokenRequestDto } from '../dto/token.dto';
 import { UserService } from '@user/services/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Roles } from '@app/shared/constants/constants';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -270,6 +271,44 @@ export class AuthController {
       throw new HttpException(
         error.message || 'Google sign-in failed',
         HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  @Public()
+  @Post('apple')
+  @ApiOperation({ summary: 'Sign in with Apple' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        idToken: { type: 'string', description: 'Apple ID token' },
+      },
+      required: ['idToken'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully signed in with Apple',
+  })
+  async appleSignIn(
+    @Body('idToken') idToken: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const result = await this.cognitoService.signInWithApple(idToken);
+      res.status(result.statusCode).json({
+        message: result.message,
+        data: result.data,
+      });
+    } catch (error) {
+      console.error('Apple sign-in controller error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        error.message || 'Apple sign-in failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

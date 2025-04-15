@@ -42,15 +42,25 @@ import { User } from '@user/entities/user.entity';
 import { UserUpdateInput } from '@user/dto/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import jwt from 'jsonwebtoken';
+import jwksClient from 'jwks-rsa';
 
 @Injectable()
 export class CognitoService {
   private clientId = process.env.COGNITO_CLIENT_ID; // Replace with your App Client ID
   private cognitoClient;
+  private jwksClient: jwksClient.JwksClient;
 
-  constructor(private userService: UserService) {
+  constructor(
+    private userService: UserService,
+    private configService: ConfigService,
+  ) {
     this.cognitoClient = new CognitoIdentityProviderClient({
       region: process.env.AWS_REGION,
+    });
+    this.jwksClient = jwksClient({
+      jwksUri: 'https://appleid.apple.com/auth/keys',
     });
   }
 
@@ -751,6 +761,265 @@ export class CognitoService {
       const errorMessage = error instanceof HttpException ? error.message : `Google sign-in failed: ${error.message}`;
       const errorStatus = error instanceof HttpException ? error.getStatus() : HttpStatus.UNAUTHORIZED;
       throw new HttpException(errorMessage, errorStatus);
+    }
+  }
+
+  /**
+   * This service handles Sign In with Apple
+   * @param appleIdToken The ID token received from Apple
+   * @returns {GlobalServiceResponse}
+   */
+  async signInWithApple(appleIdToken: string): Promise<GlobalServiceResponse> {
+    console.log('Starting Apple sign-in process...');
+    try {
+      // 1. Verify the Apple token (Logic moved from AppleService)
+      console.log('Verifying Apple token...');
+      let applePayload: any;
+      try {
+        const decodedToken = jwt.decode(appleIdToken, { complete: true });
+        if (!decodedToken || !decodedToken.header || !decodedToken.header.kid) {
+          throw new Error('Invalid token format');
+        }
+        const key = await this.jwksClient.getSigningKey(decodedToken.header.kid);
+        const signingKey = key.getPublicKey();
+        
+        applePayload = jwt.verify(appleIdToken, signingKey, {
+            algorithms: ['RS256'],
+            audience: this.configService.get<string>('APPLE_CLIENT_ID'), // Use ConfigService
+            issuer: 'https://appleid.apple.com',
+            ignoreExpiration: false, // Ensure token is not expired
+          });
+
+      } catch (verificationError) {
+         console.error('Apple token verification failed:', verificationError);
+         throw new HttpException(`Apple token verification failed: ${verificationError.message}`, HttpStatus.UNAUTHORIZED);
+      }
+      
+      if (!applePayload || !applePayload.email || !applePayload.sub) {
+        console.error('Invalid Apple token payload after verification:', applePayload);
+        throw new HttpException('Invalid Apple token payload', HttpStatus.UNAUTHORIZED);
+      }
+
+      const userEmail = applePayload.email;
+      // Apple only sends name on first auth sometimes, handle potential absence
+      const userName = applePayload.name || ''; 
+      const userSub = applePayload.sub; // This is Apple's unique subject identifier
+      const userPicture = null; // Apple doesn't provide picture URL
+
+      console.log(`Apple token verified successfully for user: ${userEmail}`);
+
+      // 2. Check if user exists in Cognito
+      console.log(`Checking if user ${userEmail} exists in Cognito...`);
+      let cognitoUserExists = false;
+      let cognitoUsername = ''; // Cognito Username might be different from sub
+      try {
+        const listUsersCommand = new ListUsersCommand({
+          UserPoolId: process.env.COGNITO_POOL_ID,
+          Filter: `email = \"${userEmail}\"`,
+          Limit: 1,
+        });
+        const listUsersResult = await this.cognitoClient.send(listUsersCommand);
+        cognitoUserExists = (listUsersResult.Users?.length || 0) > 0;
+        if (cognitoUserExists && listUsersResult.Users?.[0]?.Username) {
+          cognitoUsername = listUsersResult.Users[0].Username;
+          console.log(`Found existing Cognito user with Username: ${cognitoUsername}`);
+        } else {
+          console.log(`No existing Cognito user found for ${userEmail}`);
+        }
+      } catch (error) {
+        console.error('Error checking Cognito user existence:', error);
+        throw error;
+      }
+
+      // 3. Create user in Cognito if they don't exist
+      if (!cognitoUserExists) {
+        console.log(`Creating new Cognito user for ${userEmail}...`);
+        try {
+          const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
+
+          const createUserCommand = new AdminCreateUserCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: userEmail, // Use email as Cognito username
+            UserAttributes: [
+              { Name: 'email', Value: userEmail },
+              { Name: 'email_verified', Value: 'true' }, // Assume email from Apple is verified
+              { Name: 'name', Value: userName },
+              // We don't have phone number from Apple
+            ],
+            TemporaryPassword: randomPassword,
+            MessageAction: 'SUPPRESS',
+            DesiredDeliveryMediums: [],
+          });
+
+          const createResult = await this.cognitoClient.send(createUserCommand);
+          cognitoUsername = createResult.User?.Username || userEmail;
+          console.log(`Cognito user created successfully with Username: ${cognitoUsername}`);
+
+          // Create user in local database
+          console.log('Creating local database user...');
+          const newUserInput = {
+            email: userEmail,
+            name: userName,
+            role: Roles.USER, 
+            userSub: cognitoUsername, // Use Cognito Username as the sub in local DB
+            isConfirmed: true,
+            avatarUrl: undefined // Fix: Use undefined instead of null
+          };
+          console.log('Local user input:', newUserInput);
+          
+          try {
+            const localUser = await this.userService.createUser(newUserInput);
+            if (!localUser) {
+              console.error('Failed to create local user: userService.createUser returned null');
+              throw new Error('userService.createUser did not return a user object.');
+            }
+            console.log(`Local user created successfully with ID: ${localUser.id}`);
+          } catch (createError) {
+            console.error('Failed to create local user:', createError);
+             // If user already exists in local DB (e.g., signed up with email/pwd before) - this might happen
+            if (createError instanceof HttpException && createError.getStatus() === HttpStatus.CONFLICT) {
+                console.log(`Local user ${userEmail} already exists. Proceeding to link.`);
+                // We'll handle linking/updating in the next step
+            } else {
+                throw new HttpException(`Failed to create local user: ${createError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to create Cognito user ${userEmail}:`, error);
+          throw new HttpException(`Failed to provision user in Cognito: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+      }
+
+      // 4. Find or update user in local database
+      console.log('Checking local database for user...');
+      let localUser: User | null = null;
+      try {
+        console.log(`Looking for local user by Cognito Username (used as sub): ${cognitoUsername}`);
+         try {
+            localUser = await this.userService.findUserByUserSub(cognitoUsername);
+             console.log(`Found local user by userSub (Cognito Username): ${cognitoUsername}`);
+         } catch (error) {
+             console.log(`No local user found by userSub ${cognitoUsername}, trying email...`);
+             localUser = await this.userService.findUserByEmail(userEmail);
+             console.log(`Found local user by email: ${userEmail}`);
+             // Fix: Remove attempt to update userSub as it's not in UserUpdateInput
+             // if (localUser && localUser.user_sub !== cognitoUsername) {
+             //     console.log(`Updating local user ${userEmail} with Cognito Username as userSub: ${cognitoUsername}`);
+             //     const updateData: UserUpdateInput = { userSub: cognitoUsername }; // This line caused error
+             //     await this.userService.updateUser(updateData, localUser.id);
+             //     localUser.user_sub = cognitoUsername; // Update local object
+             // }
+         }
+
+        // Update name if necessary (Apple might provide it only first time)
+         if (localUser && localUser.full_name !== userName && userName) {
+            console.log(`Updating local user name to: ${userName}`);
+            const updateData: UserUpdateInput = { fullName: userName };
+             await this.userService.updateUser(updateData, localUser.id);
+             localUser.full_name = userName;
+         }
+
+      } catch (error) {
+         // This catch block might be redundant if the inner try/catches handle NOT_FOUND
+         // Or if createUser handles CONFLICT correctly above.
+         // If user truly not found here after all checks, it's an issue.
+         console.error('Unexpected error finding/updating local user:', error);
+         throw new HttpException('Failed to find or update local user record', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      
+      // Ensure we have the user object for the response
+      if (!localUser) {
+          console.log('Refetching local user after potential creation/update...');
+          localUser = await this.userService.findUserByEmail(userEmail);
+      }
+      if (!localUser) {
+          // This shouldn't happen if creation/finding worked
+          throw new HttpException('Could not retrieve final local user data', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      // 5. Get Cognito tokens using CUSTOM_AUTH flow
+      console.log(`Initiating CUSTOM_AUTH flow for ${cognitoUsername}...`);
+      const authParams = {
+        AuthFlow: AuthFlowType.CUSTOM_AUTH,
+        ClientId: this.clientId || '',
+        UserPoolId: process.env.COGNITO_POOL_ID || '',
+        AuthParameters: {
+          USERNAME: cognitoUsername, // Use the Cognito Username
+          SECRET_HASH: computeSecretHash(cognitoUsername) // Use the Cognito Username
+        },
+      };
+
+      const authCommand = new AdminInitiateAuthCommand(authParams);
+      const authResult = await this.cognitoClient.send(authCommand);
+      console.log('Auth result:', authResult);
+
+      // 6. Respond to CUSTOM_CHALLENGE
+      if (authResult.ChallengeName === 'CUSTOM_CHALLENGE') {
+        console.log(`Responding to CUSTOM_CHALLENGE for ${cognitoUsername}...`);
+        const challengeResponse = await this.cognitoClient.send(
+          new AdminRespondToAuthChallengeCommand({
+            ChallengeName: 'CUSTOM_CHALLENGE',
+            ClientId: this.clientId || '',
+            UserPoolId: process.env.COGNITO_POOL_ID || '',
+            ChallengeResponses: {
+              USERNAME: cognitoUsername,
+              SECRET_HASH: computeSecretHash(cognitoUsername),
+              ANSWER: 'dummyAnswer' // Replace with actual expected answer if your custom challenge requires one
+            },
+            Session: authResult.Session,
+          }),
+        );
+        console.log('Challenge response:', challengeResponse);
+
+        if (challengeResponse.AuthenticationResult) {
+           const finalLocalUser = await this.userService.findUserByUserSub(cognitoUsername);
+          return {
+            statusCode: HttpStatus.OK,
+            message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+            data: {
+              access_token: challengeResponse.AuthenticationResult.AccessToken,
+              expires_in: challengeResponse.AuthenticationResult.ExpiresIn,
+              refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
+              token_type: challengeResponse.AuthenticationResult.TokenType,
+              user: {
+                 ...finalLocalUser,
+                 role: finalLocalUser.role[0] || null,
+               },
+            },
+          };
+        } else {
+          throw new HttpException('CUSTOM_AUTH challenge response failed', HttpStatus.UNAUTHORIZED);
+        }
+      } else if (authResult.AuthenticationResult) {
+         // Should not happen with CUSTOM_AUTH flow usually, but handle if it does
+         const finalLocalUser = await this.userService.findUserByUserSub(cognitoUsername);
+        return {
+          statusCode: HttpStatus.OK,
+          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+          data: {
+            access_token: authResult.AuthenticationResult.AccessToken,
+            expires_in: authResult.AuthenticationResult.ExpiresIn,
+            refresh_token: authResult.AuthenticationResult.RefreshToken,
+            token_type: authResult.AuthenticationResult.TokenType,
+             user: {
+               ...finalLocalUser,
+               role: finalLocalUser.role[0] || null,
+             },
+          },
+        };
+      } else {
+        // Unexpected state
+        throw new HttpException('Cognito authentication failed after Apple verification', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    } catch (error) {
+      console.error('Apple sign-in error:', error);
+      if (error instanceof HttpException) {
+          throw error;
+      }
+      throw new HttpException(
+        error.message || 'Apple sign-in failed',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
   }
 }
