@@ -522,6 +522,11 @@ export class CognitoService {
           });
           // For existing users, we'll use the Apple sub as the password
           storedPassword = userSub;
+          console.log('DEBUG - Using Apple sub as password:', {
+            userSub: userSub,
+            cognitoUsername: cognitoUsername,
+            storedPassword: storedPassword
+          });
           
           // Force password change to userSub
           console.log('Setting new password for existing user...');
@@ -531,8 +536,13 @@ export class CognitoService {
             Password: userSub,
             Permanent: true
           });
-          await this.cognitoClient.send(setPasswordCommand);
-          console.log('Password updated successfully for existing user');
+          try {
+            await this.cognitoClient.send(setPasswordCommand);
+            console.log('Password updated successfully for existing user');
+          } catch (error) {
+            console.error('Error updating password:', error);
+            throw error;
+          }
         } else {
           console.log('No existing Cognito user found for email:', userEmail);
         }
@@ -939,6 +949,11 @@ export class CognitoService {
           });
           // For existing users, we'll use the Apple sub as the password
           storedPassword = userSub;
+          console.log('DEBUG - Using Apple sub as password:', {
+            userSub: userSub,
+            cognitoUsername: cognitoUsername,
+            storedPassword: storedPassword
+          });
           
           // Force password change to userSub
           console.log('Setting new password for existing user...');
@@ -948,8 +963,13 @@ export class CognitoService {
             Password: userSub,
             Permanent: true
           });
-          await this.cognitoClient.send(setPasswordCommand);
-          console.log('Password updated successfully for existing user');
+          try {
+            await this.cognitoClient.send(setPasswordCommand);
+            console.log('Password updated successfully for existing user');
+          } catch (error) {
+            console.error('Error updating password:', error);
+            throw error;
+          }
         } else {
           console.log('No existing Cognito user found for email:', userEmail);
         }
@@ -1096,6 +1116,13 @@ export class CognitoService {
       // 5. Get Cognito tokens using USER_PASSWORD_AUTH
       console.log('6. Initiating authentication flow...');
       console.log('Attempting USER_PASSWORD_AUTH flow...');
+      console.log('DEBUG - Authentication details:', {
+        username: userEmail,
+        cognitoUsername: cognitoUsername,
+        storedPassword: storedPassword,
+        secretHash: computeSecretHash(userEmail)
+      });
+      
       const authParams = {
         AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
@@ -1106,39 +1133,52 @@ export class CognitoService {
         },
       };
 
-      console.log('Sending authentication request with params:', {
+      console.log('DEBUG - Full auth params:', {
         ...authParams,
         AuthParameters: {
-          ...authParams.AuthParameters,
-          PASSWORD: '[REDACTED]',
-          SECRET_HASH: '[REDACTED]'
+          ...authParams.AuthParameters
         }
       });
 
-      const authCommand = new InitiateAuthCommand(authParams);
-      const authResult = await this.cognitoClient.send(authCommand);
-      console.log('Auth result:', {
-        ChallengeName: authResult.ChallengeName,
-        Session: authResult.Session ? '[PRESENT]' : '[MISSING]',
-        AuthenticationResult: authResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
-      });
+      try {
+        const authCommand = new InitiateAuthCommand(authParams);
+        const authResult = await this.cognitoClient.send(authCommand);
+        console.log('Auth result:', {
+          ChallengeName: authResult.ChallengeName,
+          Session: authResult.Session ? '[PRESENT]' : '[MISSING]',
+          AuthenticationResult: authResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
+        });
 
-      if (authResult?.AuthenticationResult?.AccessToken && localUser) {
-        console.log('Authentication successful!');
-        return {
-          statusCode: HttpStatus.OK,
-          message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-          data: {
-            access_token: authResult.AuthenticationResult.AccessToken,
-            expires_in: authResult.AuthenticationResult.ExpiresIn,
-            refresh_token: authResult.AuthenticationResult.RefreshToken,
-            token_type: authResult.AuthenticationResult.TokenType,
-            user: {
-              ...localUser,
-              role: localUser.role[0] || null,
+        if (authResult?.AuthenticationResult?.AccessToken && localUser) {
+          console.log('Authentication successful!');
+          return {
+            statusCode: HttpStatus.OK,
+            message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+            data: {
+              access_token: authResult.AuthenticationResult.AccessToken,
+              expires_in: authResult.AuthenticationResult.ExpiresIn,
+              refresh_token: authResult.AuthenticationResult.RefreshToken,
+              token_type: authResult.AuthenticationResult.TokenType,
+              user: {
+                ...localUser,
+                role: localUser.role[0] || null,
+              },
             },
-          },
-        };
+          };
+        }
+      } catch (error) {
+        console.error('DEBUG - Authentication error details:', {
+          errorType: error.__type,
+          errorMessage: error.message,
+          statusCode: error.$metadata?.httpStatusCode,
+          authParams: {
+            ...authParams,
+            AuthParameters: {
+              ...authParams.AuthParameters
+            }
+          }
+        });
+        throw error;
       }
 
       throw new HttpException(
