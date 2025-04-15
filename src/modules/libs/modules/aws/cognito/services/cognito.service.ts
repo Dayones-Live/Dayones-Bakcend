@@ -737,32 +737,49 @@ export class CognitoService {
           }
         } catch (error) {
           console.error('Error during challenge response:', error);
-          // If the challenge response fails, try to get tokens using AdminInitiateAuth
+          // If the challenge response fails, try to get tokens using USER_PASSWORD_AUTH
           try {
-            console.log('Attempting AdminInitiateAuth...');
-            const adminAuthParams = {
-              AuthFlow: AuthFlowType.CUSTOM_AUTH,
+            console.log('Attempting USER_PASSWORD_AUTH flow...');
+            console.log('Authentication parameters:', {
+              username: userEmail,
+              password: googleToken,
+              clientId: this.clientId,
+              userPoolId: process.env.COGNITO_POOL_ID,
+              secretHash: computeSecretHash(userEmail)
+            });
+
+            const authParams = {
+              AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
               ClientId: this.clientId || '',
-              UserPoolId: process.env.COGNITO_POOL_ID || '',
               AuthParameters: {
                 USERNAME: userEmail,
+                PASSWORD: googleToken,
                 SECRET_HASH: computeSecretHash(userEmail)
               },
             };
+
+            console.log('Sending authentication request with params:', {
+              ...authParams,
+              AuthParameters: {
+                ...authParams.AuthParameters,
+                PASSWORD: '[REDACTED]',
+                SECRET_HASH: '[REDACTED]'
+              }
+            });
+
+            const authCommand = new InitiateAuthCommand(authParams);
+            const authResult = await this.cognitoClient.send(authCommand);
             
-            const adminAuthCommand = new AdminInitiateAuthCommand(adminAuthParams);
-            const adminAuthResult = await this.cognitoClient.send(adminAuthCommand);
-            
-            if (adminAuthResult?.AuthenticationResult?.AccessToken && localUser) {
-              console.log('AdminInitiateAuth successful!');
+            if (authResult?.AuthenticationResult?.AccessToken && localUser) {
+              console.log('Authentication successful!');
               return {
                 statusCode: HttpStatus.OK,
                 message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
                 data: {
-                  access_token: adminAuthResult.AuthenticationResult.AccessToken,
-                  expires_in: adminAuthResult.AuthenticationResult.ExpiresIn,
-                  refresh_token: adminAuthResult.AuthenticationResult.RefreshToken,
-                  token_type: adminAuthResult.AuthenticationResult.TokenType,
+                  access_token: authResult.AuthenticationResult.AccessToken,
+                  expires_in: authResult.AuthenticationResult.ExpiresIn,
+                  refresh_token: authResult.AuthenticationResult.RefreshToken,
+                  token_type: authResult.AuthenticationResult.TokenType,
                   user: {
                     ...localUser,
                     role: localUser.role[0] || null,
@@ -770,9 +787,9 @@ export class CognitoService {
                 },
               };
             }
-            throw new HttpException('AdminInitiateAuth failed - no access token', HttpStatus.UNAUTHORIZED);
-          } catch (adminAuthError) {
-            console.error('AdminInitiateAuth failed:', adminAuthError);
+            throw new HttpException('USER_PASSWORD_AUTH failed - no access token', HttpStatus.UNAUTHORIZED);
+          } catch (authError) {
+            console.error('USER_PASSWORD_AUTH failed:', authError);
             throw new HttpException(
               'Authentication failed after all attempts',
               HttpStatus.UNAUTHORIZED
@@ -1053,37 +1070,36 @@ export class CognitoService {
       // 5. Get Cognito tokens using regular authentication
       console.log('6. Initiating authentication flow...');
       
-      // Use ADMIN_USER_PASSWORD_AUTH flow
-      console.log('Attempting ADMIN_USER_PASSWORD_AUTH flow...');
+      // Use USER_PASSWORD_AUTH flow
+      console.log('Attempting USER_PASSWORD_AUTH flow...');
       console.log('Authentication parameters:', {
-        username: cognitoUsername,
-        password: storedPassword, // Use the stored password instead of userSub
+        username: userEmail,
+        password: storedPassword,
         clientId: this.clientId,
         userPoolId: process.env.COGNITO_POOL_ID,
-        secretHash: computeSecretHash(cognitoUsername)
+        secretHash: computeSecretHash(userEmail)
       });
 
       const authParams = {
-        AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
+        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
-        UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
-          USERNAME: cognitoUsername,
-          PASSWORD: storedPassword, // Use the stored password instead of userSub
-          SECRET_HASH: computeSecretHash(cognitoUsername)
+          USERNAME: userEmail,
+          PASSWORD: storedPassword,
+          SECRET_HASH: computeSecretHash(userEmail)
         },
       };
 
-      console.log('Sending admin authentication request with params:', {
+      console.log('Sending authentication request with params:', {
         ...authParams,
         AuthParameters: {
           ...authParams.AuthParameters,
-          PASSWORD: '[REDACTED]', // Don't log the actual password
-          SECRET_HASH: '[REDACTED]' // Don't log the secret hash
+          PASSWORD: '[REDACTED]',
+          SECRET_HASH: '[REDACTED]'
         }
       });
 
-      const authCommand = new AdminInitiateAuthCommand(authParams);
+      const authCommand = new InitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
       console.log('Auth result:', {
         ChallengeName: authResult.ChallengeName,
