@@ -504,7 +504,8 @@ export class CognitoService {
       // 2. Check if user exists in Cognito
       console.log(`Checking if user ${userEmail} exists in Cognito...`);
       let cognitoUserExists = false;
-      let cognitoUserSub = '';
+      let cognitoUsername = '';
+      let storedPassword = userSub; // Store the generated password
       try {
         const listUsersCommand = new ListUsersCommand({
           UserPoolId: process.env.COGNITO_POOL_ID,
@@ -514,10 +515,26 @@ export class CognitoService {
         const listUsersResult = await this.cognitoClient.send(listUsersCommand);
         cognitoUserExists = (listUsersResult.Users?.length || 0) > 0;
         if (cognitoUserExists && listUsersResult.Users?.[0]?.Username) {
-          cognitoUserSub = listUsersResult.Users[0].Username;
-          console.log(`Found existing Cognito user with sub: ${cognitoUserSub}`);
+          cognitoUsername = listUsersResult.Users[0].Username;
+          console.log('Found existing Cognito user:', {
+            username: cognitoUsername,
+            attributes: listUsersResult.Users[0].Attributes
+          });
+          // For existing users, we'll use the Apple sub as the password
+          storedPassword = userSub;
+          
+          // Force password change to userSub
+          console.log('Setting new password for existing user...');
+          const setPasswordCommand = new AdminSetUserPasswordCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: cognitoUsername,
+            Password: userSub,
+            Permanent: true
+          });
+          await this.cognitoClient.send(setPasswordCommand);
+          console.log('Password updated successfully for existing user');
         } else {
-          console.log(`No existing Cognito user found for ${userEmail}`);
+          console.log('No existing Cognito user found for email:', userEmail);
         }
       } catch (error) {
         console.error('Error checking Cognito user existence:', error);
@@ -545,16 +562,16 @@ export class CognitoService {
           });
 
           const createResult = await this.cognitoClient.send(createUserCommand);
-          cognitoUserSub = createResult.User?.Username || '';
+          cognitoUsername = createResult.User?.Username || '';
           console.log('Cognito user created successfully:', {
-            username: cognitoUserSub,
-            userSub: cognitoUserSub
+            username: cognitoUsername,
+            userSub: cognitoUsername
           });
 
           // Set permanent password
           const setPasswordCommand = new AdminSetUserPasswordCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
-            Username: cognitoUserSub,
+            Username: cognitoUsername,
             Password: randomPassword,
             Permanent: true
           });
@@ -567,7 +584,7 @@ export class CognitoService {
             email: userEmail,
             name: userName,
             role: Roles.USER,
-            userSub: cognitoUserSub,
+            userSub: cognitoUsername,
             isConfirmed: true,
             avatarUrl: userPicture
           };
@@ -594,13 +611,13 @@ export class CognitoService {
       console.log('Checking local database for user...');
       let localUser: User | null = null;
       try {
-        if (cognitoUserSub) {
-          console.log(`Looking for local user by userSub: ${cognitoUserSub}`);
+        if (cognitoUsername) {
+          console.log(`Looking for local user by userSub: ${cognitoUsername}`);
           try {
-            localUser = await this.userService.findUserByUserSub(cognitoUserSub);
-            console.log(`Found local user by userSub: ${cognitoUserSub}`);
+            localUser = await this.userService.findUserByUserSub(cognitoUsername);
+            console.log(`Found local user by userSub: ${cognitoUsername}`);
           } catch (error) {
-            console.log(`No local user found by userSub ${cognitoUserSub}, trying email...`);
+            console.log(`No local user found by userSub ${cognitoUsername}, trying email...`);
           }
         }
 
@@ -610,8 +627,8 @@ export class CognitoService {
           console.log(`Found local user by email: ${userEmail}`);
         }
 
-        if (localUser && (!localUser.user_sub || localUser.user_sub !== cognitoUserSub)) {
-          console.log(`Updating local user ${userEmail} with Cognito userSub: ${cognitoUserSub}`);
+        if (localUser && (!localUser.user_sub || localUser.user_sub !== cognitoUsername)) {
+          console.log(`Updating local user ${userEmail} with Cognito userSub: ${cognitoUsername}`);
           const updateData: UserUpdateInput = {};
           if (!localUser.avatar_url && userPicture) {
             updateData.avatarUrl = userPicture;
@@ -641,7 +658,7 @@ export class CognitoService {
             email: userEmail,
             name: userName,
             role: Roles.USER,
-            userSub: cognitoUserSub,
+            userSub: cognitoUsername,
             isConfirmed: true,
             avatarUrl: userPicture
           };
@@ -922,6 +939,17 @@ export class CognitoService {
           });
           // For existing users, we'll use the Apple sub as the password
           storedPassword = userSub;
+          
+          // Force password change to userSub
+          console.log('Setting new password for existing user...');
+          const setPasswordCommand = new AdminSetUserPasswordCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: cognitoUsername,
+            Password: userSub,
+            Permanent: true
+          });
+          await this.cognitoClient.send(setPasswordCommand);
+          console.log('Password updated successfully for existing user');
         } else {
           console.log('No existing Cognito user found for email:', userEmail);
         }
