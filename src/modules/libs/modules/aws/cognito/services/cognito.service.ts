@@ -780,13 +780,18 @@ export class CognitoService {
     
     try {
       // 1. Verify the Apple token
+      console.log('1. Verifying Apple token...');
       let applePayload: any;
       try {
         const decodedToken = jwt.decode(appleIdToken, { complete: true });
+        console.log('Decoded token header:', decodedToken?.header);
+        
         if (!decodedToken?.header?.kid) {
+          console.error('Missing kid in token header');
           throw new HttpException('Invalid Apple token format', HttpStatus.UNAUTHORIZED);
         }
 
+        console.log('Getting signing key for kid:', decodedToken.header.kid);
         const key = await this.jwksClient.getSigningKey(decodedToken.header.kid);
         const signingKey = key.getPublicKey();
         
@@ -796,7 +801,13 @@ export class CognitoService {
           issuer: 'https://appleid.apple.com',
           ignoreExpiration: false,
         });
+        console.log('Apple payload verified successfully:', {
+          email: applePayload.email,
+          sub: applePayload.sub,
+          email_verified: applePayload.email_verified
+        });
       } catch (error) {
+        console.error('Apple token verification failed:', error);
         throw new HttpException(
           `Apple token verification failed: ${error.message}`,
           HttpStatus.UNAUTHORIZED
@@ -804,14 +815,17 @@ export class CognitoService {
       }
       
       if (!applePayload || !applePayload.sub) {
+        console.error('Invalid Apple payload:', applePayload);
         throw new HttpException('Invalid Apple token payload', HttpStatus.UNAUTHORIZED);
       }
 
       const userEmail = applePayload.email || `apple_${applePayload.sub}@apple.com`;
       const userName = 'Apple User';
       const userSub = applePayload.sub;
+      console.log('2. Extracted user info:', { userEmail, userName, userSub });
 
       // 2. Check if user exists in Cognito
+      console.log('3. Checking if user exists in Cognito...');
       let cognitoUserExists = false;
       let cognitoUsername = '';
       try {
@@ -824,8 +838,12 @@ export class CognitoService {
         cognitoUserExists = (listUsersResult.Users?.length || 0) > 0;
         if (cognitoUserExists && listUsersResult.Users?.[0]?.Username) {
           cognitoUsername = listUsersResult.Users[0].Username;
+          console.log('Found existing Cognito user:', cognitoUsername);
+        } else {
+          console.log('No existing Cognito user found');
         }
       } catch (error) {
+        console.error('Error checking Cognito user existence:', error);
         throw new HttpException(
           `Failed to check user existence: ${error.message}`,
           HttpStatus.INTERNAL_SERVER_ERROR
@@ -834,6 +852,7 @@ export class CognitoService {
 
       // 3. Create user in Cognito if they don't exist
       if (!cognitoUserExists) {
+        console.log('4. Creating new Cognito user...');
         try {
           const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
           const createUserCommand = new AdminCreateUserCommand({
@@ -852,6 +871,7 @@ export class CognitoService {
 
           const createResult = await this.cognitoClient.send(createUserCommand);
           cognitoUsername = createResult.User?.Username || userEmail;
+          console.log('Cognito user created successfully:', cognitoUsername);
 
           // Create user in local database
           const newUserInput = {
@@ -864,7 +884,9 @@ export class CognitoService {
           
           try {
             await this.userService.createUser(newUserInput);
+            console.log('Local user created successfully');
           } catch (createError) {
+            console.error('Error creating local user:', createError);
             if (!(createError instanceof HttpException && createError.getStatus() === HttpStatus.CONFLICT)) {
               throw new HttpException(
                 `Failed to create local user: ${createError.message}`,
@@ -873,6 +895,7 @@ export class CognitoService {
             }
           }
         } catch (error) {
+          console.error('Error creating Cognito user:', error);
           throw new HttpException(
             `Failed to provision user in Cognito: ${error.message}`,
             HttpStatus.INTERNAL_SERVER_ERROR
@@ -881,16 +904,20 @@ export class CognitoService {
       }
 
       // 4. Find user in local database
+      console.log('5. Finding user in local database...');
       let localUser: User | null = null;
       try {
         if (cognitoUsername) {
           try {
             localUser = await this.userService.findUserByUserSub(cognitoUsername);
+            console.log('Found local user by userSub:', cognitoUsername);
           } catch (error) {
+            console.log('User not found by userSub, trying email...');
             localUser = await this.userService.findUserByEmail(userEmail);
           }
         }
       } catch (error) {
+        console.error('Error finding local user:', error);
         throw new HttpException(
           'Failed to find local user record',
           HttpStatus.INTERNAL_SERVER_ERROR
@@ -898,16 +925,20 @@ export class CognitoService {
       }
 
       if (!localUser) {
+        console.log('User not found by userSub, trying email...');
         localUser = await this.userService.findUserByEmail(userEmail);
       }
       if (!localUser) {
+        console.error('Could not find user in local database');
         throw new HttpException(
           'Could not retrieve final local user data',
           HttpStatus.INTERNAL_SERVER_ERROR
         );
       }
+      console.log('Found local user:', { id: localUser.id, email: localUser.email });
 
-      // 5. Get Cognito tokens
+      // 5. Get Cognito tokens using CUSTOM_AUTH flow
+      console.log('6. Initiating CUSTOM_AUTH flow...');
       const authParams = {
         AuthFlow: AuthFlowType.CUSTOM_AUTH,
         ClientId: this.clientId || '',
@@ -918,11 +949,18 @@ export class CognitoService {
         },
       };
 
+      console.log('Auth params:', { ...authParams, AuthParameters: { ...authParams.AuthParameters, SECRET_HASH: '[REDACTED]' } });
       const authCommand = new AdminInitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
+      console.log('Auth result:', { 
+        ChallengeName: authResult.ChallengeName,
+        Session: authResult.Session ? '[PRESENT]' : '[MISSING]',
+        AuthenticationResult: authResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
+      });
 
       // 6. Respond to CUSTOM_CHALLENGE
       if (authResult.ChallengeName === 'CUSTOM_CHALLENGE') {
+        console.log('7. Responding to CUSTOM_CHALLENGE...');
         const challengeResponse = await this.cognitoClient.send(
           new AdminRespondToAuthChallengeCommand({
             ChallengeName: 'CUSTOM_CHALLENGE',
@@ -936,8 +974,13 @@ export class CognitoService {
             Session: authResult.Session,
           }),
         );
+        console.log('Challenge response:', {
+          ChallengeName: challengeResponse.ChallengeName,
+          AuthenticationResult: challengeResponse.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
+        });
 
         if (challengeResponse?.AuthenticationResult?.AccessToken && localUser) {
+          console.log('8. Authentication successful!');
           return {
             statusCode: HttpStatus.OK,
             message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -953,8 +996,10 @@ export class CognitoService {
             },
           };
         }
+        console.error('CUSTOM_AUTH challenge response failed - no access token or local user');
         throw new HttpException('CUSTOM_AUTH challenge response failed.', HttpStatus.UNAUTHORIZED);
       } else if (authResult?.AuthenticationResult?.AccessToken) {
+        console.log('8. Authentication successful (no challenge)!');
         return {
           statusCode: HttpStatus.OK,
           message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -970,11 +1015,13 @@ export class CognitoService {
           },
         };
       }
+      console.error('Cognito authentication failed - no access token');
       throw new HttpException(
         'Cognito authentication failed after Apple verification',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     } catch (error) {
+      console.error('Apple sign-in process failed:', error);
       if (error instanceof HttpException) {
         throw error;
       }
