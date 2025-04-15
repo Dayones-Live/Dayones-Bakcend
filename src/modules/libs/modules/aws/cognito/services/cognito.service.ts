@@ -877,7 +877,7 @@ export class CognitoService {
       const userEmail = applePayload.email || `apple_${applePayload.sub}@apple.com`;
       const userName = 'Apple User';
       const userSub = applePayload.sub;
-      let userPassword = '';
+      let userPassword = crypto.randomBytes(16).toString('hex') + 'A1!'; // Generate password once at the start
       console.log('2. Extracted user info:', { userEmail, userName, userSub });
 
       // 2. Check if user exists in Cognito
@@ -885,18 +885,27 @@ export class CognitoService {
       let cognitoUserExists = false;
       let cognitoUsername = '';
       try {
+        console.log(`Searching for user with email: ${userEmail}`);
         const listUsersCommand = new ListUsersCommand({
           UserPoolId: process.env.COGNITO_POOL_ID,
           Filter: `email = \"${userEmail}\"`,
           Limit: 1,
         });
         const listUsersResult = await this.cognitoClient.send(listUsersCommand);
+        console.log('Cognito list users result:', {
+          usersFound: listUsersResult.Users?.length || 0,
+          firstUser: listUsersResult.Users?.[0]?.Username
+        });
+        
         cognitoUserExists = (listUsersResult.Users?.length || 0) > 0;
         if (cognitoUserExists && listUsersResult.Users?.[0]?.Username) {
           cognitoUsername = listUsersResult.Users[0].Username;
-          console.log('Found existing Cognito user:', cognitoUsername);
+          console.log('Found existing Cognito user:', {
+            username: cognitoUsername,
+            attributes: listUsersResult.Users[0].Attributes
+          });
         } else {
-          console.log('No existing Cognito user found');
+          console.log('No existing Cognito user found for email:', userEmail);
         }
       } catch (error) {
         console.error('Error checking Cognito user existence:', error);
@@ -909,9 +918,13 @@ export class CognitoService {
       // 3. Create user in Cognito if they don't exist
       if (!cognitoUserExists) {
         console.log('4. Creating new Cognito user...');
-        let userPassword = '';
         try {
-          userPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
+          console.log('Preparing user attributes for creation:', {
+            email: userEmail,
+            name: userName,
+            sub: userSub
+          });
+          
           const createUserCommand = new AdminCreateUserCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
             Username: userEmail,
@@ -928,11 +941,17 @@ export class CognitoService {
             DesiredDeliveryMediums: [],
           });
 
+          console.log('Sending create user command to Cognito...');
           const createResult = await this.cognitoClient.send(createUserCommand);
           cognitoUsername = createResult.User?.Username || userEmail;
-          console.log('Cognito user created successfully:', cognitoUsername);
+          console.log('Cognito user created successfully:', {
+            username: cognitoUsername,
+            userStatus: createResult.User?.UserStatus,
+            enabled: createResult.User?.Enabled
+          });
 
           // Set permanent password
+          console.log('Setting permanent password for user...');
           const setPasswordCommand = new AdminSetUserPasswordCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
             Username: cognitoUsername,
@@ -943,6 +962,7 @@ export class CognitoService {
           console.log('Permanent password set successfully');
 
           // Create user in local database
+          console.log('Creating local database user...');
           const newUserInput = {
             email: userEmail,
             name: userName,
@@ -952,8 +972,12 @@ export class CognitoService {
           };
           
           try {
-            await this.userService.createUser(newUserInput);
-            console.log('Local user created successfully');
+            const createdUser = await this.userService.createUser(newUserInput);
+            console.log('Local user created successfully:', {
+              id: createdUser.id,
+              email: createdUser.email,
+              userSub: createdUser.user_sub
+            });
           } catch (createError) {
             console.error('Error creating local user:', createError);
             if (!(createError instanceof HttpException && createError.getStatus() === HttpStatus.CONFLICT)) {
@@ -962,6 +986,7 @@ export class CognitoService {
                 HttpStatus.INTERNAL_SERVER_ERROR
               );
             }
+            console.log('User already exists in local database, continuing...');
           }
         } catch (error) {
           console.error('Error creating Cognito user:', error);
@@ -970,6 +995,8 @@ export class CognitoService {
             HttpStatus.INTERNAL_SERVER_ERROR
           );
         }
+      } else {
+        console.log('User already exists in Cognito, skipping creation...');
       }
 
       // 4. Find user in local database
@@ -977,12 +1004,22 @@ export class CognitoService {
       let localUser: User | null = null;
       try {
         if (cognitoUsername) {
+          console.log(`Looking for local user by userSub: ${cognitoUsername}`);
           try {
             localUser = await this.userService.findUserByUserSub(cognitoUsername);
-            console.log('Found local user by userSub:', cognitoUsername);
+            console.log('Found local user by userSub:', {
+              id: localUser.id,
+              email: localUser.email,
+              userSub: localUser.user_sub
+            });
           } catch (error) {
             console.log('User not found by userSub, trying email...');
             localUser = await this.userService.findUserByEmail(userEmail);
+            console.log('Found local user by email:', {
+              id: localUser.id,
+              email: localUser.email,
+              userSub: localUser.user_sub
+            });
           }
         }
       } catch (error) {
@@ -996,6 +1033,11 @@ export class CognitoService {
       if (!localUser) {
         console.log('User not found by userSub, trying email...');
         localUser = await this.userService.findUserByEmail(userEmail);
+        console.log('Found local user by email:', {
+          id: localUser.id,
+          email: localUser.email,
+          userSub: localUser.user_sub
+        });
       }
       if (!localUser) {
         console.error('Could not find user in local database');
@@ -1013,12 +1055,21 @@ export class CognitoService {
         ClientId: this.clientId || '',
         AuthParameters: {
           USERNAME: userEmail,
-          PASSWORD: userPassword || userSub, // Use the stored password if available, otherwise fall back to userSub
+          PASSWORD: userPassword,
           SECRET_HASH: computeSecretHash(userEmail)
         },
       };
 
-      console.log('Auth params:', { ...authParams, AuthParameters: { ...authParams.AuthParameters, PASSWORD: '[REDACTED]', SECRET_HASH: '[REDACTED]' } });
+      console.log('Auth params:', { 
+        ...authParams, 
+        AuthParameters: { 
+          ...authParams.AuthParameters, 
+          PASSWORD: '[REDACTED]', 
+          SECRET_HASH: '[REDACTED]' 
+        } 
+      });
+      
+      console.log('Sending authentication request...');
       const authCommand = new InitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
       console.log('Auth result:', { 
@@ -1053,13 +1104,19 @@ export class CognitoService {
         UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
           USERNAME: userEmail,
-          PASSWORD: userPassword || userSub,
+          PASSWORD: userPassword,
           SECRET_HASH: computeSecretHash(userEmail)
         },
       };
 
+      console.log('Sending admin authentication request...');
       const adminAuthCommand = new AdminInitiateAuthCommand(adminAuthParams);
       const adminAuthResult = await this.cognitoClient.send(adminAuthCommand);
+      console.log('Admin auth result:', {
+        ChallengeName: adminAuthResult.ChallengeName,
+        Session: adminAuthResult.Session ? '[PRESENT]' : '[MISSING]',
+        AuthenticationResult: adminAuthResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
+      });
 
       if (adminAuthResult?.AuthenticationResult?.AccessToken && localUser) {
         console.log('Admin auth successful!');
@@ -1079,6 +1136,7 @@ export class CognitoService {
         };
       }
 
+      console.error('Authentication failed after all attempts');
       throw new HttpException(
         'Authentication failed after all attempts',
         HttpStatus.UNAUTHORIZED
