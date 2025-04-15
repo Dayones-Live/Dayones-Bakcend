@@ -673,56 +673,101 @@ export class CognitoService {
 
       // 6. Respond to CUSTOM_CHALLENGE
       if (authResult.ChallengeName === 'CUSTOM_CHALLENGE') {
-        console.log(`Responding to CUSTOM_CHALLENGE for ${userEmail}...`);
-        const challengeResponse = await this.cognitoClient.send(
-          new AdminRespondToAuthChallengeCommand({
-            ChallengeName: 'CUSTOM_CHALLENGE',
-            ClientId: this.clientId || '',
-            UserPoolId: process.env.COGNITO_POOL_ID || '',
-            ChallengeResponses: {
-              USERNAME: userEmail,
-              ANSWER: googleToken,
-              SECRET_HASH: computeSecretHash(userEmail)
-            },
-            Session: authResult.Session
-          })
-        );
-        console.log('Challenge response:', challengeResponse);
+        console.log('7. Responding to CUSTOM_CHALLENGE...');
+        try {
+          const challengeResponse = await this.cognitoClient.send(
+            new AdminRespondToAuthChallengeCommand({
+              ChallengeName: 'CUSTOM_CHALLENGE',
+              ClientId: this.clientId || '',
+              UserPoolId: process.env.COGNITO_POOL_ID || '',
+              ChallengeResponses: {
+                USERNAME: userEmail,
+                ANSWER: googleToken,
+                SECRET_HASH: computeSecretHash(userEmail)
+              },
+              Session: authResult.Session
+            })
+          );
+          console.log('Challenge response:', challengeResponse);
 
-        if (challengeResponse?.AuthenticationResult?.AccessToken && localUser) {
-          console.log(`Authentication successful for ${userEmail}`);
-          const userDataForResponse = {
-            full_name: localUser.full_name,
-            email: localUser.email,
-            role: localUser.role?.[0] || null,
-            phone_number: localUser.phone_number,
-            is_confirmed: localUser.is_confirmed,
-            is_deleted: localUser.is_deleted,
-            latitude: localUser.latitude,
-            longitude: localUser.longitude,
-            notifications_enabled: localUser.notifications_enabled,
-            notification_status_valid_till: localUser.notification_status_valid_till,
-            created_at: localUser.created_at,
-            updated_at: localUser.updated_at,
-            id: localUser.id,
-            avatar_url: localUser.avatar_url,
-            user_sub: localUser.user_sub
-          };
+          if (challengeResponse?.AuthenticationResult?.AccessToken && localUser) {
+            console.log(`Authentication successful for ${userEmail}`);
+            const userDataForResponse = {
+              full_name: localUser.full_name,
+              email: localUser.email,
+              role: localUser.role?.[0] || null,
+              phone_number: localUser.phone_number,
+              is_confirmed: localUser.is_confirmed,
+              is_deleted: localUser.is_deleted,
+              latitude: localUser.latitude,
+              longitude: localUser.longitude,
+              notifications_enabled: localUser.notifications_enabled,
+              notification_status_valid_till: localUser.notification_status_valid_till,
+              created_at: localUser.created_at,
+              updated_at: localUser.updated_at,
+              id: localUser.id,
+              avatar_url: localUser.avatar_url,
+              user_sub: localUser.user_sub
+            };
 
-          return {
-            statusCode: HttpStatus.OK,
-            message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-            data: {
-              access_token: challengeResponse.AuthenticationResult.AccessToken,
-              expires_in: challengeResponse.AuthenticationResult.ExpiresIn,
-              refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
-              token_type: challengeResponse.AuthenticationResult.TokenType,
-              user: userDataForResponse
+            return {
+              statusCode: HttpStatus.OK,
+              message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+              data: {
+                access_token: challengeResponse.AuthenticationResult.AccessToken,
+                expires_in: challengeResponse.AuthenticationResult.ExpiresIn,
+                refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
+                token_type: challengeResponse.AuthenticationResult.TokenType,
+                user: userDataForResponse
+              }
+            };
+          } else {
+            console.error('Authentication failed: No access token or local user');
+            throw new HttpException('CUSTOM_AUTH challenge response failed.', HttpStatus.UNAUTHORIZED);
+          }
+        } catch (error) {
+          console.error('Error during challenge response:', error);
+          // If the challenge response fails, try to get tokens using AdminInitiateAuth
+          try {
+            console.log('Attempting AdminInitiateAuth...');
+            const adminAuthParams = {
+              AuthFlow: AuthFlowType.CUSTOM_AUTH,
+              ClientId: this.clientId || '',
+              UserPoolId: process.env.COGNITO_POOL_ID || '',
+              AuthParameters: {
+                USERNAME: userEmail,
+                SECRET_HASH: computeSecretHash(userEmail)
+              },
+            };
+            
+            const adminAuthCommand = new AdminInitiateAuthCommand(adminAuthParams);
+            const adminAuthResult = await this.cognitoClient.send(adminAuthCommand);
+            
+            if (adminAuthResult?.AuthenticationResult?.AccessToken && localUser) {
+              console.log('AdminInitiateAuth successful!');
+              return {
+                statusCode: HttpStatus.OK,
+                message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+                data: {
+                  access_token: adminAuthResult.AuthenticationResult.AccessToken,
+                  expires_in: adminAuthResult.AuthenticationResult.ExpiresIn,
+                  refresh_token: adminAuthResult.AuthenticationResult.RefreshToken,
+                  token_type: adminAuthResult.AuthenticationResult.TokenType,
+                  user: {
+                    ...localUser,
+                    role: localUser.role[0] || null,
+                  },
+                },
+              };
             }
-          };
-        } else {
-          console.error('Authentication failed: No access token or local user');
-          throw new HttpException('CUSTOM_AUTH challenge response failed.', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('AdminInitiateAuth failed - no access token', HttpStatus.UNAUTHORIZED);
+          } catch (adminAuthError) {
+            console.error('AdminInitiateAuth failed:', adminAuthError);
+            throw new HttpException(
+              'Authentication failed after all attempts',
+              HttpStatus.UNAUTHORIZED
+            );
+          }
         }
       } else {
         console.error(`Unexpected challenge or response from AdminInitiateAuth for ${userEmail}:`, authResult);
@@ -778,7 +823,6 @@ export class CognitoService {
    */
   async signInWithApple(appleIdToken: string): Promise<GlobalServiceResponse> {
     console.log('🚀 Starting Apple sign-in process...');
-    
     try {
       // 1. Verify the Apple token
       console.log('1. Verifying Apple token...');
@@ -863,6 +907,8 @@ export class CognitoService {
               { Name: 'email', Value: userEmail },
               { Name: 'email_verified', Value: 'true' },
               { Name: 'name', Value: userName },
+              { Name: 'phone_number', Value: userSub },
+              { Name: 'phone_number_verified', Value: 'true' },
               { Name: 'custom:role', Value: Roles.USER }
             ],
             TemporaryPassword: randomPassword,
