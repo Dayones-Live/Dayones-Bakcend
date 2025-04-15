@@ -989,13 +989,13 @@ export class CognitoService {
         ClientId: this.clientId || '',
         UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
-          USERNAME: cognitoUsername,
-          SECRET_HASH: computeSecretHash(cognitoUsername)
+          USERNAME: userEmail,
+          SECRET_HASH: computeSecretHash(userEmail)
         },
       };
 
       console.log('Sending AdminInitiateAuthCommand with params:', {
-        username: cognitoUsername,
+        username: userEmail,
         authFlow: AuthFlowType.CUSTOM_AUTH
       });
 
@@ -1016,8 +1016,8 @@ export class CognitoService {
             ClientId: this.clientId || '',
             UserPoolId: process.env.COGNITO_POOL_ID || '',
             ChallengeResponses: {
-              USERNAME: cognitoUsername,
-              SECRET_HASH: computeSecretHash(cognitoUsername),
+              USERNAME: userEmail,
+              SECRET_HASH: computeSecretHash(userEmail),
               ANSWER: appleIdToken
             },
             Session: authResult.Session,
