@@ -553,6 +553,16 @@ export class CognitoService {
             userSub: cognitoUserSub
           });
 
+          // Set permanent password
+          const setPasswordCommand = new AdminSetUserPasswordCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: cognitoUserSub,
+            Password: randomPassword,
+            Permanent: true
+          });
+          await this.cognitoClient.send(setPasswordCommand);
+          console.log('Permanent password set successfully');
+
           // Create user in local database
           console.log('Creating local database user...');
           const newUserInput = {
@@ -867,6 +877,7 @@ export class CognitoService {
       const userEmail = applePayload.email || `apple_${applePayload.sub}@apple.com`;
       const userName = 'Apple User';
       const userSub = applePayload.sub;
+      let userPassword = '';
       console.log('2. Extracted user info:', { userEmail, userName, userSub });
 
       // 2. Check if user exists in Cognito
@@ -898,8 +909,9 @@ export class CognitoService {
       // 3. Create user in Cognito if they don't exist
       if (!cognitoUserExists) {
         console.log('4. Creating new Cognito user...');
+        let userPassword = '';
         try {
-          const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
+          userPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
           const createUserCommand = new AdminCreateUserCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
             Username: userEmail,
@@ -911,7 +923,7 @@ export class CognitoService {
               { Name: 'phone_number_verified', Value: 'true' },
               { Name: 'custom:role', Value: Roles.USER }
             ],
-            TemporaryPassword: randomPassword,
+            TemporaryPassword: userPassword,
             MessageAction: 'SUPPRESS',
             DesiredDeliveryMediums: [],
           });
@@ -919,6 +931,16 @@ export class CognitoService {
           const createResult = await this.cognitoClient.send(createUserCommand);
           cognitoUsername = createResult.User?.Username || userEmail;
           console.log('Cognito user created successfully:', cognitoUsername);
+
+          // Set permanent password
+          const setPasswordCommand = new AdminSetUserPasswordCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: cognitoUsername,
+            Password: userPassword,
+            Permanent: true
+          });
+          await this.cognitoClient.send(setPasswordCommand);
+          console.log('Permanent password set successfully');
 
           // Create user in local database
           const newUserInput = {
@@ -991,7 +1013,7 @@ export class CognitoService {
         ClientId: this.clientId || '',
         AuthParameters: {
           USERNAME: userEmail,
-          PASSWORD: userSub, // Using the Apple sub as a temporary password
+          PASSWORD: userPassword || userSub, // Use the stored password if available, otherwise fall back to userSub
           SECRET_HASH: computeSecretHash(userEmail)
         },
       };
@@ -1031,7 +1053,7 @@ export class CognitoService {
         UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
           USERNAME: userEmail,
-          PASSWORD: userSub,
+          PASSWORD: userPassword || userSub,
           SECRET_HASH: computeSecretHash(userEmail)
         },
       };
