@@ -920,6 +920,8 @@ export class CognitoService {
             username: cognitoUsername,
             attributes: listUsersResult.Users[0].Attributes
           });
+          // For existing users, we'll use the Apple sub as the password
+          storedPassword = userSub;
         } else {
           console.log('No existing Cognito user found for email:', userEmail);
         }
@@ -1063,75 +1065,10 @@ export class CognitoService {
       }
       console.log('Found local user:', { id: localUser.id, email: localUser.email });
 
-      // 5. Get Cognito tokens using regular authentication
+      // 5. Get Cognito tokens using USER_PASSWORD_AUTH
       console.log('6. Initiating authentication flow...');
-      
-      // First try CUSTOM_AUTH flow like Google
-      console.log('Attempting CUSTOM_AUTH flow...');
-      const authParams = {
-        AuthFlow: AuthFlowType.CUSTOM_AUTH,
-        ClientId: this.clientId || '',
-        UserPoolId: process.env.COGNITO_POOL_ID || '',
-        AuthParameters: {
-          USERNAME: userEmail,
-          SECRET_HASH: computeSecretHash(userEmail)
-        },
-      };
-
-      const authCommand = new AdminInitiateAuthCommand(authParams);
-      const authResult = await this.cognitoClient.send(authCommand);
-      console.log('Auth result:', {
-        ChallengeName: authResult.ChallengeName,
-        Session: authResult.Session ? '[PRESENT]' : '[MISSING]',
-        AuthenticationResult: authResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
-      });
-
-      // If we get a CUSTOM_CHALLENGE, respond with the Apple token
-      if (authResult.ChallengeName === 'CUSTOM_CHALLENGE') {
-        console.log('7. Responding to CUSTOM_CHALLENGE...');
-        try {
-          const challengeResponse = await this.cognitoClient.send(
-            new AdminRespondToAuthChallengeCommand({
-              ChallengeName: 'CUSTOM_CHALLENGE',
-              ClientId: this.clientId || '',
-              UserPoolId: process.env.COGNITO_POOL_ID || '',
-              ChallengeResponses: {
-                USERNAME: userEmail,
-                ANSWER: appleIdToken,
-                SECRET_HASH: computeSecretHash(userEmail)
-              },
-              Session: authResult.Session
-            })
-          );
-          console.log('Challenge response:', challengeResponse);
-
-          if (challengeResponse?.AuthenticationResult?.AccessToken && localUser) {
-            console.log('Authentication successful!');
-            return {
-              statusCode: HttpStatus.OK,
-              message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
-              data: {
-                access_token: challengeResponse.AuthenticationResult.AccessToken,
-                expires_in: challengeResponse.AuthenticationResult.ExpiresIn,
-                refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
-                token_type: challengeResponse.AuthenticationResult.TokenType,
-                user: {
-                  ...localUser,
-                  role: localUser.role[0] || null,
-                },
-              },
-            };
-          }
-        } catch (error) {
-          console.error('Error during challenge response:', error);
-          // If the challenge response fails, try USER_PASSWORD_AUTH as fallback
-          console.log('Attempting USER_PASSWORD_AUTH flow as fallback...');
-        }
-      }
-
-      // Fallback to USER_PASSWORD_AUTH if CUSTOM_AUTH didn't work
       console.log('Attempting USER_PASSWORD_AUTH flow...');
-      const fallbackAuthParams = {
+      const authParams = {
         AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
         AuthParameters: {
@@ -1142,32 +1079,32 @@ export class CognitoService {
       };
 
       console.log('Sending authentication request with params:', {
-        ...fallbackAuthParams,
+        ...authParams,
         AuthParameters: {
-          ...fallbackAuthParams.AuthParameters,
+          ...authParams.AuthParameters,
           PASSWORD: '[REDACTED]',
           SECRET_HASH: '[REDACTED]'
         }
       });
 
-      const fallbackAuthCommand = new InitiateAuthCommand(fallbackAuthParams);
-      const fallbackAuthResult = await this.cognitoClient.send(fallbackAuthCommand);
-      console.log('Fallback auth result:', {
-        ChallengeName: fallbackAuthResult.ChallengeName,
-        Session: fallbackAuthResult.Session ? '[PRESENT]' : '[MISSING]',
-        AuthenticationResult: fallbackAuthResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
+      const authCommand = new InitiateAuthCommand(authParams);
+      const authResult = await this.cognitoClient.send(authCommand);
+      console.log('Auth result:', {
+        ChallengeName: authResult.ChallengeName,
+        Session: authResult.Session ? '[PRESENT]' : '[MISSING]',
+        AuthenticationResult: authResult.AuthenticationResult ? '[PRESENT]' : '[MISSING]'
       });
 
-      if (fallbackAuthResult?.AuthenticationResult?.AccessToken && localUser) {
-        console.log('Authentication successful with fallback method!');
+      if (authResult?.AuthenticationResult?.AccessToken && localUser) {
+        console.log('Authentication successful!');
         return {
           statusCode: HttpStatus.OK,
           message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
           data: {
-            access_token: fallbackAuthResult.AuthenticationResult.AccessToken,
-            expires_in: fallbackAuthResult.AuthenticationResult.ExpiresIn,
-            refresh_token: fallbackAuthResult.AuthenticationResult.RefreshToken,
-            token_type: fallbackAuthResult.AuthenticationResult.TokenType,
+            access_token: authResult.AuthenticationResult.AccessToken,
+            expires_in: authResult.AuthenticationResult.ExpiresIn,
+            refresh_token: authResult.AuthenticationResult.RefreshToken,
+            token_type: authResult.AuthenticationResult.TokenType,
             user: {
               ...localUser,
               role: localUser.role[0] || null,
