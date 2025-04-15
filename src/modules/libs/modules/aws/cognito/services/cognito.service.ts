@@ -1017,8 +1017,8 @@ export class CognitoService {
             UserPoolId: process.env.COGNITO_POOL_ID || '',
             ChallengeResponses: {
               USERNAME: userEmail,
-              SECRET_HASH: computeSecretHash(userEmail),
-              ANSWER: appleIdToken
+              ANSWER: appleIdToken,
+              SECRET_HASH: computeSecretHash(userEmail)
             },
             Session: authResult.Session,
           }),
@@ -1028,11 +1028,10 @@ export class CognitoService {
           tokenType: challengeResponse.AuthenticationResult?.TokenType
         });
 
-        if (challengeResponse.AuthenticationResult) {
-          const finalLocalUser = await this.userService.findUserByUserSub(cognitoUsername);
+        if (challengeResponse?.AuthenticationResult?.AccessToken && localUser) {
           console.log('Authentication successful, returning response with user:', {
-            id: finalLocalUser.id,
-            email: finalLocalUser.email
+            id: localUser.id,
+            email: localUser.email
           });
           return {
             statusCode: HttpStatus.OK,
@@ -1043,21 +1042,17 @@ export class CognitoService {
               refresh_token: challengeResponse.AuthenticationResult.RefreshToken,
               token_type: challengeResponse.AuthenticationResult.TokenType,
               user: {
-                ...finalLocalUser,
-                role: finalLocalUser.role[0] || null,
+                ...localUser,
+                role: localUser.role[0] || null,
               },
             },
           };
         } else {
-          console.error('CUSTOM_AUTH challenge response failed - no authentication result');
-          throw new HttpException(
-            'CUSTOM_AUTH challenge response failed',
-            HttpStatus.UNAUTHORIZED
-          );
+          console.error('Authentication failed: No access token or local user');
+          throw new HttpException('CUSTOM_AUTH challenge response failed.', HttpStatus.UNAUTHORIZED);
         }
       } else if (authResult.AuthenticationResult) {
         console.log('Direct authentication successful, bypassing challenge');
-        const finalLocalUser = await this.userService.findUserByUserSub(cognitoUsername);
         return {
           statusCode: HttpStatus.OK,
           message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -1067,8 +1062,8 @@ export class CognitoService {
             refresh_token: authResult.AuthenticationResult.RefreshToken,
             token_type: authResult.AuthenticationResult.TokenType,
             user: {
-              ...finalLocalUser,
-              role: finalLocalUser.role[0] || null,
+              ...localUser,
+              role: localUser.role[0] || null,
             },
           },
         };
