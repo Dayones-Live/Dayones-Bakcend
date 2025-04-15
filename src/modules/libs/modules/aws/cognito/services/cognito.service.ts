@@ -1051,20 +1051,21 @@ export class CognitoService {
       // 5. Get Cognito tokens using regular authentication
       console.log('6. Initiating authentication flow...');
       
-      // Use USER_PASSWORD_AUTH flow
-      console.log('Attempting USER_PASSWORD_AUTH flow...');
+      // Use ADMIN_USER_PASSWORD_AUTH flow
+      console.log('Attempting ADMIN_USER_PASSWORD_AUTH flow...');
       const authParams = {
-        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+        AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
+        UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
-          USERNAME: userEmail,
+          USERNAME: cognitoUsername,
           PASSWORD: userSub, // Use Apple sub as password
-          SECRET_HASH: computeSecretHash(userEmail)
+          SECRET_HASH: computeSecretHash(cognitoUsername)
         },
       };
 
-      console.log('Sending authentication request...');
-      const authCommand = new InitiateAuthCommand(authParams);
+      console.log('Sending admin authentication request...');
+      const authCommand = new AdminInitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
       console.log('Auth result:', {
         ChallengeName: authResult.ChallengeName,
