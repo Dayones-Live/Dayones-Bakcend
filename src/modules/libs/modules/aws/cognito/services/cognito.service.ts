@@ -878,12 +878,13 @@ export class CognitoService {
       const userName = 'Apple User';
       const userSub = applePayload.sub;
       let userPassword = crypto.randomBytes(16).toString('hex') + 'A1!'; // Generate password once at the start
-      console.log('2. Extracted user info:', { userEmail, userName, userSub });
+      console.log('2. Extracted user info:', { userEmail, userName, userSub, userPassword });
 
       // 2. Check if user exists in Cognito
       console.log('3. Checking if user exists in Cognito...');
       let cognitoUserExists = false;
       let cognitoUsername = '';
+      let storedPassword = userPassword; // Store the generated password
       try {
         console.log(`Searching for user with email: ${userEmail}`);
         const listUsersCommand = new ListUsersCommand({
@@ -968,7 +969,8 @@ export class CognitoService {
             name: userName,
             role: Roles.USER,
             userSub: cognitoUsername,
-            isConfirmed: true
+            isConfirmed: true,
+            password: storedPassword // Store the password in the local database
           };
           
           try {
@@ -1053,18 +1055,34 @@ export class CognitoService {
       
       // Use ADMIN_USER_PASSWORD_AUTH flow
       console.log('Attempting ADMIN_USER_PASSWORD_AUTH flow...');
+      console.log('Authentication parameters:', {
+        username: cognitoUsername,
+        password: storedPassword, // Use the stored password instead of userSub
+        clientId: this.clientId,
+        userPoolId: process.env.COGNITO_POOL_ID,
+        secretHash: computeSecretHash(cognitoUsername)
+      });
+
       const authParams = {
         AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
         ClientId: this.clientId || '',
         UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
           USERNAME: cognitoUsername,
-          PASSWORD: userSub, // Use Apple sub as password
+          PASSWORD: storedPassword, // Use the stored password instead of userSub
           SECRET_HASH: computeSecretHash(cognitoUsername)
         },
       };
 
-      console.log('Sending admin authentication request...');
+      console.log('Sending admin authentication request with params:', {
+        ...authParams,
+        AuthParameters: {
+          ...authParams.AuthParameters,
+          PASSWORD: '[REDACTED]', // Don't log the actual password
+          SECRET_HASH: '[REDACTED]' // Don't log the secret hash
+        }
+      });
+
       const authCommand = new AdminInitiateAuthCommand(authParams);
       const authResult = await this.cognitoClient.send(authCommand);
       console.log('Auth result:', {
