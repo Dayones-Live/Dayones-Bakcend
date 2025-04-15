@@ -1058,8 +1058,8 @@ export class CognitoService {
         ClientId: this.clientId || '',
         UserPoolId: process.env.COGNITO_POOL_ID || '',
         AuthParameters: {
-          USERNAME: userEmail,
-          SECRET_HASH: computeSecretHash(userEmail)
+          USERNAME: cognitoUsername, // Use the Cognito username instead of email
+          SECRET_HASH: computeSecretHash(cognitoUsername)
         },
       };
 
@@ -1081,9 +1081,9 @@ export class CognitoService {
               ClientId: this.clientId || '',
               UserPoolId: process.env.COGNITO_POOL_ID || '',
               ChallengeResponses: {
-                USERNAME: userEmail,
-                ANSWER: appleIdToken,
-                SECRET_HASH: computeSecretHash(userEmail)
+                USERNAME: cognitoUsername,
+                ANSWER: cognitoUsername, // Use the Cognito username as the challenge answer
+                SECRET_HASH: computeSecretHash(cognitoUsername)
               },
               Session: customAuthResult.Session
             })
