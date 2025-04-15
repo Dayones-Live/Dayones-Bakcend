@@ -502,26 +502,63 @@ export class CognitoService {
       console.log(`Google token verified successfully for user: ${userEmail}`);
 
       // 2. Check if user exists in Cognito
-      console.log(`Checking if user ${userEmail} exists in Cognito...`);
+      console.log('🔍 Step 2: Checking if user exists in Cognito...');
       let cognitoUserExists = false;
-      let cognitoUserSub = '';
+      let cognitoUsername = '';
+      let userStatus: string = '';
       try {
+        console.log('🔍 Querying Cognito for user:', userEmail);
         const listUsersCommand = new ListUsersCommand({
           UserPoolId: process.env.COGNITO_POOL_ID,
           Filter: `email = \"${userEmail}\"`,
           Limit: 1,
         });
         const listUsersResult = await this.cognitoClient.send(listUsersCommand);
+        console.log('🔍 Cognito list users result:', {
+          userCount: listUsersResult.Users?.length,
+          users: listUsersResult.Users
+        });
+        
         cognitoUserExists = (listUsersResult.Users?.length || 0) > 0;
         if (cognitoUserExists && listUsersResult.Users?.[0]?.Username) {
-          cognitoUserSub = listUsersResult.Users[0].Username;
-          console.log(`Found existing Cognito user with sub: ${cognitoUserSub}`);
+          cognitoUsername = listUsersResult.Users[0].Username;
+          userStatus = listUsersResult.Users[0].UserStatus || '';
+          console.log('✅ Found existing Cognito user:', {
+            username: cognitoUsername,
+            email: userEmail,
+            status: userStatus
+          });
         } else {
-          console.log(`No existing Cognito user found for ${userEmail}`);
+          console.log('ℹ️ No existing Cognito user found for:', userEmail);
         }
       } catch (error) {
-        console.error('Error checking Cognito user existence:', error);
-        throw error;
+        console.error('❌ Error checking Cognito user existence:', error);
+        throw new HttpException(
+          `Failed to check user existence: ${error.message}`,
+          HttpStatus.INTERNAL_SERVER_ERROR
+        );
+      }
+
+      // Handle FORCE_CHANGE_PASSWORD status
+      if (userStatus === 'FORCE_CHANGE_PASSWORD') {
+        console.log('🔧 Setting permanent password for user...');
+        try {
+          const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
+          const setPasswordCommand = new AdminSetUserPasswordCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: cognitoUsername,
+            Password: randomPassword,
+            Permanent: true
+          });
+          await this.cognitoClient.send(setPasswordCommand);
+          console.log('✅ Permanent password set successfully');
+        } catch (error) {
+          console.error('❌ Failed to set permanent password:', error);
+          throw new HttpException(
+            `Failed to set permanent password: ${error.message}`,
+            HttpStatus.INTERNAL_SERVER_ERROR
+          );
+        }
       }
 
       // 3. Create user in Cognito if they don't exist
@@ -547,10 +584,10 @@ export class CognitoService {
           });
 
           const createResult = await this.cognitoClient.send(createUserCommand);
-          cognitoUserSub = createResult.User?.Username || '';
+          cognitoUsername = createResult.User?.Username || '';
           console.log('Cognito user created successfully:', {
-            username: cognitoUserSub,
-            userSub: cognitoUserSub
+            username: cognitoUsername,
+            userSub: cognitoUsername
           });
 
           // Create user in local database
@@ -559,7 +596,7 @@ export class CognitoService {
             email: userEmail,
             name: userName,
             role: Roles.USER,
-            userSub: cognitoUserSub,
+            userSub: cognitoUsername,
             isConfirmed: true,
             avatarUrl: userPicture
           };
@@ -586,13 +623,13 @@ export class CognitoService {
       console.log('Checking local database for user...');
       let localUser: User | null = null;
       try {
-        if (cognitoUserSub) {
-          console.log(`Looking for local user by userSub: ${cognitoUserSub}`);
+        if (cognitoUsername) {
+          console.log(`Looking for local user by userSub: ${cognitoUsername}`);
           try {
-            localUser = await this.userService.findUserByUserSub(cognitoUserSub);
-            console.log(`Found local user by userSub: ${cognitoUserSub}`);
+            localUser = await this.userService.findUserByUserSub(cognitoUsername);
+            console.log(`Found local user by userSub: ${cognitoUsername}`);
           } catch (error) {
-            console.log(`No local user found by userSub ${cognitoUserSub}, trying email...`);
+            console.log(`No local user found by userSub ${cognitoUsername}, trying email...`);
           }
         }
 
@@ -602,8 +639,8 @@ export class CognitoService {
           console.log(`Found local user by email: ${userEmail}`);
         }
 
-        if (localUser && (!localUser.user_sub || localUser.user_sub !== cognitoUserSub)) {
-          console.log(`Updating local user ${userEmail} with Cognito userSub: ${cognitoUserSub}`);
+        if (localUser && (!localUser.user_sub || localUser.user_sub !== cognitoUsername)) {
+          console.log(`Updating local user ${userEmail} with Cognito userSub: ${cognitoUsername}`);
           const updateData: UserUpdateInput = {};
           if (!localUser.avatar_url && userPicture) {
             updateData.avatarUrl = userPicture;
@@ -633,7 +670,7 @@ export class CognitoService {
             email: userEmail,
             name: userName,
             role: Roles.USER,
-            userSub: cognitoUserSub,
+            userSub: cognitoUsername,
             isConfirmed: true,
             avatarUrl: userPicture
           };
@@ -680,9 +717,9 @@ export class CognitoService {
             ClientId: this.clientId || '',
             UserPoolId: process.env.COGNITO_POOL_ID || '',
             ChallengeResponses: {
-              USERNAME: cognitoUserSub,
+              USERNAME: cognitoUsername,
               ANSWER: googleToken,
-              SECRET_HASH: computeSecretHash(cognitoUserSub)
+              SECRET_HASH: computeSecretHash(cognitoUsername)
             },
             Session: authResult.Session
           })
@@ -836,6 +873,7 @@ export class CognitoService {
       console.log('🔍 Step 2: Checking if user exists in Cognito...');
       let cognitoUserExists = false;
       let cognitoUsername = '';
+      let userStatus: string = '';
       try {
         console.log('🔍 Querying Cognito for user:', userEmail);
         const listUsersCommand = new ListUsersCommand({
@@ -852,9 +890,11 @@ export class CognitoService {
         cognitoUserExists = (listUsersResult.Users?.length || 0) > 0;
         if (cognitoUserExists && listUsersResult.Users?.[0]?.Username) {
           cognitoUsername = listUsersResult.Users[0].Username;
+          userStatus = listUsersResult.Users[0].UserStatus || '';
           console.log('✅ Found existing Cognito user:', {
             username: cognitoUsername,
-            email: userEmail
+            email: userEmail,
+            status: userStatus
           });
         } else {
           console.log('ℹ️ No existing Cognito user found for:', userEmail);
@@ -865,6 +905,28 @@ export class CognitoService {
           `Failed to check user existence: ${error.message}`,
           HttpStatus.INTERNAL_SERVER_ERROR
         );
+      }
+
+      // Handle FORCE_CHANGE_PASSWORD status
+      if (userStatus === 'FORCE_CHANGE_PASSWORD') {
+        console.log('🔧 Setting permanent password for user...');
+        try {
+          const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
+          const setPasswordCommand = new AdminSetUserPasswordCommand({
+            UserPoolId: process.env.COGNITO_POOL_ID,
+            Username: cognitoUsername,
+            Password: randomPassword,
+            Permanent: true
+          });
+          await this.cognitoClient.send(setPasswordCommand);
+          console.log('✅ Permanent password set successfully');
+        } catch (error) {
+          console.error('❌ Failed to set permanent password:', error);
+          throw new HttpException(
+            `Failed to set permanent password: ${error.message}`,
+            HttpStatus.INTERNAL_SERVER_ERROR
+          );
+        }
       }
 
       // 3. Create user in Cognito if they don't exist
