@@ -919,8 +919,9 @@ export class CognitoService {
       const userEmail = applePayload.email || `apple_${applePayload.sub}@apple.com`;
       const userName = 'Apple User';
       const userSub = applePayload.sub;
-      let userPassword = crypto.randomBytes(16).toString('hex') + 'A1!'; // Generate password once at the start
-      console.log('2. Extracted user info:', { userEmail, userName, userSub, userPassword });
+      // Generate a password that meets Cognito's requirements: at least 8 chars, uppercase, lowercase, number, special char
+      const userPassword = `Apple${crypto.randomBytes(8).toString('hex')}A1!`;
+      console.log('2. Extracted user info:', { userEmail, userName, userSub });
 
       // 2. Check if user exists in Cognito
       console.log('3. Checking if user exists in Cognito...');
