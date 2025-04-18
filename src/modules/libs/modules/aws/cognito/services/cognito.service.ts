@@ -520,15 +520,15 @@ export class CognitoService {
             username: cognitoUsername,
             attributes: listUsersResult.Users[0].Attributes
           });
-          // For existing users, we'll use the Apple sub as the password
-          storedPassword = userSub;
-          console.log('DEBUG - Using Google sub as password:', {
+          // For existing users, we'll use a properly formatted password
+          storedPassword = `Apple${userSub}A1!`;
+          console.log('DEBUG - Using formatted password:', {
             userSub: userSub,
             cognitoUsername: cognitoUsername,
             storedPassword: storedPassword
           });
           
-          // Force password change to userSub
+          // Force password change
           console.log('Setting new password for existing user...');
           const setPasswordCommand = new AdminSetUserPasswordCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
@@ -948,15 +948,15 @@ export class CognitoService {
             username: cognitoUsername,
             attributes: listUsersResult.Users[0].Attributes
           });
-          // For existing users, we'll use the Apple sub as the password
-          storedPassword = userSub;
-          console.log('DEBUG - Using Google sub as password:', {
+          // For existing users, we'll use a properly formatted password
+          storedPassword = `Apple${userSub}A1!`;
+          console.log('DEBUG - Using formatted password:', {
             userSub: userSub,
             cognitoUsername: cognitoUsername,
             storedPassword: storedPassword
           });
           
-          // Force password change to userSub
+          // Force password change
           console.log('Setting new password for existing user...');
           const setPasswordCommand = new AdminSetUserPasswordCommand({
             UserPoolId: process.env.COGNITO_POOL_ID,
