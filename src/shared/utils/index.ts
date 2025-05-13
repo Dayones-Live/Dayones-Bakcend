@@ -111,14 +111,43 @@ export async function convertHeicToPng(
 export async function removeImageBackground(
   inputImagePath: string,
 ): Promise<string> {
-  const { outputImagePath } = await rembg({
-    apiKey: process.env.BG_REMOVE_API_KEY || '',
-    inputImage: inputImagePath,
-    onDownloadProgress: console.log,
-    onUploadProgress: console.log,
-    returnBase64: false,
-  });
-  return outputImagePath || inputImagePath;
+  try {
+    console.log('Starting background removal process...');
+    console.log('API Key present:', !!process.env.BG_REMOVE_API_KEY);
+    console.log('Input image path:', inputImagePath);
+    
+    if (!process.env.BG_REMOVE_API_KEY) {
+      console.error('BG_REMOVE_API_KEY is not set in environment variables');
+      throw new Error('Background removal API key is not configured');
+    }
+
+    const { outputImagePath } = await rembg({
+      apiKey: process.env.BG_REMOVE_API_KEY,
+      inputImage: inputImagePath,
+      onDownloadProgress: (progress) => console.log('Download progress:', progress),
+      onUploadProgress: (progress) => console.log('Upload progress:', progress),
+      returnBase64: false,
+    });
+
+    console.log('Background removal completed successfully');
+    console.log('Output image path:', outputImagePath);
+    
+    return outputImagePath || inputImagePath;
+  } catch (error) {
+    console.error('Background removal failed:', {
+      error: error.message,
+      stack: error.stack,
+      code: error.code,
+      status: error.status,
+    });
+    
+    // If the error is from rem.bg API, provide more specific error message
+    if (error.message.includes('502')) {
+      throw new Error('Background removal service is currently unavailable. Please try again later.');
+    }
+    
+    throw error;
+  }
 }
 
 /**
