@@ -128,29 +128,46 @@ export class SignatureService {
       fileName.replace(/\.heic$/i, '.png'),
     ); // Full path for the temp file
 
-    ensureDirectoryExists(tempDir);
-    saveFile(tempFilePath, fileBuffer);
-
-    let imagePath = tempFilePath;
-    // If the file is in HEIC format, convert it to PNG
-    if (fileName.toLowerCase().endsWith('.heic')) {
-      const buffer = await convertHeicToPng(fileBuffer, fileName);
-      fileBuffer = buffer; // Replace the file buffer with the converted PNG buffer
+    try {
+      ensureDirectoryExists(tempDir);
       saveFile(tempFilePath, fileBuffer);
+
+      let imagePath = tempFilePath;
+      // If the file is in HEIC format, convert it to PNG
+      if (fileName.toLowerCase().endsWith('.heic')) {
+        const buffer = await convertHeicToPng(fileBuffer, fileName);
+        fileBuffer = buffer; // Replace the file buffer with the converted PNG buffer
+        saveFile(tempFilePath, fileBuffer);
+      }
+
+      let processedImagePath;
+      try {
+        processedImagePath = await removeImageBackground(imagePath);
+        saveFile(tempFilePath, readImage(processedImagePath || ''));
+      } catch (bgError) {
+        console.error('Background removal failed, using original image:', bgError);
+        // If background removal fails, use the original image
+        processedImagePath = imagePath;
+      }
+
+      const s3Key = `${userId}/signatures/${signatureId}`; // Replace HEIC extension with PNG if necessary
+      const fileMimeType = mime.lookup(fileName.replace(/\.heic$/i, '.png'));
+      const uploadUrl = await this.s3Service.uploadFile(
+        tempFilePath,
+        s3Key,
+        fileMimeType,
+      );
+      return uploadUrl;
+    } catch (error) {
+      console.error('Error in saveUserSignature:', error);
+      throw new HttpException(
+        `Failed to save signature: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    } finally {
+      // Always clean up the temp directory
+      removeDirectory(tempDir);
     }
-    const processedImagePath = await removeImageBackground(imagePath);
-
-    saveFile(tempFilePath, readImage(processedImagePath || ''));
-
-    const s3Key = `${userId}/signatures/${signatureId}`; // Replace HEIC extension with PNG if necessary
-    const fileMimeType = mime.lookup(fileName.replace(/\.heic$/i, '.png'));
-    const uploadUrl = await this.s3Service.uploadFile(
-      tempFilePath,
-      s3Key,
-      fileMimeType,
-    );
-    removeDirectory(tempDir);
-    return uploadUrl;
   }
 
   /**

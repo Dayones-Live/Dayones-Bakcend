@@ -141,7 +141,12 @@ export async function removeImageBackground(
       status: error.status,
     });
     
-    // If the error is from rem.bg API, provide more specific error message
+    // Handle specific error cases
+    if (error.message.includes('429')) {
+      console.warn('Monthly quota exceeded for background removal service. Using original image.');
+      return inputImagePath;
+    }
+    
     if (error.message.includes('502')) {
       throw new Error('Background removal service is currently unavailable. Please try again later.');
     }
