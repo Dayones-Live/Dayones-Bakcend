@@ -120,11 +120,12 @@ export async function removeImageBackground(
       throw new Error('Background removal API key is not configured');
     }
 
-    const fileBlob = await fs.openAsBlob(inputImagePath);
+    // Read the file as a buffer instead of using openAsBlob
+    const fileBuffer = fs.readFileSync(inputImagePath);
     const formData = new FormData();
     
     // Required parameters
-    formData.append("image_file", fileBlob);
+    formData.append("image_file", new Blob([fileBuffer], { type: 'image/png' }));
     
     // Optional parameters with recommended settings
     formData.append("size", "auto"); // Use highest available resolution
