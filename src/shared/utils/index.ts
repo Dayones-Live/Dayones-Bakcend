@@ -104,7 +104,7 @@ export async function convertHeicToPng(
 }
 
 /**
- * Removes background from an image.
+ * Removes background from an image using remove.bg API.
  * @param inputImagePath - Path of the image to process
  * @returns {Promise<string>} - Path to the processed image
  */
@@ -113,26 +113,72 @@ export async function removeImageBackground(
 ): Promise<string> {
   try {
     console.log('Starting background removal process...');
-    console.log('API Key present:', !!process.env.BG_REMOVE_API_KEY);
+    console.log('API Key present:', !!process.env.REMOVE_BG_API_KEY);
     console.log('Input image path:', inputImagePath);
     
-    if (!process.env.BG_REMOVE_API_KEY) {
-      console.error('BG_REMOVE_API_KEY is not set in environment variables');
+    if (!process.env.REMOVE_BG_API_KEY) {
+      console.error('REMOVE_BG_API_KEY is not set in environment variables');
       throw new Error('Background removal API key is not configured');
     }
 
-    const { outputImagePath } = await rembg({
-      apiKey: process.env.BG_REMOVE_API_KEY,
-      inputImage: inputImagePath,
-      onDownloadProgress: (progress) => console.log('Download progress:', progress),
-      onUploadProgress: (progress) => console.log('Upload progress:', progress),
-      returnBase64: false,
+    const fileBlob = await fs.openAsBlob(inputImagePath);
+    const formData = new FormData();
+    
+    // Required parameters
+    formData.append("image_file", fileBlob);
+    
+    // Optional parameters with recommended settings
+    formData.append("size", "auto"); // Use highest available resolution
+    formData.append("type", "auto"); // Auto-detect foreground type
+    formData.append("format", "auto"); // Use PNG if transparent, JPG if not
+    formData.append("channels", "rgba"); // Get the finalized image with alpha channel
+    formData.append("semitransparency", "true"); // Enable semi-transparency for car windows
+
+    const response = await fetch("https://api.remove.bg/v1.0/removebg", {
+      method: "POST",
+      headers: { 
+        "X-Api-Key": process.env.REMOVE_BG_API_KEY,
+        "Accept": "image/png" // We'll always get PNG for transparency
+      },
+      body: formData,
     });
 
-    console.log('Background removal completed successfully');
-    console.log('Output image path:', outputImagePath);
-    
-    return outputImagePath || inputImagePath;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      const errorMessage = errorData?.errors?.[0]?.title || response.statusText;
+      
+      // Handle specific error cases
+      switch (response.status) {
+        case 400:
+          throw new Error(`Invalid request: ${errorMessage}`);
+        case 402:
+          throw new Error('Insufficient credits for background removal');
+        case 403:
+          throw new Error('Authentication failed: Invalid API key');
+        case 429:
+          console.warn('Rate limit exceeded for background removal service. Using original image.');
+          return inputImagePath;
+        default:
+          throw new Error(`Background removal failed: ${errorMessage}`);
+      }
+    }
+
+    // Get response headers for logging
+    const creditsCharged = response.headers.get('X-Credits-Charged');
+    const imageType = response.headers.get('X-Type');
+    console.log('Background removal completed:', {
+      creditsCharged,
+      imageType,
+      width: response.headers.get('X-Width'),
+      height: response.headers.get('X-Height')
+    });
+
+    const outputBuffer = Buffer.from(await response.arrayBuffer());
+    const outputPath = inputImagePath.replace(/\.[^/.]+$/, '') + '-nobg.png';
+    fs.writeFileSync(outputPath, outputBuffer);
+
+    console.log('Output image saved to:', outputPath);
+    return outputPath;
   } catch (error) {
     console.error('Background removal failed:', {
       error: error.message,
@@ -141,17 +187,9 @@ export async function removeImageBackground(
       status: error.status,
     });
     
-    // Handle specific error cases
-    if (error.message.includes('429')) {
-      console.warn('Monthly quota exceeded for background removal service. Using original image.');
-      return inputImagePath;
-    }
-    
-    if (error.message.includes('502')) {
-      throw new Error('Background removal service is currently unavailable. Please try again later.');
-    }
-    
-    throw error;
+    // If any error occurs, return the original image
+    console.warn('Using original image due to error');
+    return inputImagePath;
   }
 }
 
