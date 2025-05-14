@@ -4,7 +4,6 @@ import { Meta, Paginate } from '@app/types';
 import * as fs from 'fs';
 import axios from 'axios';
 import heicConvert from 'heic-convert';
-import { rembg } from '@remove-background-ai/rembg.js';
 
 dayjs.extend(utc);
 
