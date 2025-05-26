@@ -22,21 +22,119 @@ export class FirebaseService {
     private userNotificationTokenService: UserNotificationService,
     @Inject(forwardRef(() => UserService)) private userService: UserService,
   ) {
-    // Initialize Firebase app with service account
-    const serviceAccount = {
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    };
+    try {
+      // Initialize Firebase app with service account
+      const serviceAccount = {
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      };
 
-    this.app = admin.initializeApp({
-      credential: credential.cert(serviceAccount),
-      projectId: process.env.FIREBASE_PROJECT_ID,
-    });
+      console.log('Initializing Firebase with project ID:', process.env.FIREBASE_PROJECT_ID);
+      
+      this.app = admin.initializeApp({
+        credential: credential.cert(serviceAccount),
+        projectId: process.env.FIREBASE_PROJECT_ID,
+      });
 
-    // Configure APNs
-    if (!process.env.APNS_BUNDLE_ID) {
-      throw new Error('APNS_BUNDLE_ID environment variable is required');
+      // Configure APNs
+      if (!process.env.APNS_BUNDLE_ID) {
+        throw new Error('APNS_BUNDLE_ID environment variable is required');
+      }
+      console.log('Firebase initialized successfully with APNs bundle ID:', process.env.APNS_BUNDLE_ID);
+    } catch (error) {
+      console.error('Error initializing Firebase:', error);
+      throw error;
+    }
+  }
+
+  async addNotification(
+    addNotificationInput: AddNotificationInput,
+  ): Promise<Notifications> {
+    try {
+      console.log('Adding notification:', addNotificationInput);
+      
+      const notificationDto = this.notificationMapper.dtoToEntity(addNotificationInput);
+      
+      // Ensure data is always a JSON string
+      let parsedData = {};
+      try {
+        parsedData = JSON.parse(addNotificationInput.data || '{}');
+      } catch (e) {
+        console.warn('Failed to parse notification data:', e);
+        parsedData = { message: addNotificationInput.data };
+      }
+      
+      notificationDto.data = JSON.stringify({
+        ...parsedData,
+        test_value: 'DAYONES_NOTIF'
+      });
+      
+      const notification = await this.notificationsRepository.save(notificationDto);
+      console.log('Notification saved to database:', notification);
+
+      const userToken = await this.userNotificationTokenService.getUserNotificationTokenByUserId(
+        addNotificationInput.toId,
+      );
+      console.log('User notification token:', userToken);
+
+      if (userToken) {
+        try {
+          const senderProfile = await this.userService.findUserById(notification.from_id);
+          console.log('Sender profile:', senderProfile);
+
+          const payload = this.createFcmMulticastPayload(
+            notification,
+            [userToken.notification_token],
+            senderProfile,
+            addNotificationInput.postId || null,
+            addNotificationInput.conversationId || null,
+          );
+          console.log('Created FCM payload:', JSON.stringify(payload, null, 2));
+
+          const result = await this.sendNotification(payload);
+          console.log('Notification sent result:', result);
+        } catch (e) {
+          console.error('Error sending notification:', e);
+        }
+      } else {
+        console.warn('No notification token found for user:', addNotificationInput.toId);
+      }
+
+      return notification;
+    } catch (error) {
+      console.error('Error in addNotification:', error);
+      throw error;
+    }
+  }
+
+  async sendNotification(payload: MulticastMessage): Promise<boolean> {
+    try {
+      console.log('Sending notification with payload:', JSON.stringify(payload, null, 2));
+      
+      if (!payload?.tokens?.length) {
+        console.warn('No tokens provided for notification');
+        return false;
+      }
+
+      const response = await this.app.messaging().sendEachForMulticast({
+        tokens: payload.tokens,
+        notification: payload.notification,
+        data: payload.data,
+        android: payload.android,
+        apns: payload.apns,
+      });
+
+      console.log('Firebase messaging response:', response);
+      
+      if (response.failureCount > 0) {
+        console.error('Some notifications failed to send:', response.responses);
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error sending notification:', err);
+      return false;
     }
   }
 
