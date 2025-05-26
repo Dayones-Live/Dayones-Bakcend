@@ -29,6 +29,7 @@
       "@user-notifications/*": [
         "src/modules/user/modules/user-notifications/*"
       ],
+      "@notifications/*": ["src/modules/user/modules/notifications/*"],
       "@artist-post/*": ["src/modules/posts/modules/artist-post/*"],
       "@artist-post-user/*": ["src/modules/posts/modules/artist-post-user/*"],
       "@comments/*": ["src/modules/posts/modules/comments/*"]
