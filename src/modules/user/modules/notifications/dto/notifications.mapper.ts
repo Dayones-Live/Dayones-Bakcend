@@ -10,7 +10,7 @@ export class NotificationMapper {
     entity.to_id = dto.toId;
     entity.title = dto.title;
     entity.message = dto.message;
-    entity.data = dto.data;
+    entity.data = dto.data || '';
     entity.is_read = dto.isRead;
     entity.type = dto.type;
     return entity;
@@ -21,7 +21,7 @@ export class NotificationMapper {
     entity.to_id = dto.toId;
     entity.title = dto.title;
     entity.message = dto.message;
-    entity.data = dto.data;
+    entity.data = dto.data || '';
     entity.is_read = dto.isRead;
     entity.type = dto.type;
     return entity;
