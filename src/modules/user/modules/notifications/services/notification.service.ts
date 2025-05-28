@@ -117,6 +117,13 @@ export class FirebaseService {
         return false;
       }
 
+      // Log token details
+      console.log('Sending to tokens:', payload.tokens);
+      console.log('APNs configuration:', {
+        bundleId: process.env.APNS_BUNDLE_ID,
+        payload: payload.apns,
+      });
+
       const response = await this.app.messaging().sendEachForMulticast({
         tokens: payload.tokens,
         notification: payload.notification,
@@ -125,7 +132,15 @@ export class FirebaseService {
         apns: payload.apns,
       });
 
-      console.log('Firebase messaging response:', response);
+      console.log('Firebase messaging response:', {
+        successCount: response.successCount,
+        failureCount: response.failureCount,
+        responses: response.responses.map((resp, idx) => ({
+          token: payload.tokens[idx],
+          success: resp.success,
+          error: resp.error,
+        })),
+      });
       
       if (response.failureCount > 0) {
         console.error('Some notifications failed to send:', response.responses);
@@ -220,12 +235,19 @@ export class FirebaseService {
             'content-available': 1,
             'thread-id': BUNDLE_NOTIFICATIONS_UNIQUE_KEYS.IOS_BUNDLE_ID,
           },
+          action: action,
+          id: id,
+          senderProfiles: senderProfiles,
+          redirect_url: redirectUrl,
+          notification_data: notification.data,
+          test_value: 'DAYONES_NOTIF',
         },
         headers: {
           'apns-priority': '10',
           'apns-push-type': 'alert',
           'apns-expiration': '0',
           'apns-topic': apnsBundleId,
+          'apns-collapse-id': notification.id,
         },
       },
     };
