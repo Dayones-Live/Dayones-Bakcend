@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import axios from 'axios';
 import heicConvert from 'heic-convert';
 
+// Initialize dayjs with UTC plugin
 dayjs.extend(utc);
 
 /**
