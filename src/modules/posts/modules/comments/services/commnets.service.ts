@@ -87,7 +87,7 @@ export class CommentsService {
           fromId: userId,
           postId: postId,
           title: 'Comment',
-          type: NOTIFICATION_TYPE.COMMENTS,
+          type: NOTIFICATION_TYPE.COMMENT,
           data: JSON.stringify({
             message: createCommentInput?.message,
             post_id: postId

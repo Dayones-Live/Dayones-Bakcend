@@ -1,29 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { Notifications } from '../entities/notifications.entity';
+import { mapInputToEntity } from '@app/shared/utils';
 import { AddNotificationInput } from './types';
+import { Notifications } from '../entities/notifications.entity';
 
-@Injectable()
 export class NotificationMapper {
-  dtoToEntity(dto: AddNotificationInput): Notifications {
-    const entity = new Notifications();
-    entity.from_id = dto.fromId;
-    entity.to_id = dto.toId;
-    entity.title = dto.title;
-    entity.message = dto.message;
-    entity.data = dto.data || '';
-    entity.is_read = dto.isRead;
-    entity.type = dto.type;
-    return entity;
+  dtoToEntity(createNotificationInput: AddNotificationInput): Notifications {
+    const updateRecord: boolean = false;
+    return mapInputToEntity(
+      new Notifications(),
+      createNotificationInput,
+      updateRecord,
+    );
   }
-
-  dtoToEntityUpdate(entity: Notifications, dto: AddNotificationInput): Notifications {
-    entity.from_id = dto.fromId;
-    entity.to_id = dto.toId;
-    entity.title = dto.title;
-    entity.message = dto.message;
-    entity.data = dto.data || '';
-    entity.is_read = dto.isRead;
-    entity.type = dto.type;
-    return entity;
-  }
-} 
+}

@@ -14,7 +14,7 @@ import {
 } from 'typeorm';
 import { NOTIFICATION_TYPE } from '../constants';
 
-export type NOTIFICATION_TYPE = typeof NOTIFICATION_TYPE[keyof typeof NOTIFICATION_TYPE];
+export type NotificationType = typeof NOTIFICATION_TYPE[keyof typeof NOTIFICATION_TYPE];
 
 @Entity({ name: 'notifications' })
 @Unique(['id'])
@@ -58,7 +58,7 @@ export class Notifications extends BaseEntity {
 
   @Column({ type: 'enum', enum: NOTIFICATION_TYPE })
   @IsNotEmpty({ message: 'Notification type is required' })
-  type: NOTIFICATION_TYPE;
+  type: NotificationType;
 
   @Column({ nullable: true })
   post_id: string;
@@ -71,4 +71,4 @@ export class Notifications extends BaseEntity {
 
   @UpdateDateColumn()
   updated_at: Date;
-} 
+}

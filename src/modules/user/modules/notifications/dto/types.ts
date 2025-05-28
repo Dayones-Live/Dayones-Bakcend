@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { NOTIFICATION_TYPE } from '../constants';
 
-export type NOTIFICATION_TYPE = typeof NOTIFICATION_TYPE[keyof typeof NOTIFICATION_TYPE];
+export type NotificationType = typeof NOTIFICATION_TYPE[keyof typeof NOTIFICATION_TYPE];
 
 export class AddNotificationInput {
   @IsNotEmpty()
@@ -28,7 +28,7 @@ export class AddNotificationInput {
   isRead: boolean;
 
   @IsNotEmpty()
-  type: NOTIFICATION_TYPE;
+  type: NotificationType;
 
   @IsOptional()
   @IsString()
@@ -37,4 +37,4 @@ export class AddNotificationInput {
   @IsOptional()
   @IsString()
   conversationId?: string;
-} 
+}
