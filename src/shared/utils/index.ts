@@ -1,5 +1,5 @@
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
 import { Meta, Paginate } from '@app/types';
 import * as fs from 'fs';
 import axios from 'axios';
