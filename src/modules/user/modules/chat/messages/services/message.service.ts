@@ -19,11 +19,11 @@ import {
   GetAllMessagesDto,
   AllMessageResponse,
 } from '../dto/types';
-import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
+import { FirebaseService } from '@app/modules/user/modules/notifications/services/notification.service';
 import {
   NOTIFICATION_TITLE,
   NOTIFICATION_TYPE,
-} from '@app/modules/user/modules/ notifications/constants';
+} from '@app/modules/user/modules/notifications/constants';
 import { BlocksService } from '@app/modules/user/modules/blocks/services/blocks.service';
 
 @Injectable()
@@ -32,11 +32,10 @@ export class MessageService {
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
     private messageMapper: MessageMapper,
-    @Inject(forwardRef(() => SocketInitializer))
     private socketInitializer: SocketInitializer,
     @Inject(forwardRef(() => ConversationService))
     private conversationService: ConversationService,
-    private firebaseSerivce: FirebaseService,
+    @Inject(forwardRef(() => FirebaseService)) private firebaseService: FirebaseService,
     private blockService: BlocksService,
   ) {}
 
@@ -152,7 +151,7 @@ export class MessageService {
           conversationId: req.conversationId
         });
 
-        await this.firebaseSerivce.addNotification({
+        await this.firebaseService.addNotification({
           toId: toId,
           isRead: false,
           fromId: userId,

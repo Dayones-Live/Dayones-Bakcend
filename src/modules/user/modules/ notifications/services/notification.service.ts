@@ -172,18 +172,49 @@ export class FirebaseService {
    */
   async sendNotification(payload: MulticastMessage): Promise<boolean> {
     try {
-     
+      process.stdout.write('=== Starting Firebase Send Process ===\n');
+      process.stdout.write(`Sending notification with payload: ${JSON.stringify(payload, null, 2)}\n`);
       
-      if (payload?.tokens.length) {
-        await this.app.messaging().sendEachForMulticast({
-          tokens: payload?.tokens,
-          notification: payload?.notification,
-          data: payload?.data,
-        });
+      if (!payload?.tokens?.length) {
+        process.stdout.write('No tokens provided for notification\n');
+        return false;
       }
+
+      // Log token details
+      process.stdout.write(`Sending to tokens: ${JSON.stringify(payload.tokens)}\n`);
+      process.stdout.write(`APNs configuration: ${JSON.stringify({
+        bundleId: process.env.APNS_BUNDLE_ID,
+        payload: payload.apns,
+      }, null, 2)}\n`);
+
+      process.stdout.write('Calling Firebase messaging API...\n');
+      const response = await this.app.messaging().sendEachForMulticast({
+        tokens: payload.tokens,
+        notification: payload.notification,
+        data: payload.data,
+        android: payload.android,
+        apns: payload.apns,
+      });
+
+      process.stdout.write(`Firebase messaging response: ${JSON.stringify({
+        successCount: response.successCount,
+        failureCount: response.failureCount,
+        responses: response.responses.map((resp, idx) => ({
+          token: payload.tokens[idx],
+          success: resp.success,
+          error: resp.error,
+        })),
+      }, null, 2)}\n`);
+      
+      if (response.failureCount > 0) {
+        process.stdout.write(`Some notifications failed to send: ${JSON.stringify(response.responses)}\n`);
+      }
+
+      process.stdout.write('=== Firebase Send Process Completed ===\n');
       return true;
     } catch (err) {
-      console.error('Error sending notification', err); // Simple error logging to console
+      process.stdout.write(`Error sending notification: ${err}\n`);
+      process.stdout.write(`Error stack: ${err.stack}\n`);
       return false;
     }
   }
@@ -315,14 +346,19 @@ export class FirebaseService {
     addNotificationInput: AddNotificationInput,
   ): Promise<Notifications> {
     try {
+      process.stdout.write('=== Starting Notification Process ===\n');
+      process.stdout.write(`Adding notification: ${JSON.stringify(addNotificationInput, null, 2)}\n`);
+      
       const notificationDto = this.notificationMapper.dtoToEntity(addNotificationInput);
+      process.stdout.write(`Created notification DTO: ${JSON.stringify(notificationDto, null, 2)}\n`);
       
       // Ensure data is always a JSON string
       let parsedData = {};
       try {
         parsedData = JSON.parse(addNotificationInput.data || '{}');
+        process.stdout.write(`Parsed notification data: ${JSON.stringify(parsedData)}\n`);
       } catch (e) {
-        // If data is not valid JSON, use it as a message
+        process.stdout.write(`Failed to parse notification data: ${e}\n`);
         parsedData = { message: addNotificationInput.data };
       }
       
@@ -331,14 +367,30 @@ export class FirebaseService {
         test_value: 'DAYONES_NOTIF'
       });
       
+      process.stdout.write('Saving notification to database...\n');
       const notification = await this.notificationsRepository.save(notificationDto);
+      process.stdout.write(`Notification saved to database: ${JSON.stringify(notification, null, 2)}\n`);
+
+      process.stdout.write(`Fetching user notification token for user: ${addNotificationInput.toId}\n`);
       const userToken = await this.userNotificationTokenService.getUserNotificationTokenByUserId(
         addNotificationInput.toId,
       );
-      const senderProfile = await this.userService.findUserById(notification.from_id);
-
+      process.stdout.write(`User notification token result: ${userToken ? 'Token found' : 'No token found'}\n`);
+      
       if (userToken) {
+        process.stdout.write(`Token details: ${JSON.stringify({
+          userId: userToken.user_id,
+          token: userToken.notification_token,
+          createdAt: userToken.created_at,
+          updatedAt: userToken.updated_at
+        }, null, 2)}\n`);
+
         try {
+          process.stdout.write('Fetching sender profile...\n');
+          const senderProfile = await this.userService.findUserById(notification.from_id);
+          process.stdout.write(`Sender profile: ${JSON.stringify(senderProfile, null, 2)}\n`);
+
+          process.stdout.write('Creating FCM payload...\n');
           const payload = this.createFcmMulticastPayload(
             notification,
             [userToken.notification_token],
@@ -346,18 +398,29 @@ export class FirebaseService {
             addNotificationInput.postId || null,
             addNotificationInput.conversationId || null,
           );
-          await this.sendNotification(payload);
+          process.stdout.write(`Created FCM payload: ${JSON.stringify(payload, null, 2)}\n`);
+
+          process.stdout.write('Sending notification to Firebase...\n');
+          const result = await this.sendNotification(payload);
+          process.stdout.write(`Firebase send result: ${result}\n`);
         } catch (e) {
-          console.error('🚀 ~ FirebaseService ~ e:', e);
+          process.stdout.write(`Error in notification sending process: ${e}\n`);
+          process.stdout.write(`Error stack: ${e.stack}\n`);
+          throw e;
         }
+      } else {
+        process.stdout.write(`No notification token found for user: ${addNotificationInput.toId}\n`);
+        process.stdout.write('To receive push notifications, the user needs to:\n');
+        process.stdout.write('1. Enable push notifications in the app\n');
+        process.stdout.write('2. Have the app register their device token with the backend\n');
+        process.stdout.write('3. Have a valid entry in the user-notifications table\n');
       }
 
+      process.stdout.write('=== Notification Process Completed ===\n');
       return notification;
     } catch (error) {
-      console.error(
-        '🚀 ~ file:notification.service.ts:96 ~ addNotification ~ error:',
-        error,
-      );
+      process.stdout.write(`Error in addNotification: ${error}\n`);
+      process.stdout.write(`Error stack: ${error.stack}\n`);
       throw error;
     }
   }
