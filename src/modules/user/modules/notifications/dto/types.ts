@@ -1,5 +1,7 @@
 import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
-import { NOTIFICATION_TYPE } from '../entities/notifications.entity';
+import { NOTIFICATION_TYPE } from '../constants';
+
+export type NOTIFICATION_TYPE = typeof NOTIFICATION_TYPE[keyof typeof NOTIFICATION_TYPE];
 
 export class AddNotificationInput {
   @IsNotEmpty()
