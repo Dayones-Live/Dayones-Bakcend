@@ -77,11 +77,19 @@ export class FirebaseService {
       const notification = await this.notificationsRepository.save(notificationDto);
       console.log('Notification saved to database:', JSON.stringify(notification, null, 2));
 
-      console.log('Fetching user notification token...');
+      console.log('Fetching user notification token for user:', addNotificationInput.toId);
       const userToken = await this.userNotificationTokenService.getUserNotificationTokenByUserId(
         addNotificationInput.toId,
       );
-      console.log('User notification token:', userToken);
+      console.log('User notification token result:', userToken ? 'Token found' : 'No token found');
+      if (userToken) {
+        console.log('Token details:', {
+          userId: userToken.user_id,
+          token: userToken.notification_token,
+          createdAt: userToken.created_at,
+          updatedAt: userToken.updated_at
+        });
+      }
 
       if (userToken) {
         try {
@@ -105,10 +113,14 @@ export class FirebaseService {
         } catch (e) {
           console.error('Error in notification sending process:', e);
           console.error('Error stack:', e.stack);
-          throw e; // Re-throw to see the error in the logs
+          throw e;
         }
       } else {
         console.warn('No notification token found for user:', addNotificationInput.toId);
+        console.log('To receive push notifications, the user needs to:');
+        console.log('1. Enable push notifications in the app');
+        console.log('2. Have the app register their device token with the backend');
+        console.log('3. Have a valid entry in the user-notifications table');
       }
 
       console.log('=== Notification Process Completed ===');
