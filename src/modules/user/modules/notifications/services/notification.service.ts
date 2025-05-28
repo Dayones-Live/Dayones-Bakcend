@@ -64,6 +64,9 @@ export class FirebaseService {
         privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       };
 
+      process.stdout.write(`Initializing Firebase with project ID: ${serviceAccount.projectId}\n`);
+      process.stdout.write(`Client email: ${serviceAccount.clientEmail}\n`);
+
       this.app = admin.initializeApp({
         credential: credential.cert(serviceAccount),
       });
