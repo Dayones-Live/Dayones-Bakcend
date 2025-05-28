@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddPostAndConversationIdToNotifications1716923891000 implements MigrationInterface {
+export class UpdateNotificationsSchema1716923895000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Add MESSAGE type to the enum first
     await queryRunner.query(`
