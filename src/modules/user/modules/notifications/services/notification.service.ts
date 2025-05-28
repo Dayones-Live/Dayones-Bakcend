@@ -23,6 +23,8 @@ export class FirebaseService {
     @Inject(forwardRef(() => UserService)) private userService: UserService,
   ) {
     try {
+      process.stdout.write('Initializing Firebase with project ID: ' + process.env.FIREBASE_PROJECT_ID + '\n');
+      
       // Initialize Firebase app with service account
       const serviceAccount = {
         projectId: process.env.FIREBASE_PROJECT_ID,
@@ -30,20 +32,13 @@ export class FirebaseService {
         privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       };
 
-      console.log('Initializing Firebase with project ID:', process.env.FIREBASE_PROJECT_ID);
-      
       this.app = admin.initializeApp({
         credential: credential.cert(serviceAccount),
-        projectId: process.env.FIREBASE_PROJECT_ID,
       });
 
-      // Configure APNs
-      if (!process.env.APNS_BUNDLE_ID) {
-        throw new Error('APNS_BUNDLE_ID environment variable is required');
-      }
-      console.log('Firebase initialized successfully with APNs bundle ID:', process.env.APNS_BUNDLE_ID);
+      process.stdout.write('Firebase initialized successfully\n');
     } catch (error) {
-      console.error('Error initializing Firebase:', error);
+      process.stdout.write('Error initializing Firebase: ' + error + '\n');
       throw error;
     }
   }
@@ -224,12 +219,7 @@ export class FirebaseService {
       senderEmail: senderProfile?.email || '',
     });
 
-    const apnsBundleId = process.env.APNS_BUNDLE_ID;
-    if (!apnsBundleId) {
-      throw new Error('APNS_BUNDLE_ID environment variable is required');
-    }
-
-    return {
+    const payload: MulticastMessage = {
       tokens: tokens,
       notification: {
         title: notification.title,
@@ -249,34 +239,19 @@ export class FirebaseService {
           color: '#ff0000',
         },
       },
-      apns: {
+    };
+
+    // Only add APNs configuration if APNS_BUNDLE_ID is provided
+    if (process.env.APNS_BUNDLE_ID) {
+      payload.apns = {
         payload: {
           aps: {
-            alert: {
-              title: notification.title,
-              body: notification.message,
-            },
-            sound: 'default',
-            badge: 1,
-            'mutable-content': 1,
-            'content-available': 1,
-            'thread-id': BUNDLE_NOTIFICATIONS_UNIQUE_KEYS.IOS_BUNDLE_ID,
+            thread_id: BUNDLE_NOTIFICATIONS_UNIQUE_KEYS.IOS_BUNDLE_ID,
           },
-          action: action,
-          id: id,
-          senderProfiles: senderProfiles,
-          redirect_url: redirectUrl,
-          notification_data: notification.data,
-          test_value: 'DAYONES_NOTIF',
         },
-        headers: {
-          'apns-priority': '10',
-          'apns-push-type': 'alert',
-          'apns-expiration': '0',
-          'apns-topic': apnsBundleId,
-          'apns-collapse-id': notification.id,
-        },
-      },
-    };
+      };
+    }
+
+    return payload;
   }
 } 
