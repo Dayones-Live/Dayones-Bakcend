@@ -64,9 +64,13 @@ export class FirebaseService {
         privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n').replace(/^"|"$/g, '') || '',
       };
 
-      process.stdout.write(`Initializing Firebase with project ID: ${serviceAccount.projectId}\n`);
-      process.stdout.write(`Client email: ${serviceAccount.clientEmail}\n`);
-      process.stdout.write(`Private key length: ${serviceAccount.privateKey.length}\n`);
+      process.stdout.write('=== Firebase Configuration ===\n');
+      process.stdout.write(`Project ID: ${serviceAccount.projectId}\n`);
+      process.stdout.write(`Client Email: ${serviceAccount.clientEmail}\n`);
+      process.stdout.write(`Private Key Length: ${serviceAccount.privateKey.length}\n`);
+      process.stdout.write(`Private Key First 10 chars: ${serviceAccount.privateKey.substring(0, 10)}...\n`);
+      process.stdout.write(`Private Key Last 10 chars: ...${serviceAccount.privateKey.substring(serviceAccount.privateKey.length - 10)}\n`);
+      process.stdout.write('===========================\n');
 
       this.app = admin.initializeApp({
         credential: credential.cert(serviceAccount),
