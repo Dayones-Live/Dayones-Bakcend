@@ -44,13 +44,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import jwt from 'jsonwebtoken';
-import jwksClient from 'jwks-rsa';
+import * as jwksClient from 'jwks-rsa';
 
 @Injectable()
 export class CognitoService {
   private clientId = process.env.COGNITO_CLIENT_ID; // Replace with your App Client ID
   private cognitoClient;
-  private jwksClient: jwksClient.JwksClient;
+  private jwksClient;
 
   constructor(
     private userService: UserService,
@@ -61,6 +61,9 @@ export class CognitoService {
     });
     this.jwksClient = jwksClient({
       jwksUri: 'https://appleid.apple.com/auth/keys',
+      cache: true,
+      rateLimit: true,
+      jwksRequestsPerMinute: 5,
     });
   }
 
