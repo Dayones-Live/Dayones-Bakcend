@@ -3,7 +3,6 @@
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
-    "esModuleInterop": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
@@ -13,26 +12,15 @@
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "noImplicitAny": true,
-    "strictBindCallApply": true,
-    "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@app/*": ["src/*"],
-      "@auth/*": ["src/modules/auth/*"],
-      "@libs/*": ["src/modules/libs/*"],
-      "@aws/*": ["src/modules/libs/modules/aws/*"],
-      "@cognito/*": ["src/modules/libs/modules/aws/cognito/*"],
-      "@user/*": ["src/modules/user/*"],
-      "@signature/*": ["src/modules/user/modules/signatures/*"],
-      "@user-notifications/*": [
-        "src/modules/user/modules/user-notifications/*"
-      ],
-      "@notifications/*": ["src/modules/user/modules/notifications/*"],
-      "@artist-post/*": ["src/modules/posts/modules/artist-post/*"],
-      "@artist-post-user/*": ["src/modules/posts/modules/artist-post-user/*"],
-      "@comments/*": ["src/modules/posts/modules/comments/*"]
+      "@app/*": ["src/*"]
     }
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

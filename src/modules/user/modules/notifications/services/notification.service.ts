@@ -218,6 +218,20 @@ export class FirebaseService {
       
       if (response.failureCount > 0) {
         process.stdout.write(`Some notifications failed to send: ${JSON.stringify(response.responses)}\n`);
+        
+        // Handle invalid tokens
+        const invalidTokens = response.responses
+          .filter((resp, idx) => !resp.success && 
+            (resp.error?.code === 'messaging/mismatched-credential' || 
+             resp.error?.code === 'messaging/invalid-registration-token' ||
+             resp.error?.code === 'messaging/registration-token-not-registered'))
+          .map((_, idx) => payload.tokens[idx]);
+
+        if (invalidTokens.length > 0) {
+          process.stdout.write(`Removing ${invalidTokens.length} invalid tokens...\n`);
+          await this.userNotificationTokenService.removeInvalidTokens(invalidTokens);
+          process.stdout.write('Invalid tokens removed successfully\n');
+        }
       }
 
       process.stdout.write('=== Firebase Send Process Completed ===\n');
