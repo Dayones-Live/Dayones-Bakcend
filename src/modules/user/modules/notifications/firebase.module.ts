@@ -3,8 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { FirebaseService } from './services/notification.service';
 import { Notifications } from './entities/notifications.entity';
 import { NotificationMapper } from './dto/notifications.mapper';
-import { UserNotificationModule } from '../../user-notifications/user-notification.module';
-import { UserModule } from '../../user.module';
+import { UserNotificationModule } from '@app/modules/user/modules/user-notifications/user-notification.module';
+import { UserModule } from '@app/modules/user/user.module';
 
 @Module({
   imports: [
