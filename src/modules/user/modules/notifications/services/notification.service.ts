@@ -53,14 +53,16 @@ export class FirebaseService {
   ): Promise<Notifications> {
     try {
       console.log('=== Starting Notification Process ===');
-      console.log('Adding notification:', addNotificationInput);
+      console.log('Adding notification:', JSON.stringify(addNotificationInput, null, 2));
       
       const notificationDto = this.notificationMapper.dtoToEntity(addNotificationInput);
+      console.log('Created notification DTO:', JSON.stringify(notificationDto, null, 2));
       
       // Ensure data is always a JSON string
       let parsedData = {};
       try {
         parsedData = JSON.parse(addNotificationInput.data || '{}');
+        console.log('Parsed notification data:', parsedData);
       } catch (e) {
         console.warn('Failed to parse notification data:', e);
         parsedData = { message: addNotificationInput.data };
@@ -71,9 +73,11 @@ export class FirebaseService {
         test_value: 'DAYONES_NOTIF'
       });
       
+      console.log('Saving notification to database...');
       const notification = await this.notificationsRepository.save(notificationDto);
-      console.log('Notification saved to database:', notification);
+      console.log('Notification saved to database:', JSON.stringify(notification, null, 2));
 
+      console.log('Fetching user notification token...');
       const userToken = await this.userNotificationTokenService.getUserNotificationTokenByUserId(
         addNotificationInput.toId,
       );
@@ -81,9 +85,11 @@ export class FirebaseService {
 
       if (userToken) {
         try {
+          console.log('Fetching sender profile...');
           const senderProfile = await this.userService.findUserById(notification.from_id);
-          console.log('Sender profile:', senderProfile);
+          console.log('Sender profile:', JSON.stringify(senderProfile, null, 2));
 
+          console.log('Creating FCM payload...');
           const payload = this.createFcmMulticastPayload(
             notification,
             [userToken.notification_token],
@@ -93,11 +99,13 @@ export class FirebaseService {
           );
           console.log('Created FCM payload:', JSON.stringify(payload, null, 2));
 
+          console.log('Sending notification to Firebase...');
           const result = await this.sendNotification(payload);
-          console.log('Notification sent result:', result);
+          console.log('Firebase send result:', result);
         } catch (e) {
           console.error('Error in notification sending process:', e);
           console.error('Error stack:', e.stack);
+          throw e; // Re-throw to see the error in the logs
         }
       } else {
         console.warn('No notification token found for user:', addNotificationInput.toId);
@@ -114,6 +122,7 @@ export class FirebaseService {
 
   async sendNotification(payload: MulticastMessage): Promise<boolean> {
     try {
+      console.log('=== Starting Firebase Send Process ===');
       console.log('Sending notification with payload:', JSON.stringify(payload, null, 2));
       
       if (!payload?.tokens?.length) {
@@ -128,6 +137,7 @@ export class FirebaseService {
         payload: payload.apns,
       });
 
+      console.log('Calling Firebase messaging API...');
       const response = await this.app.messaging().sendEachForMulticast({
         tokens: payload.tokens,
         notification: payload.notification,
@@ -150,9 +160,11 @@ export class FirebaseService {
         console.error('Some notifications failed to send:', response.responses);
       }
 
+      console.log('=== Firebase Send Process Completed ===');
       return true;
     } catch (err) {
       console.error('Error sending notification:', err);
+      console.error('Error stack:', err.stack);
       return false;
     }
   }
