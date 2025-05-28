@@ -25,18 +25,23 @@ export class FirebaseService {
     try {
       process.stdout.write('Initializing Firebase with project ID: ' + process.env.FIREBASE_PROJECT_ID + '\n');
       
-      // Initialize Firebase app with service account
-      const serviceAccount = {
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      };
+      // Check if Firebase is already initialized
+      try {
+        this.app = admin.app();
+        process.stdout.write('Using existing Firebase app instance\n');
+      } catch (e) {
+        // Initialize Firebase app with service account if not already initialized
+        const serviceAccount = {
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        };
 
-      this.app = admin.initializeApp({
-        credential: credential.cert(serviceAccount),
-      });
-
-      process.stdout.write('Firebase initialized successfully\n');
+        this.app = admin.initializeApp({
+          credential: credential.cert(serviceAccount),
+        });
+        process.stdout.write('Firebase initialized successfully\n');
+      }
     } catch (error) {
       process.stdout.write('Error initializing Firebase: ' + error + '\n');
       throw error;
