@@ -144,6 +144,14 @@ export class MessageService {
           : isMember?.sender_id;
 
       try {
+        console.log('Attempting to send message notification...');
+        console.log('Notification details:', {
+          toId,
+          fromId: userId,
+          message: req?.message || `[${req?.mediaType}]`,
+          conversationId: req.conversationId
+        });
+
         await this.firebaseSerivce.addNotification({
           toId: toId,
           isRead: false,
@@ -157,8 +165,13 @@ export class MessageService {
           type: NOTIFICATION_TYPE.MESSAGE,
           conversationId: req.conversationId,
         });
+        console.log('Message notification sent successfully');
       } catch (err) {
-        console.error('🚀 ~ Sending/Saving message notification ~ err:', err);
+        console.error('🚀 ~ Error sending message notification:', err);
+        console.error('Error details:', {
+          message: err.message,
+          stack: err.stack
+        });
       }
 
       return message;

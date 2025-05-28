@@ -52,6 +52,7 @@ export class FirebaseService {
     addNotificationInput: AddNotificationInput,
   ): Promise<Notifications> {
     try {
+      console.log('=== Starting Notification Process ===');
       console.log('Adding notification:', addNotificationInput);
       
       const notificationDto = this.notificationMapper.dtoToEntity(addNotificationInput);
@@ -95,15 +96,18 @@ export class FirebaseService {
           const result = await this.sendNotification(payload);
           console.log('Notification sent result:', result);
         } catch (e) {
-          console.error('Error sending notification:', e);
+          console.error('Error in notification sending process:', e);
+          console.error('Error stack:', e.stack);
         }
       } else {
         console.warn('No notification token found for user:', addNotificationInput.toId);
       }
 
+      console.log('=== Notification Process Completed ===');
       return notification;
     } catch (error) {
       console.error('Error in addNotification:', error);
+      console.error('Error stack:', error.stack);
       throw error;
     }
   }
