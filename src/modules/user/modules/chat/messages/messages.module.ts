@@ -7,7 +7,7 @@ import { MessageService } from './services/message.service';
 import { MessageMapper } from './dto/message.mapper';
 import { ConversationModule } from '../conversations/conversation.module';
 import { SocketModule } from '@app/modules/user/modules/socket/socket.module';
-import { FirebaseModule } from '@app/modules/user/modules/notifications/firebase.module';
+import { NotificationModule } from '@app/modules/user/modules/notifications/notification.module';
 import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
 
 @Module({
@@ -16,7 +16,7 @@ import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
     forwardRef(() => UserModule),
     forwardRef(() => ConversationModule),
     forwardRef(() => SocketModule),
-    forwardRef(() => FirebaseModule),
+    forwardRef(() => NotificationModule),
     BlocksModule,
   ],
   controllers: [MessageController],

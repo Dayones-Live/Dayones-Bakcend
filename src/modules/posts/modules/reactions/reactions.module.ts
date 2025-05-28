@@ -6,13 +6,13 @@ import { ReactionService } from './services/reactions.service';
 import { ReactionsMapper } from './dto/reaction.mapper';
 import { ReactionsController } from './controllers/reaction.controller';
 import { ArtistPostUserModule } from '../artist-post-user/atrist-post-user.module';
-import { FirebaseModule } from '@app/modules/user/modules/notifications/notification.module';
+import { NotificationModule } from '@app/modules/user/modules/notifications/notification.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Reactions]),
     forwardRef(() => UserModule),
     ArtistPostUserModule,
-    FirebaseModule,
+    NotificationModule,
   ],
   controllers: [ReactionsController],
   providers: [ReactionService, ReactionsMapper],

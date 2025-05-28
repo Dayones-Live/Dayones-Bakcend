@@ -8,13 +8,13 @@ import { UserMapper } from './dto/user.mapper';
 import { ChatModule } from './modules/chat/chat.module';
 import { ArtistPostModule } from '../posts/modules/artist-post/artist-post.module';
 import { ArtistPostUserModule } from '../posts/modules/artist-post-user/atrist-post-user.module';
-import { FirebaseModule } from './modules/notifications/firebase.module';
+import { NotificationModule } from './modules/notifications/notification.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     forwardRef(() => CognitoModule),
-    forwardRef(() => FirebaseModule),
+    forwardRef(() => NotificationModule),
     ChatModule,
     ArtistPostModule,
     ArtistPostUserModule,

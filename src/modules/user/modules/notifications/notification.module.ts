@@ -4,8 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Notifications } from './entities/notifications.entity';
 import { NotificationMapper } from './dto/notifications.mapper';
 import { NotificationsController } from './controllers/notifications.controller';
-import { UserModule } from '../../user.module';
-import { UserNotificationModule } from '../user-notifications/user-notification.module';
+import { UserModule } from '@app/modules/user/user.module';
+import { UserNotificationModule } from '@app/modules/user/modules/user-notifications/user-notification.module';
 
 @Module({
   imports: [
@@ -17,4 +17,4 @@ import { UserNotificationModule } from '../user-notifications/user-notification.
   controllers: [NotificationsController],
   exports: [FirebaseService], // Export the service for use in other modules
 })
-export class FirebaseModule {}
+export class NotificationModule {}

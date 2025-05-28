@@ -50,19 +50,25 @@ export class FirebaseService {
     private notificationsRepository: Repository<Notifications>,
     private notificationMapper: NotificationMapper,
     private userNotificationTokenService: UserNotificationService,
-    @Inject(forwardRef(() => UserService)) private userService: UserService, // Explicit forwardRef injection
-
+    @Inject(forwardRef(() => UserService)) private userService: UserService,
   ) {
-    // Initialize Firebase app with service account
-    const serviceAccount = {
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    };
+    // Check if Firebase app is already initialized
+    try {
+      this.app = admin.app();
+      process.stdout.write('Using existing Firebase app instance\n');
+    } catch (error) {
+      // Initialize Firebase app with service account if not already initialized
+      const serviceAccount = {
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      };
 
-    this.app = admin.initializeApp({
-      credential: credential.cert(serviceAccount),
-    });
+      this.app = admin.initializeApp({
+        credential: credential.cert(serviceAccount),
+      });
+      process.stdout.write('Initialized new Firebase app instance\n');
+    }
   }
 
   /**
