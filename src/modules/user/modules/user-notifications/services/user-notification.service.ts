@@ -76,4 +76,37 @@ export class UserNotificationService {
       throw error;
     }
   }
+
+  async updateUserNotificationToken(
+    userId: string,
+    notificationToken: string,
+  ): Promise<UserNotification> {
+    try {
+      process.stdout.write(`Updating notification token for user ${userId}\n`);
+      process.stdout.write(`New token: ${notificationToken}\n`);
+
+      const existingToken = await this.userNotificationRepository.findOne({
+        where: { user_id: userId },
+      });
+
+      if (existingToken) {
+        process.stdout.write(`Found existing token: ${existingToken.notification_token}\n`);
+        existingToken.notification_token = notificationToken;
+        const updated = await this.userNotificationRepository.save(existingToken);
+        process.stdout.write(`Token updated successfully\n`);
+        return updated;
+      }
+
+      const newToken = this.userNotificationRepository.create({
+        user_id: userId,
+        notification_token: notificationToken,
+      });
+      const saved = await this.userNotificationRepository.save(newToken);
+      process.stdout.write(`New token saved successfully\n`);
+      return saved;
+    } catch (error) {
+      process.stdout.write(`Error updating notification token: ${error}\n`);
+      throw error;
+    }
+  }
 }
