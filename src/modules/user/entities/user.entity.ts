@@ -16,7 +16,7 @@ import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/arti
 import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
 import { Conversations } from '../modules/chat/conversations/entities/conversation.entity';
 import { Message } from '../modules/chat/messages/entities/message.entity';
-import { Notifications } from '../modules/ notifications/entities/notifications.entity';
+import { Notifications } from '../modules/notifications/entities/notifications.entity';
 import { CommentReactions } from '@app/modules/posts/modules/comment-reactions/entities/comment-reaction.entity';
 import { Comments } from '@app/modules/posts/modules/comments/entities/comments.entity';
 import { Reactions } from '@app/modules/posts/modules/reactions/entities/reaction.entity';

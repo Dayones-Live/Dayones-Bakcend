@@ -8,12 +8,9 @@ import { ArtistPostUserService } from '../../artist-post-user/services/artist-po
 import { User } from '@app/modules/user/entities/user.entity';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
-import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
-import { AddNotificationInput } from '@app/modules/user/modules/ notifications/dto/types';
-import {
-  NOTIFICATION_TITLE,
-  NOTIFICATION_TYPE,
-} from '@app/modules/user/modules/ notifications/constants';
+import { FirebaseService } from '@app/modules/user/modules/notifications/services/notification.service';
+import { AddNotificationInput } from '@app/modules/user/modules/notifications/dto/types';
+import { NOTIFICATION_TITLE, NOTIFICATION_TYPE } from '@app/modules/user/modules/notifications/constants';
 import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
 
 @Injectable()

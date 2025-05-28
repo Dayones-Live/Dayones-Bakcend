@@ -13,9 +13,9 @@ import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { CommentReactionMapper } from '../dto/comment-reaction.mapper';
 import { CommentsService } from '../../comments/services/commnets.service';
 import { User } from '@app/modules/user/entities/user.entity';
-import { FirebaseService } from '@app/modules/user/modules/ notifications/services/notification.service';
+import { FirebaseService } from '@app/modules/user/modules/notifications/services/notification.service';
+import { NOTIFICATION_TITLE } from '@app/modules/user/modules/notifications/constants';
 import {
-  NOTIFICATION_TITLE,
   NOTIFICATION_TYPE,
 } from '@app/modules/user/modules/ notifications/constants';
 

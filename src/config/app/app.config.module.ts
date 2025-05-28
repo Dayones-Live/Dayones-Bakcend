@@ -13,7 +13,7 @@ import { SignatureModule } from '@app/modules/user/modules/signatures/signatures
 import { PostModule } from '@app/modules/posts/post.module';
 import { ChatModule } from '@app/modules/user/modules/chat/chat.module';
 import { SocketModule } from '@app/modules/user/modules/socket/socket.module';
-import { FirebaseModule } from '@app/modules/user/modules/ notifications/notification.module';
+import { FirebaseModule } from '@app/modules/user/modules/notifications/notification.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CommentReactionsModule } from '@app/modules/posts/modules/comment-reactions/comment-reactions.module';
 import { ReportModule } from '@app/modules/report/report.module';
