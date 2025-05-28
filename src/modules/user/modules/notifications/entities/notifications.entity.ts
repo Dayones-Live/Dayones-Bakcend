@@ -9,14 +9,12 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
+import { NOTIFICATION_TYPE } from '../constants';
 
-export enum NOTIFICATION_TYPE {
-  LIKE = 'LIKE',
-  COMMENT = 'COMMENT',
-  MESSAGE = 'MESSAGE',
-  REACTION = 'REACTION',
-}
+export type NOTIFICATION_TYPE = typeof NOTIFICATION_TYPE[keyof typeof NOTIFICATION_TYPE];
 
 @Entity({ name: 'notifications' })
 @Unique(['id'])
@@ -51,7 +49,7 @@ export class Notifications extends BaseEntity {
   @IsNotEmpty({ message: 'message is required' })
   message: string;
 
-  @Column()
+  @Column({ nullable: true })
   data: string;
 
   @Column({ nullable: false })
@@ -62,13 +60,15 @@ export class Notifications extends BaseEntity {
   @IsNotEmpty({ message: 'Notification type is required' })
   type: NOTIFICATION_TYPE;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ nullable: true })
+  post_id: string;
+
+  @Column({ nullable: true })
+  conversation_id: string;
+
+  @CreateDateColumn()
   created_at: Date;
 
-  @Column({
-    type: 'timestamp',
-    default: () => 'CURRENT_TIMESTAMP',
-    onUpdate: 'CURRENT_TIMESTAMP',
-  })
+  @UpdateDateColumn()
   updated_at: Date;
 } 
