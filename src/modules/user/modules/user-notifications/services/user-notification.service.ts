@@ -22,30 +22,33 @@ export class UserNotificationService {
     upsertUserNotificationInput: UpsertUserNotificationInput,
   ): Promise<UserNotification> {
     try {
+      process.stdout.write(`Upserting notification token for user ${upsertUserNotificationInput.userId}\n`);
+      process.stdout.write(`New token: ${upsertUserNotificationInput.notificationToken}\n`);
+
       // Check if notification for the user already exists
       let userNotification = await this.userNotificationRepository.findOne({
         where: { user_id: upsertUserNotificationInput.userId },
       });
-      let userNotificationDto;
+
       if (userNotification) {
+        process.stdout.write(`Found existing token: ${userNotification.notification_token}\n`);
         // Update existing user notification token
-        userNotificationDto = this.userNotificationMapper.dtoToEntityUpdate(
-          userNotification,
-          upsertUserNotificationInput,
-        );
-      } else {
-        userNotificationDto = this.userNotificationMapper.dtoToEntity(
-          upsertUserNotificationInput,
-        );
+        userNotification.notification_token = upsertUserNotificationInput.notificationToken;
+        const updated = await this.userNotificationRepository.save(userNotification);
+        process.stdout.write(`Token updated successfully\n`);
+        return updated;
       }
 
-      // Save the user notification (will perform update or insert)
-      return await this.userNotificationRepository.save(userNotificationDto);
+      // Create new notification token
+      const newToken = this.userNotificationRepository.create({
+        user_id: upsertUserNotificationInput.userId,
+        notification_token: upsertUserNotificationInput.notificationToken,
+      });
+      const saved = await this.userNotificationRepository.save(newToken);
+      process.stdout.write(`New token saved successfully\n`);
+      return saved;
     } catch (error) {
-      console.error(
-        '🚀 ~ file: user-notification.service.ts:96 ~ UserNotificationService ~ upsertUserNotification ~ error:',
-        error,
-      );
+      process.stdout.write(`Error upserting notification token: ${error}\n`);
       throw new HttpException(
         `User Notification Token update error: ${error?.message}`,
         HttpStatus.BAD_REQUEST,
