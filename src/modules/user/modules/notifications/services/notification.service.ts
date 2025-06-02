@@ -52,11 +52,13 @@ export class FirebaseService {
     private userNotificationTokenService: UserNotificationService,
     @Inject(forwardRef(() => UserService)) private userService: UserService,
   ) {
+    console.log('=== Firebase Service Constructor ===');
     // Check if Firebase app is already initialized
     try {
       this.app = admin.app();
       console.log('Using existing Firebase app instance');
     } catch (error) {
+      console.log('Initializing new Firebase app instance');
       // Initialize Firebase app with service account if not already initialized
       const serviceAccount = {
         projectId: process.env.FIREBASE_PROJECT_ID,
@@ -70,8 +72,8 @@ export class FirebaseService {
       console.log(`Private Key Length: ${serviceAccount.privateKey.length}`);
       console.log(`Private Key First 10 chars: ${serviceAccount.privateKey.substring(0, 10)}...`);
       console.log(`Private Key Last 10 chars: ...${serviceAccount.privateKey.substring(serviceAccount.privateKey.length - 10)}`);
-      console.log(`Private Key Format Check: ${serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
-      console.log(`Private Key Format Check: ${serviceAccount.privateKey.includes('-----END PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
+      console.log(`Private Key Format Check (BEGIN): ${serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
+      console.log(`Private Key Format Check (END): ${serviceAccount.privateKey.includes('-----END PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
       console.log('===========================');
 
       try {
@@ -89,16 +91,18 @@ export class FirebaseService {
           throw new Error('FIREBASE_PRIVATE_KEY is not properly formatted');
         }
 
+        console.log('Attempting to initialize Firebase app...');
         this.app = admin.initializeApp({
           credential: credential.cert(serviceAccount),
         });
-        console.log('Initialized new Firebase app instance');
+        console.log('Successfully initialized new Firebase app instance');
       } catch (initError) {
-        console.error(`Firebase initialization error: ${initError.message}`);
-        console.error(`Error stack: ${initError.stack}`);
+        console.error('Firebase initialization error:', initError.message);
+        console.error('Error stack:', initError.stack);
         throw initError;
       }
     }
+    console.log('=== Firebase Service Constructor Completed ===');
   }
 
   /**
