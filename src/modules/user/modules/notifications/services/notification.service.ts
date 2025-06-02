@@ -70,6 +70,8 @@ export class FirebaseService {
       process.stdout.write(`Private Key Length: ${serviceAccount.privateKey.length}\n`);
       process.stdout.write(`Private Key First 10 chars: ${serviceAccount.privateKey.substring(0, 10)}...\n`);
       process.stdout.write(`Private Key Last 10 chars: ...${serviceAccount.privateKey.substring(serviceAccount.privateKey.length - 10)}\n`);
+      process.stdout.write(`Private Key Format Check: ${serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----') ? 'Valid' : 'Invalid'}\n`);
+      process.stdout.write(`Private Key Format Check: ${serviceAccount.privateKey.includes('-----END PRIVATE KEY-----') ? 'Valid' : 'Invalid'}\n`);
       process.stdout.write('===========================\n');
 
       try {
@@ -242,6 +244,9 @@ export class FirebaseService {
           await this.userNotificationTokenService.removeInvalidTokens(invalidTokens);
           process.stdout.write('Invalid tokens removed successfully\n');
         }
+        
+        // Return false if any notifications failed to send
+        return false;
       }
 
       process.stdout.write('=== Firebase Send Process Completed ===\n');
