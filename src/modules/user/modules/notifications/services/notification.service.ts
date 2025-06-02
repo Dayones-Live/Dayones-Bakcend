@@ -55,7 +55,7 @@ export class FirebaseService {
     // Check if Firebase app is already initialized
     try {
       this.app = admin.app();
-      process.stdout.write('Using existing Firebase app instance\n');
+      console.log('Using existing Firebase app instance');
     } catch (error) {
       // Initialize Firebase app with service account if not already initialized
       const serviceAccount = {
@@ -64,15 +64,15 @@ export class FirebaseService {
         privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n').replace(/^"|"$/g, '') || '',
       };
 
-      process.stdout.write('=== Firebase Configuration ===\n');
-      process.stdout.write(`Project ID: ${serviceAccount.projectId}\n`);
-      process.stdout.write(`Client Email: ${serviceAccount.clientEmail}\n`);
-      process.stdout.write(`Private Key Length: ${serviceAccount.privateKey.length}\n`);
-      process.stdout.write(`Private Key First 10 chars: ${serviceAccount.privateKey.substring(0, 10)}...\n`);
-      process.stdout.write(`Private Key Last 10 chars: ...${serviceAccount.privateKey.substring(serviceAccount.privateKey.length - 10)}\n`);
-      process.stdout.write(`Private Key Format Check: ${serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----') ? 'Valid' : 'Invalid'}\n`);
-      process.stdout.write(`Private Key Format Check: ${serviceAccount.privateKey.includes('-----END PRIVATE KEY-----') ? 'Valid' : 'Invalid'}\n`);
-      process.stdout.write('===========================\n');
+      console.log('=== Firebase Configuration ===');
+      console.log(`Project ID: ${serviceAccount.projectId}`);
+      console.log(`Client Email: ${serviceAccount.clientEmail}`);
+      console.log(`Private Key Length: ${serviceAccount.privateKey.length}`);
+      console.log(`Private Key First 10 chars: ${serviceAccount.privateKey.substring(0, 10)}...`);
+      console.log(`Private Key Last 10 chars: ...${serviceAccount.privateKey.substring(serviceAccount.privateKey.length - 10)}`);
+      console.log(`Private Key Format Check: ${serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
+      console.log(`Private Key Format Check: ${serviceAccount.privateKey.includes('-----END PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
+      console.log('===========================');
 
       try {
         // Add more detailed error handling
@@ -92,10 +92,10 @@ export class FirebaseService {
         this.app = admin.initializeApp({
           credential: credential.cert(serviceAccount),
         });
-        process.stdout.write('Initialized new Firebase app instance\n');
+        console.log('Initialized new Firebase app instance');
       } catch (initError) {
-        process.stdout.write(`Firebase initialization error: ${initError.message}\n`);
-        process.stdout.write(`Error stack: ${initError.stack}\n`);
+        console.error(`Firebase initialization error: ${initError.message}`);
+        console.error(`Error stack: ${initError.stack}`);
         throw initError;
       }
     }
@@ -208,22 +208,22 @@ export class FirebaseService {
    */
   async sendNotification(payload: MulticastMessage): Promise<boolean> {
     try {
-      process.stdout.write('=== Starting Firebase Send Process ===\n');
-      process.stdout.write(`Sending notification with payload: ${JSON.stringify(payload, null, 2)}\n`);
+      console.log('=== Starting Firebase Send Process ===');
+      console.log(`Sending notification with payload: ${JSON.stringify(payload, null, 2)}`);
       
       if (!payload?.tokens?.length) {
-        process.stdout.write('No tokens provided for notification\n');
+        console.log('No tokens provided for notification');
         return false;
       }
 
       // Log token details
-      process.stdout.write(`Sending to tokens: ${JSON.stringify(payload.tokens)}\n`);
-      process.stdout.write(`APNs configuration: ${JSON.stringify({
+      console.log(`Sending to tokens: ${JSON.stringify(payload.tokens)}`);
+      console.log(`APNs configuration: ${JSON.stringify({
         bundleId: process.env.APNS_BUNDLE_ID,
         payload: payload.apns,
-      }, null, 2)}\n`);
+      }, null, 2)}`);
 
-      process.stdout.write('Calling Firebase messaging API...\n');
+      console.log('Calling Firebase messaging API...');
       const response = await this.app.messaging().sendEachForMulticast({
         tokens: payload.tokens,
         notification: payload.notification,
@@ -232,7 +232,7 @@ export class FirebaseService {
         apns: payload.apns,
       });
 
-      process.stdout.write(`Firebase messaging response: ${JSON.stringify({
+      console.log(`Firebase messaging response: ${JSON.stringify({
         successCount: response.successCount,
         failureCount: response.failureCount,
         responses: response.responses.map((resp, idx) => ({
@@ -240,10 +240,10 @@ export class FirebaseService {
           success: resp.success,
           error: resp.error,
         })),
-      }, null, 2)}\n`);
+      }, null, 2)}`);
       
       if (response.failureCount > 0) {
-        process.stdout.write(`Some notifications failed to send: ${JSON.stringify(response.responses)}\n`);
+        console.log(`Some notifications failed to send: ${JSON.stringify(response.responses)}`);
         
         // Handle invalid tokens
         const invalidTokens = response.responses
@@ -254,20 +254,20 @@ export class FirebaseService {
           .map((_, idx) => payload.tokens[idx]);
 
         if (invalidTokens.length > 0) {
-          process.stdout.write(`Removing ${invalidTokens.length} invalid tokens...\n`);
+          console.log(`Removing ${invalidTokens.length} invalid tokens...`);
           await this.userNotificationTokenService.removeInvalidTokens(invalidTokens);
-          process.stdout.write('Invalid tokens removed successfully\n');
+          console.log('Invalid tokens removed successfully');
         }
         
         // Return false if any notifications failed to send
         return false;
       }
 
-      process.stdout.write('=== Firebase Send Process Completed ===\n');
+      console.log('=== Firebase Send Process Completed ===');
       return true;
     } catch (err) {
-      process.stdout.write(`Error sending notification: ${err}\n`);
-      process.stdout.write(`Error stack: ${err.stack}\n`);
+      console.error(`Error sending notification: ${err}`);
+      console.error(`Error stack: ${err.stack}`);
       return false;
     }
   }
@@ -362,7 +362,7 @@ export class FirebaseService {
    */
   async markAsReadNotification(notificationId: string, userId: string): Promise<Notifications> {
     try {
-      process.stdout.write(`Marking notification ${notificationId} as read for user ${userId}\n`);
+      console.log(`Marking notification ${notificationId} as read for user ${userId}`);
       const notification = await this.notificationsRepository.findOne({
         where: { id: notificationId, to_id: userId },
       });
@@ -373,11 +373,11 @@ export class FirebaseService {
 
       notification.is_read = true;
       const updatedNotification = await this.notificationsRepository.save(notification);
-      process.stdout.write(`Notification marked as read: ${JSON.stringify(updatedNotification)}\n`);
+      console.log(`Notification marked as read: ${JSON.stringify(updatedNotification)}`);
       return updatedNotification;
     } catch (error) {
-      process.stdout.write(`Error marking notification as read: ${error}\n`);
-      process.stdout.write(`Error stack: ${error.stack}\n`);
+      console.error(`Error marking notification as read: ${error}`);
+      console.error(`Error stack: ${error.stack}`);
       throw error;
     }
   }
@@ -391,19 +391,19 @@ export class FirebaseService {
     addNotificationInput: AddNotificationInput,
   ): Promise<Notifications> {
     try {
-      process.stdout.write('=== Starting Notification Process ===\n');
-      process.stdout.write(`Adding notification: ${JSON.stringify(addNotificationInput, null, 2)}\n`);
+      console.log('=== Starting Notification Process ===');
+      console.log(`Adding notification: ${JSON.stringify(addNotificationInput, null, 2)}`);
       
       const notificationDto = this.notificationMapper.dtoToEntity(addNotificationInput);
-      process.stdout.write(`Created notification DTO: ${JSON.stringify(notificationDto, null, 2)}\n`);
+      console.log(`Created notification DTO: ${JSON.stringify(notificationDto, null, 2)}`);
       
       // Ensure data is always a JSON string
       let parsedData = {};
       try {
         parsedData = JSON.parse(addNotificationInput.data || '{}');
-        process.stdout.write(`Parsed notification data: ${JSON.stringify(parsedData)}\n`);
+        console.log(`Parsed notification data: ${JSON.stringify(parsedData)}`);
       } catch (e) {
-        process.stdout.write(`Failed to parse notification data: ${e}\n`);
+        console.log(`Failed to parse notification data: ${e}`);
         parsedData = { message: addNotificationInput.data };
       }
       
@@ -412,30 +412,30 @@ export class FirebaseService {
         test_value: 'DAYONES_NOTIF'
       });
       
-      process.stdout.write('Saving notification to database...\n');
+      console.log('Saving notification to database...');
       const notification = await this.notificationsRepository.save(notificationDto);
-      process.stdout.write(`Notification saved to database: ${JSON.stringify(notification, null, 2)}\n`);
+      console.log(`Notification saved to database: ${JSON.stringify(notification, null, 2)}`);
 
-      process.stdout.write(`Fetching user notification token for user: ${addNotificationInput.toId}\n`);
+      console.log(`Fetching user notification token for user: ${addNotificationInput.toId}`);
       const userToken = await this.userNotificationTokenService.getUserNotificationTokenByUserId(
         addNotificationInput.toId,
       );
-      process.stdout.write(`User notification token result: ${userToken ? 'Token found' : 'No token found'}\n`);
+      console.log(`User notification token result: ${userToken ? 'Token found' : 'No token found'}`);
       
       if (userToken) {
-        process.stdout.write(`Token details: ${JSON.stringify({
+        console.log(`Token details: ${JSON.stringify({
           userId: userToken.user_id,
           token: userToken.notification_token,
           createdAt: userToken.created_at,
           updatedAt: userToken.updated_at
-        }, null, 2)}\n`);
+        }, null, 2)}`);
 
         try {
-          process.stdout.write('Fetching sender profile...\n');
+          console.log('Fetching sender profile...');
           const senderProfile = await this.userService.findUserById(notification.from_id);
-          process.stdout.write(`Sender profile: ${JSON.stringify(senderProfile, null, 2)}\n`);
+          console.log(`Sender profile: ${JSON.stringify(senderProfile, null, 2)}`);
 
-          process.stdout.write('Creating FCM payload...\n');
+          console.log('Creating FCM payload...');
           const payload = this.createFcmMulticastPayload(
             notification,
             [userToken.notification_token],
@@ -443,29 +443,29 @@ export class FirebaseService {
             addNotificationInput.postId || null,
             addNotificationInput.conversationId || null,
           );
-          process.stdout.write(`Created FCM payload: ${JSON.stringify(payload, null, 2)}\n`);
+          console.log(`Created FCM payload: ${JSON.stringify(payload, null, 2)}`);
 
-          process.stdout.write('Sending notification to Firebase...\n');
+          console.log('Sending notification to Firebase...');
           const result = await this.sendNotification(payload);
-          process.stdout.write(`Firebase send result: ${result}\n`);
+          console.log(`Firebase send result: ${result}`);
         } catch (e) {
-          process.stdout.write(`Error in notification sending process: ${e}\n`);
-          process.stdout.write(`Error stack: ${e.stack}\n`);
+          console.error(`Error in notification sending process: ${e}`);
+          console.error(`Error stack: ${e.stack}`);
           throw e;
         }
       } else {
-        process.stdout.write(`No notification token found for user: ${addNotificationInput.toId}\n`);
-        process.stdout.write('To receive push notifications, the user needs to:\n');
-        process.stdout.write('1. Enable push notifications in the app\n');
-        process.stdout.write('2. Have the app register their device token with the backend\n');
-        process.stdout.write('3. Have a valid entry in the user-notifications table\n');
+        console.log(`No notification token found for user: ${addNotificationInput.toId}`);
+        console.log('To receive push notifications, the user needs to:');
+        console.log('1. Enable push notifications in the app');
+        console.log('2. Have the app register their device token with the backend');
+        console.log('3. Have a valid entry in the user-notifications table');
       }
 
-      process.stdout.write('=== Notification Process Completed ===\n');
+      console.log('=== Notification Process Completed ===');
       return notification;
     } catch (error) {
-      process.stdout.write(`Error in addNotification: ${error}\n`);
-      process.stdout.write(`Error stack: ${error.stack}\n`);
+      console.error(`Error in addNotification: ${error}`);
+      console.error(`Error stack: ${error.stack}`);
       throw error;
     }
   }
