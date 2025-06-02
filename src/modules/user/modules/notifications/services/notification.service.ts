@@ -72,10 +72,16 @@ export class FirebaseService {
       process.stdout.write(`Private Key Last 10 chars: ...${serviceAccount.privateKey.substring(serviceAccount.privateKey.length - 10)}\n`);
       process.stdout.write('===========================\n');
 
-      this.app = admin.initializeApp({
-        credential: credential.cert(serviceAccount),
-      });
-      process.stdout.write('Initialized new Firebase app instance\n');
+      try {
+        this.app = admin.initializeApp({
+          credential: credential.cert(serviceAccount),
+        });
+        process.stdout.write('Initialized new Firebase app instance\n');
+      } catch (initError) {
+        process.stdout.write(`Firebase initialization error: ${initError.message}\n`);
+        process.stdout.write(`Error stack: ${initError.stack}\n`);
+        throw initError;
+      }
     }
   }
 

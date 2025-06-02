@@ -36,13 +36,18 @@ export class UserNotificationService {
       if (userNotification) {
         process.stdout.write(`Found existing token: ${userNotification.notification_token}\n`);
         process.stdout.write(`Existing token length: ${userNotification.notification_token.length}\n`);
-        // Update existing user notification token
-        userNotification.notification_token = upsertUserNotificationInput.notificationToken;
-        const updated = await this.userNotificationRepository.save(userNotification);
-        process.stdout.write(`Token updated successfully\n`);
-        process.stdout.write(`Updated token: ${updated.notification_token}\n`);
+        
+        // Only update if the token has actually changed
+        if (userNotification.notification_token !== upsertUserNotificationInput.notificationToken) {
+          userNotification.notification_token = upsertUserNotificationInput.notificationToken;
+          const updated = await this.userNotificationRepository.save(userNotification);
+          process.stdout.write(`Token updated successfully\n`);
+          process.stdout.write(`Updated token: ${updated.notification_token}\n`);
+        } else {
+          process.stdout.write(`Token unchanged, skipping update\n`);
+        }
         process.stdout.write('=== User Notification Token Update Completed ===\n');
-        return updated;
+        return userNotification;
       }
 
       // Create new notification token
