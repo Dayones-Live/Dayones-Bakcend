@@ -75,6 +75,20 @@ export class FirebaseService {
       process.stdout.write('===========================\n');
 
       try {
+        // Add more detailed error handling
+        if (!serviceAccount.projectId) {
+          throw new Error('FIREBASE_PROJECT_ID is not set');
+        }
+        if (!serviceAccount.clientEmail) {
+          throw new Error('FIREBASE_CLIENT_EMAIL is not set');
+        }
+        if (!serviceAccount.privateKey) {
+          throw new Error('FIREBASE_PRIVATE_KEY is not set');
+        }
+        if (!serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+          throw new Error('FIREBASE_PRIVATE_KEY is not properly formatted');
+        }
+
         this.app = admin.initializeApp({
           credential: credential.cert(serviceAccount),
         });
