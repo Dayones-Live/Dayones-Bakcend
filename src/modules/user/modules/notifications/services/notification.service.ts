@@ -43,7 +43,6 @@ interface EnrichedNotification {
  * FirebaseService is responsible for handling Firebase-related operations, such as sending notifications.
  */
 export class FirebaseService {
-  private readonly app;
   private readonly logger = new Logger(FirebaseService.name);
 
   constructor(
@@ -53,14 +52,22 @@ export class FirebaseService {
     private userNotificationTokenService: UserNotificationService,
     @Inject(forwardRef(() => UserService)) private userService: UserService,
   ) {
-    this.logger.log('=== Firebase Service Constructor ===');
-    // Check if Firebase app is already initialized
+    this.logger.log('=== FirebaseService Constructor ===');
+    this.logger.log('Environment variables check:');
+    this.logger.log(`FIREBASE_PROJECT_ID: ${process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set'}`);
+    this.logger.log(`FIREBASE_CLIENT_EMAIL: ${process.env.FIREBASE_CLIENT_EMAIL ? 'Set' : 'Not set'}`);
+    this.logger.log(`FIREBASE_PRIVATE_KEY: ${process.env.FIREBASE_PRIVATE_KEY ? 'Set' : 'Not set'}`);
+    if (process.env.FIREBASE_PRIVATE_KEY) {
+      this.logger.log(`Private Key Length: ${process.env.FIREBASE_PRIVATE_KEY.length}`);
+      this.logger.log(`Private Key Format Check (BEGIN): ${process.env.FIREBASE_PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
+      this.logger.log(`Private Key Format Check (END): ${process.env.FIREBASE_PRIVATE_KEY.includes('-----END PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
+    }
+  }
+
+  private initializeFirebase() {
+    this.logger.log('=== Firebase Service Initialization ===');
     try {
-      this.app = admin.app();
-      this.logger.log('Using existing Firebase app instance');
-    } catch (error) {
-      this.logger.log('Initializing new Firebase app instance');
-      // Initialize Firebase app with service account if not already initialized
+      // Initialize Firebase app with service account
       const serviceAccount = {
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -77,33 +84,31 @@ export class FirebaseService {
       this.logger.log(`Private Key Format Check (END): ${serviceAccount.privateKey.includes('-----END PRIVATE KEY-----') ? 'Valid' : 'Invalid'}`);
       this.logger.log('===========================');
 
-      try {
-        // Add more detailed error handling
-        if (!serviceAccount.projectId) {
-          throw new Error('FIREBASE_PROJECT_ID is not set');
-        }
-        if (!serviceAccount.clientEmail) {
-          throw new Error('FIREBASE_CLIENT_EMAIL is not set');
-        }
-        if (!serviceAccount.privateKey) {
-          throw new Error('FIREBASE_PRIVATE_KEY is not set');
-        }
-        if (!serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-          throw new Error('FIREBASE_PRIVATE_KEY is not properly formatted');
-        }
-
-        this.logger.log('Attempting to initialize Firebase app...');
-        this.app = admin.initializeApp({
-          credential: credential.cert(serviceAccount),
-        });
-        this.logger.log('Successfully initialized new Firebase app instance');
-      } catch (initError) {
-        this.logger.error('Firebase initialization error:', initError.message);
-        this.logger.error('Error stack:', initError.stack);
-        throw initError;
+      // Add more detailed error handling
+      if (!serviceAccount.projectId) {
+        throw new Error('FIREBASE_PROJECT_ID is not set');
       }
+      if (!serviceAccount.clientEmail) {
+        throw new Error('FIREBASE_CLIENT_EMAIL is not set');
+      }
+      if (!serviceAccount.privateKey) {
+        throw new Error('FIREBASE_PRIVATE_KEY is not set');
+      }
+      if (!serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        throw new Error('FIREBASE_PRIVATE_KEY is not properly formatted');
+      }
+
+      this.logger.log('Attempting to initialize Firebase app...');
+      const app = admin.initializeApp({
+        credential: credential.cert(serviceAccount),
+      });
+      this.logger.log('Successfully initialized new Firebase app instance');
+      return app;
+    } catch (initError) {
+      this.logger.error('Firebase initialization error:', initError.message);
+      this.logger.error('Error stack:', initError.stack);
+      throw initError;
     }
-    this.logger.log('=== Firebase Service Constructor Completed ===');
   }
 
   /**
@@ -221,6 +226,9 @@ export class FirebaseService {
         return false;
       }
 
+      // Initialize Firebase for each notification
+      const app = this.initializeFirebase();
+
       // Log token details
       this.logger.log(`Sending to tokens: ${JSON.stringify(payload.tokens)}`);
       this.logger.log(`APNs configuration: ${JSON.stringify({
@@ -229,7 +237,7 @@ export class FirebaseService {
       }, null, 2)}`);
 
       this.logger.log('Calling Firebase messaging API...');
-      const response = await this.app.messaging().sendEachForMulticast({
+      const response = await app.messaging().sendEachForMulticast({
         tokens: payload.tokens,
         notification: payload.notification,
         data: payload.data,
