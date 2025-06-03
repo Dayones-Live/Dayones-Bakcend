@@ -9,6 +9,7 @@ import { ConversationModule } from '../conversations/conversation.module';
 import { SocketModule } from '@app/modules/user/modules/socket/socket.module';
 import { NotificationModule } from '@app/modules/user/modules/notifications/notification.module';
 import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
+import { SharedModule } from '@app/shared/shared.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
     forwardRef(() => SocketModule),
     forwardRef(() => NotificationModule),
     BlocksModule,
+    SharedModule,
   ],
   controllers: [MessageController],
   providers: [MessageService, MessageMapper],
