@@ -34,6 +34,9 @@ export class NotificationService {
   ): Promise<void> {
     try {
       if (!this.appId || !this.restApiKey) {
+        this.logger.error('OneSignal credentials not configured');
+        this.logger.error('ONESIGNAL_APP_ID:', this.appId ? '***' : 'undefined');
+        this.logger.error('ONESIGNAL_REST_API_KEY:', this.restApiKey ? '***' : 'undefined');
         throw new Error('OneSignal credentials not configured');
       }
 
@@ -57,6 +60,7 @@ export class NotificationService {
       };
 
       this.logger.log('OneSignal API payload:', JSON.stringify(payload, null, 2));
+      this.logger.log('Sending request to OneSignal API...');
 
       const response = await axios.post(
         'https://onesignal.com/api/v1/notifications',
@@ -70,10 +74,13 @@ export class NotificationService {
       );
 
       this.logger.log('OneSignal API response:', JSON.stringify(response.data, null, 2));
+      this.logger.log('Notification sent successfully to OneSignal');
     } catch (error) {
       this.logger.error('Error sending notification to OneSignal:', error.message);
       if (error.response) {
         this.logger.error('OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+        this.logger.error('OneSignal API error status:', error.response.status);
+        this.logger.error('OneSignal API error headers:', JSON.stringify(error.response.headers, null, 2));
       }
       throw error;
     }
