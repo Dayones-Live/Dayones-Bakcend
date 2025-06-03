@@ -14,5 +14,6 @@ import { UserNotificationModule } from '@app/modules/user/modules/user-notificat
   ],
   providers: [NotificationMapper],
   controllers: [NotificationsController],
+  exports: [TypeOrmModule],
 })
 export class NotificationModule {}
