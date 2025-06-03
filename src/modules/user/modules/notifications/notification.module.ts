@@ -5,12 +5,14 @@ import { NotificationMapper } from './dto/notifications.mapper';
 import { NotificationsController } from './controllers/notifications.controller';
 import { UserModule } from '@app/modules/user/user.module';
 import { UserNotificationModule } from '@app/modules/user/modules/user-notifications/user-notification.module';
+import { SharedModule } from '@app/shared/shared.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Notifications]),
     forwardRef(() => UserModule),
     UserNotificationModule,
+    SharedModule,
   ],
   providers: [NotificationMapper],
   controllers: [NotificationsController],

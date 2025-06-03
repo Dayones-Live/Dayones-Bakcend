@@ -8,6 +8,8 @@ import { UserModule } from '@app/modules/user/user.module';
 import { ArtistPostUserModule } from '../artist-post-user/atrist-post-user.module';
 import { NotificationModule } from '@app/modules/user/modules/notifications/notification.module';
 import { CommentReactionsModule } from '../comment-reactions/comment-reactions.module';
+import { SharedModule } from '@app/shared/shared.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Comments]),
@@ -15,6 +17,7 @@ import { CommentReactionsModule } from '../comment-reactions/comment-reactions.m
     NotificationModule,
     ArtistPostUserModule,
     CommentReactionsModule,
+    SharedModule,
   ],
   controllers: [CommentsController],
   providers: [CommentsService, CommentsMapper],
