@@ -1,14 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Client } from 'onesignal-node';
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+const OneSignal = require('onesignal-node');
+
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
-  private oneSignalClient: Client;
+  private oneSignalClient: any;
 
   constructor(
     private configService: ConfigService,
@@ -28,7 +29,7 @@ export class NotificationService {
         return;
       }
 
-      this.oneSignalClient = new Client(appId, restApiKey);
+      this.oneSignalClient = new OneSignal.Client(appId, restApiKey);
       this.logger.log('OneSignal client initialized successfully');
     } catch (error) {
       this.logger.error('Failed to initialize OneSignal client:', error);
