@@ -12,6 +12,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { ConversationService } from '@app/modules/user/modules/chat/conversations/services/conversation.service';
 import {
@@ -30,6 +31,8 @@ import { UserDeviceService } from '@app/modules/user/services/user-device.servic
 
 @Injectable()
 export class MessageService {
+  private readonly logger = new Logger(MessageService.name);
+
   constructor(
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
@@ -148,8 +151,8 @@ export class MessageService {
           : isMember?.sender_id;
 
       try {
-        console.log('Attempting to send message notification...');
-        console.log('Notification details:', {
+        this.logger.log('Attempting to send message notification...');
+        this.logger.log('Notification details:', {
           toId,
           fromId: userId,
           message: req?.message || `[${req?.mediaType}]`,
@@ -178,10 +181,10 @@ export class MessageService {
           await this.notificationService.sendNotification(savedNotification, playerIds);
         }
         
-        console.log('Message notification sent successfully');
+        this.logger.log('Message notification sent successfully');
       } catch (err) {
-        console.error('🚀 ~ Error sending message notification:', err);
-        console.error('Error details:', {
+        this.logger.error('Error sending message notification:', err);
+        this.logger.error('Error details:', {
           message: err.message,
           stack: err.stack
         });
