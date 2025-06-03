@@ -9,10 +9,12 @@ import { ChatModule } from './modules/chat/chat.module';
 import { ArtistPostModule } from '../posts/modules/artist-post/artist-post.module';
 import { ArtistPostUserModule } from '../posts/modules/artist-post-user/atrist-post-user.module';
 import { NotificationModule } from './modules/notifications/notification.module';
+import { UserDevice } from './entities/user-device.entity';
+import { UserDeviceService } from './services/user-device.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, UserDevice]),
     forwardRef(() => CognitoModule),
     forwardRef(() => NotificationModule),
     ChatModule,
@@ -20,7 +22,7 @@ import { NotificationModule } from './modules/notifications/notification.module'
     ArtistPostUserModule,
   ],
   controllers: [UserController],
-  providers: [UserService, UserMapper],
-  exports: [UserService],
+  providers: [UserService, UserMapper, UserDeviceService],
+  exports: [UserService, UserDeviceService],
 })
 export class UserModule {}
