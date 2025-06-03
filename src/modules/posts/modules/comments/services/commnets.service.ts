@@ -14,19 +14,23 @@ import { ArtistPostUserService } from '../../artist-post-user/services/artist-po
 import { User } from '@user/entities/user.entity';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
-import { FirebaseService } from '@app/modules/user/modules/notifications/services/notification.service';
+import { NotificationService } from '@app/shared/services/notification.service';
 import { NOTIFICATION_TYPE } from '@app/modules/user/modules/notifications/constants';
 import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
+import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
+import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 
 @Injectable()
 export class CommentsService {
   constructor(
     @InjectRepository(Comments)
     private commentsRepository: Repository<Comments>,
+    @InjectRepository(Notifications)
+    private notificationsRepository: Repository<Notifications>,
     private commentsMapper: CommentsMapper,
     private artistPostUserService: ArtistPostUserService,
-    @Inject(forwardRef(() => FirebaseService))
-    private firebaseService: FirebaseService,
+    private notificationService: NotificationService,
+    private userDeviceService: UserDeviceService,
   ) {}
 
   /**
@@ -82,21 +86,29 @@ export class CommentsService {
       }
       //send and save notification
       try {
-        await this.firebaseService.addNotification({
-          isRead: false,
-          fromId: userId,
-          postId: postId,
-          title: 'Comment',
-          type: NOTIFICATION_TYPE.COMMENT,
-          data: JSON.stringify({
-            message: createCommentInput?.message,
-            post_id: postId
-          }),
+        const toId = artistPostUserGeneric?.artistPost?.user_id || artistPostUser?.artistPost?.user_id;
+        
+        const notification = new Notifications();
+        notification.is_read = false;
+        notification.from_id = userId;
+        notification.post_id = postId;
+        notification.title = 'Comment';
+        notification.type = NOTIFICATION_TYPE.COMMENT;
+        notification.data = JSON.stringify({
           message: createCommentInput?.message,
-          toId:
-            artistPostUserGeneric?.artistPost?.user_id ||
-            artistPostUser?.artistPost?.user_id,
+          post_id: postId
         });
+        notification.message = createCommentInput?.message;
+        notification.to_id = toId;
+
+        const savedNotification = await this.notificationsRepository.save(notification);
+        
+        // Get active OneSignal player IDs for the recipient
+        const playerIds = await this.userDeviceService.getActivePlayerIds(toId);
+        
+        if (playerIds.length > 0) {
+          await this.notificationService.sendNotification(savedNotification, playerIds);
+        }
       } catch (err) {
         console.error('🚀 ~ Sending/Saving Notification ~ err:', err);
       }

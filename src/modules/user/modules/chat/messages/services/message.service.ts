@@ -19,24 +19,29 @@ import {
   GetAllMessagesDto,
   AllMessageResponse,
 } from '../dto/types';
-import { FirebaseService } from '@app/modules/user/modules/notifications/services/notification.service';
 import {
   NOTIFICATION_TITLE,
   NOTIFICATION_TYPE,
 } from '@app/modules/user/modules/notifications/constants';
 import { BlocksService } from '@app/modules/user/modules/blocks/services/blocks.service';
+import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
+import { NotificationService } from '@app/shared/services/notification.service';
+import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 
 @Injectable()
 export class MessageService {
   constructor(
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
+    @InjectRepository(Notifications)
+    private notificationsRepository: Repository<Notifications>,
     private messageMapper: MessageMapper,
     private socketInitializer: SocketInitializer,
     @Inject(forwardRef(() => ConversationService))
     private conversationService: ConversationService,
-    @Inject(forwardRef(() => FirebaseService)) private firebaseService: FirebaseService,
     private blockService: BlocksService,
+    private notificationService: NotificationService,
+    private userDeviceService: UserDeviceService,
   ) {}
 
   /**
@@ -151,19 +156,28 @@ export class MessageService {
           conversationId: req.conversationId
         });
 
-        await this.firebaseService.addNotification({
-          toId: toId,
-          isRead: false,
-          fromId: userId,
-          title: NOTIFICATION_TITLE.MESSAGE,
-          data: JSON.stringify({
-            message: req?.message || `[${req?.mediaType}]`,
-            conversation_id: req.conversationId
-          }),
+        const notification = new Notifications();
+        notification.to_id = toId;
+        notification.is_read = false;
+        notification.from_id = userId;
+        notification.title = NOTIFICATION_TITLE.MESSAGE;
+        notification.data = JSON.stringify({
           message: req?.message || `[${req?.mediaType}]`,
-          type: NOTIFICATION_TYPE.MESSAGE,
-          conversationId: req.conversationId,
+          conversation_id: req.conversationId
         });
+        notification.message = req?.message || `[${req?.mediaType}]`;
+        notification.type = NOTIFICATION_TYPE.MESSAGE;
+        notification.conversation_id = req.conversationId;
+
+        const savedNotification = await this.notificationsRepository.save(notification);
+        
+        // Get active OneSignal player IDs for the recipient
+        const playerIds = await this.userDeviceService.getActivePlayerIds(toId);
+        
+        if (playerIds.length > 0) {
+          await this.notificationService.sendNotification(savedNotification, playerIds);
+        }
+        
         console.log('Message notification sent successfully');
       } catch (err) {
         console.error('🚀 ~ Error sending message notification:', err);

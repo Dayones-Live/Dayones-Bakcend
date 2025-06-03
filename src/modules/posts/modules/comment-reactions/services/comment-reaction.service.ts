@@ -13,17 +13,18 @@ import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { CommentReactionMapper } from '../dto/comment-reaction.mapper';
 import { CommentsService } from '../../comments/services/commnets.service';
 import { User } from '@app/modules/user/entities/user.entity';
-import { FirebaseService } from '@app/modules/user/modules/notifications/services/notification.service';
 import { NOTIFICATION_TITLE, NOTIFICATION_TYPE } from '@app/modules/user/modules/notifications/constants';
+import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 
 @Injectable()
 export class CommentReactionsService {
   constructor(
     @InjectRepository(CommentReactions)
     private commentReactionRepository: Repository<CommentReactions>,
+    @InjectRepository(Notifications)
+    private notificationsRepository: Repository<Notifications>,
     private commentReactionMapper: CommentReactionMapper,
     private commentsService: CommentsService,
-    private firebaseSerivce: FirebaseService,
   ) {}
 
   /**
@@ -56,20 +57,23 @@ export class CommentReactionsService {
       const likeACommentDto = this.commentReactionMapper.dtoToEntity(
         createCommentReactionInput,
       );
-      await this.firebaseSerivce.addNotification({
-        toId: comment?.comment_by || comment?.artistPostUser?.user_id,
-        isRead: false,
-        fromId: user?.id,
-        title: NOTIFICATION_TITLE.LIKE_COMMENT,
-        data: JSON.stringify({
-          ...likeACommentDto,
-          post_id: comment?.artistPostUser?.artist_post_id,
-          test_value: 'DAYONES_NOTIF'
-        }),
-        message: `${user?.full_name} ${NOTIFICATION_TITLE.LIKE_COMMENT}`,
-        type: NOTIFICATION_TYPE.REACTION,
-        postId: comment?.artistPostUser?.artist_post_id,
+
+      // Create notification
+      const notification = new Notifications();
+      notification.to_id = comment?.comment_by || comment?.artistPostUser?.user_id;
+      notification.is_read = false;
+      notification.from_id = user?.id;
+      notification.title = NOTIFICATION_TITLE.LIKE_COMMENT;
+      notification.data = JSON.stringify({
+        ...likeACommentDto,
+        post_id: comment?.artistPostUser?.artist_post_id,
+        test_value: 'DAYONES_NOTIF'
       });
+      notification.message = `${user?.full_name} ${NOTIFICATION_TITLE.LIKE_COMMENT}`;
+      notification.type = NOTIFICATION_TYPE.REACTION;
+      notification.post_id = comment?.artistPostUser?.artist_post_id;
+      
+      await this.notificationsRepository.save(notification);
       return await this.commentReactionRepository.save(likeACommentDto);
     } catch (error) {
       console.error(

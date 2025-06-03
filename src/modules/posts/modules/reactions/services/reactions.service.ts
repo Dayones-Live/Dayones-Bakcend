@@ -8,19 +8,19 @@ import { ArtistPostUserService } from '../../artist-post-user/services/artist-po
 import { User } from '@app/modules/user/entities/user.entity';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
-import { FirebaseService } from '@app/modules/user/modules/notifications/services/notification.service';
-import { AddNotificationInput } from '@app/modules/user/modules/notifications/dto/types';
 import { NOTIFICATION_TITLE, NOTIFICATION_TYPE } from '@app/modules/user/modules/notifications/constants';
 import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
+import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 
 @Injectable()
 export class ReactionService {
   constructor(
     @InjectRepository(Reactions)
     private reactionsRepository: Repository<Reactions>,
+    @InjectRepository(Notifications)
+    private notificationsRepository: Repository<Notifications>,
     private reactionsMapper: ReactionsMapper,
     private artistPostUserService: ArtistPostUserService,
-    private readonly firebaseService: FirebaseService,
   ) {}
 
   /**
@@ -96,19 +96,19 @@ export class ReactionService {
         toId = artistPostUser?.user_id;
       }
 
-      // Sending and saving notifications of reactions
+      // Create and save notification
       try {
-        const notification: AddNotificationInput = {
-          data: JSON.stringify(reaction),
-          title: NOTIFICATION_TITLE.LIKE_POST,
-          isRead: false,
-          fromId: userId,
-          message: 'Someone like your post',
-          type: NOTIFICATION_TYPE.REACTION,
-          toId: toId,
-          postId: postId,
-        };
-        await this.firebaseService.addNotification(notification);
+        const notification = new Notifications();
+        notification.data = JSON.stringify(reaction);
+        notification.title = NOTIFICATION_TITLE.LIKE_POST;
+        notification.is_read = false;
+        notification.from_id = userId;
+        notification.message = 'Someone like your post';
+        notification.type = NOTIFICATION_TYPE.REACTION;
+        notification.to_id = toId;
+        notification.post_id = postId;
+        
+        await this.notificationsRepository.save(notification);
       } catch (err) {
         console.error('🚀 ~ Sending/Saving Reaction Notificaiton ~ err:', err);
       }

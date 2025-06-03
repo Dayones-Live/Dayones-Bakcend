@@ -1,5 +1,4 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { FirebaseService } from './services/notification.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Notifications } from './entities/notifications.entity';
 import { NotificationMapper } from './dto/notifications.mapper';
@@ -13,8 +12,7 @@ import { UserNotificationModule } from '@app/modules/user/modules/user-notificat
     forwardRef(() => UserModule),
     UserNotificationModule,
   ],
-  providers: [FirebaseService, NotificationMapper],
+  providers: [NotificationMapper],
   controllers: [NotificationsController],
-  exports: [FirebaseService], // Export the service for use in other modules
 })
 export class NotificationModule {}
