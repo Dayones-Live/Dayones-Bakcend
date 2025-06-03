@@ -19,6 +19,8 @@ export class NotificationService {
   ) {
     this.oneSignalAppId = this.configService.get<string>('ONESIGNAL_APP_ID');
     this.oneSignalRestApiKey = this.configService.get<string>('ONESIGNAL_REST_API_KEY');
+    this.logger.log(`OneSignal App ID: ${this.oneSignalAppId ? 'Configured' : 'Not Configured'}`);
+    this.logger.log(`OneSignal REST API Key: ${this.oneSignalRestApiKey ? 'Configured' : 'Not Configured'}`);
   }
 
   async sendNotification(
@@ -30,6 +32,9 @@ export class NotificationService {
         this.logger.error('OneSignal credentials are not properly configured');
         return;
       }
+
+      this.logger.log(`Sending notification to ${playerIds.length} devices`);
+      this.logger.log(`Player IDs: ${JSON.stringify(playerIds)}`);
 
       const notificationPayload = {
         app_id: this.oneSignalAppId,
@@ -43,6 +48,8 @@ export class NotificationService {
         },
       };
 
+      this.logger.log('OneSignal notification payload:', JSON.stringify(notificationPayload, null, 2));
+
       const response = await axios.post(
         `${this.oneSignalApiUrl}/notifications`,
         notificationPayload,
@@ -54,9 +61,12 @@ export class NotificationService {
         },
       );
 
-      this.logger.log('OneSignal notification sent successfully:', response.data);
+      this.logger.log('OneSignal API Response:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       this.logger.error('Failed to send OneSignal notification:', error);
+      if (error.response) {
+        this.logger.error('OneSignal API Error Response:', JSON.stringify(error.response.data, null, 2));
+      }
       throw error;
     }
   }
@@ -70,6 +80,8 @@ export class NotificationService {
         return;
       }
 
+      this.logger.log('Sending notification to all users');
+
       const notificationPayload = {
         app_id: this.oneSignalAppId,
         included_segments: ['All'],
@@ -82,6 +94,8 @@ export class NotificationService {
         },
       };
 
+      this.logger.log('OneSignal notification payload:', JSON.stringify(notificationPayload, null, 2));
+
       const response = await axios.post(
         `${this.oneSignalApiUrl}/notifications`,
         notificationPayload,
@@ -93,9 +107,12 @@ export class NotificationService {
         },
       );
 
-      this.logger.log('OneSignal notification sent to all users successfully:', response.data);
+      this.logger.log('OneSignal API Response:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       this.logger.error('Failed to send OneSignal notification to all users:', error);
+      if (error.response) {
+        this.logger.error('OneSignal API Error Response:', JSON.stringify(error.response.data, null, 2));
+      }
       throw error;
     }
   }
