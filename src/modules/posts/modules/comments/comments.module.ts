@@ -9,10 +9,14 @@ import { ArtistPostUserModule } from '../artist-post-user/atrist-post-user.modul
 import { NotificationModule } from '@app/modules/user/modules/notifications/notification.module';
 import { CommentReactionsModule } from '../comment-reactions/comment-reactions.module';
 import { SharedModule } from '@app/shared/shared.module';
+import { ArtistPostUser } from '../artist-post-user/entities/artist-post-user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Comments]),
+    TypeOrmModule.forFeature([
+      Comments,
+      ArtistPostUser,
+    ]),
     forwardRef(() => UserModule),
     NotificationModule,
     ArtistPostUserModule,
