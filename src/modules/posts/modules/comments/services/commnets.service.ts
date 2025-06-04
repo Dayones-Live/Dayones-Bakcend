@@ -107,9 +107,10 @@ export class CommentsService {
         
         // Get active OneSignal player IDs for the recipient
         const playerIds = await this.userDeviceService.getActivePlayerIds(toId);
+        console.log('[CommentsService] playerIds for comment notification:', playerIds);
         
         if (playerIds.length > 0) {
-          // Send push notification directly using pushNotificationService
+          console.log('[CommentsService] Sending push notification for comment...');
           await this.pushNotificationService.sendPushNotification(
             playerIds,
             'Comment',
@@ -120,9 +121,12 @@ export class CommentsService {
               notification_id: savedNotification.id
             }
           );
+          console.log('[CommentsService] Push notification sent for comment!');
+        } else {
+          console.log('[CommentsService] No playerIds found for comment notification.');
         }
       } catch (err) {
-        console.error('🚀 ~ Sending/Saving Notification ~ err:', err);
+        console.error('[CommentsService] Error sending/saving comment notification:', err);
       }
       return comment;
     } catch (error) {
