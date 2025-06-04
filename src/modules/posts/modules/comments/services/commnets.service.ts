@@ -33,6 +33,8 @@ export class CommentsService {
     private notificationService: NotificationService,
     private userDeviceService: UserDeviceService,
     private pushNotificationService: PushNotificationService,
+    @InjectRepository(ArtistPostUser)
+    private artistPostUserRepository: Repository<ArtistPostUser>,
   ) {}
 
   /**
@@ -90,7 +92,7 @@ export class CommentsService {
       // Send notifications to post viewers and artist
       try {
         // Get all users who are viewing the post (except the commenter)
-        const postViewers = await this.artistPostUserService.find({
+        const postViewers = await this.artistPostUserRepository.find({
           where: {
             artist_post_id: postId,
             status: Invite_Status.ACCEPTED,
@@ -108,7 +110,7 @@ export class CommentsService {
         }
 
         // Build a set of user_ids to notify (viewers + artist, no duplicates, no commenter)
-        const notifyUserIds = new Set(postViewers.map(v => v.user_id));
+        const notifyUserIds = new Set<string>(postViewers.map(v => v.user_id));
         if (artistUserId && artistUserId !== userId) {
           notifyUserIds.add(artistUserId);
         }
