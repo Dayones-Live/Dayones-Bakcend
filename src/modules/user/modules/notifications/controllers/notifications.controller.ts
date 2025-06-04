@@ -38,7 +38,7 @@ export class NotificationsController {
       notification.from_id = req?.user?.id;
       notification.title = 'Test Notification';
       notification.message = 'This is a test notification';
-      notification.type = 'MESSAGE';
+      notification.type = 'message';
       notification.is_read = false;
       notification.data = JSON.stringify({ test: true });
 
