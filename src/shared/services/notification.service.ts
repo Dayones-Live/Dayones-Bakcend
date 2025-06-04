@@ -43,6 +43,11 @@ export class NotificationService {
       this.logger.log(`Sending notification to ${playerIds.length} devices`);
       this.logger.log('Player IDs:', playerIds);
 
+      if (playerIds.length === 0) {
+        this.logger.warn('No active devices found for user. Skipping OneSignal notification.');
+        return;
+      }
+
       const payload = {
         app_id: this.appId,
         include_player_ids: playerIds,
