@@ -10,12 +10,12 @@ export const NOTIFICATION_TITLE = {
 } as const;
 
 export const NOTIFICATION_TYPE = {
-  LIKE_POST: 'LIKE_POST',
-  DISLIKE_POST: 'DISLIKE_POST',
-  REACTION: 'REACTION',
-  COMMENT: 'COMMENT',
-  LIKE_COMMENT: 'LIKE_COMMENT',
-  DISLIKE_COMMENT: 'DISLIKE_COMMENT',
-  MESSAGE: 'MESSAGE',
-  INVITE: 'INVITE',
+  LIKE_POST: 'reaction',
+  DISLIKE_POST: 'reaction',
+  REACTION: 'reaction',
+  COMMENT: 'comments',
+  LIKE_COMMENT: 'reaction',
+  DISLIKE_COMMENT: 'reaction',
+  INVITE: 'invite',
+  MESSAGE: 'message',
 } as const; 
