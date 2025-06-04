@@ -23,12 +23,15 @@ export class PushNotificationTestController {
     try {
       // Get the target user ID (either the requesting user or a specified user)
       const targetUserId = body.targetUserId || req.user.id;
+      this.logger.log(`Target user ID: ${targetUserId}`);
       
       // Check if the user exists by user_sub
       const user = await this.userService.findUserByUserSub(targetUserId);
+      this.logger.log(`User found: ${JSON.stringify(user)}`);
       
       // Get active device IDs for the target user
       const playerIds = await this.userDeviceService.getActivePlayerIds(user.id);
+      this.logger.log(`Active player IDs: ${JSON.stringify(playerIds)}`);
       
       if (playerIds.length === 0) {
         throw new HttpException(
