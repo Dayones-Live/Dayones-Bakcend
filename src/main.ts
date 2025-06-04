@@ -13,18 +13,27 @@ async function bootstrap() {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
   
-  // Enable CORS
+  // Enable CORS with more specific configuration
   app.enableCors({
-    origin: true, // Allow all origins
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    origin: ['https://dayones.app', 'http://localhost:3000', 'http://localhost:3001'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: 'Content-Type, Accept, Authorization',
+    allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 3600,
   });
   
   app.setGlobalPrefix('api/v1');
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/document', app, document);
-  app.useGlobalPipes(new ValidationPipe());
+  
+  // Add global validation pipe with better error handling
+  app.useGlobalPipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    errorHttpStatusCode: 422,
+  }));
 
   const socketModule = app.get(SocketModule);
   socketModule.setHttpServer(app.getHttpServer());

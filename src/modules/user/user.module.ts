@@ -11,6 +11,7 @@ import { ArtistPostUserModule } from '../posts/modules/artist-post-user/atrist-p
 import { NotificationModule } from './modules/notifications/notification.module';
 import { UserDevice } from './entities/user-device.entity';
 import { UserDeviceService } from './services/user-device.service';
+import { UserDeviceController } from './controllers/user-device.controller';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { UserDeviceService } from './services/user-device.service';
     ArtistPostModule,
     ArtistPostUserModule,
   ],
-  controllers: [UserController],
+  controllers: [UserController, UserDeviceController],
   providers: [UserService, UserMapper, UserDeviceService],
   exports: [UserService, UserDeviceService],
 })
