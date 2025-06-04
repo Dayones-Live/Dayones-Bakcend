@@ -86,48 +86,77 @@ export class CommentsService {
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
       }
-      //send and save notification
-      try {
-        const toId = artistPostUserGeneric?.artistPost?.user_id || artistPostUser?.artistPost?.user_id;
-        
-        const notification = new Notifications();
-        notification.is_read = false;
-        notification.from_id = userId;
-        notification.post_id = postId;
-        notification.title = 'Comment';
-        notification.type = NOTIFICATION_TYPE.COMMENT;
-        notification.data = JSON.stringify({
-          message: createCommentInput?.message,
-          post_id: postId
-        });
-        notification.message = createCommentInput?.message;
-        notification.to_id = toId;
 
-        const savedNotification = await this.notificationsRepository.save(notification);
-        
-        // Get active OneSignal player IDs for the recipient
-        const playerIds = await this.userDeviceService.getActivePlayerIds(toId);
-        console.log('[CommentsService] playerIds for comment notification:', playerIds);
-        
-        if (playerIds.length > 0) {
-          console.log('[CommentsService] Sending push notification for comment...');
-          await this.pushNotificationService.sendPushNotification(
-            playerIds,
-            'Comment',
-            createCommentInput?.message,
-            {
-              type: NOTIFICATION_TYPE.COMMENT,
-              post_id: postId,
-              notification_id: savedNotification.id
-            }
-          );
-          console.log('[CommentsService] Push notification sent for comment!');
-        } else {
-          console.log('[CommentsService] No playerIds found for comment notification.');
+      // Send notifications to post viewers and artist
+      try {
+        // Get all users who are viewing the post (except the commenter)
+        const postViewers = await this.artistPostUserService.find({
+          where: {
+            artist_post_id: postId,
+            status: Invite_Status.ACCEPTED,
+            user_id: Not(userId), // Exclude the commenter
+          },
+          relations: ['user'],
+        });
+
+        // Get the artist (post creator) user_id
+        let artistUserId: string | undefined;
+        if (artistPostUserGeneric && artistPostUserGeneric.artistPost?.user_id) {
+          artistUserId = artistPostUserGeneric.artistPost.user_id;
+        } else if (artistPostUser && artistPostUser.artistPost?.user_id) {
+          artistUserId = artistPostUser.artistPost.user_id;
+        }
+
+        // Build a set of user_ids to notify (viewers + artist, no duplicates, no commenter)
+        const notifyUserIds = new Set(postViewers.map(v => v.user_id));
+        if (artistUserId && artistUserId !== userId) {
+          notifyUserIds.add(artistUserId);
+        }
+
+        console.log('[CommentsService] Notifying user IDs:', Array.from(notifyUserIds));
+
+        // Send notification to each recipient
+        for (const notifyUserId of notifyUserIds) {
+          const notification = new Notifications();
+          notification.is_read = false;
+          notification.from_id = userId;
+          notification.post_id = postId;
+          notification.title = 'Comment';
+          notification.type = NOTIFICATION_TYPE.COMMENT;
+          notification.data = JSON.stringify({
+            message: createCommentInput?.message,
+            post_id: postId
+          });
+          notification.message = createCommentInput?.message;
+          notification.to_id = notifyUserId;
+
+          const savedNotification = await this.notificationsRepository.save(notification);
+          
+          // Get active OneSignal player IDs for the recipient
+          const playerIds = await this.userDeviceService.getActivePlayerIds(notifyUserId);
+          console.log('[CommentsService] Player IDs for notifyUserId:', notifyUserId, playerIds);
+          
+          if (playerIds.length > 0) {
+            console.log('[CommentsService] Sending push notification to notifyUserId:', notifyUserId);
+            await this.pushNotificationService.sendPushNotification(
+              playerIds,
+              'Comment',
+              createCommentInput?.message,
+              {
+                type: NOTIFICATION_TYPE.COMMENT,
+                post_id: postId,
+                notification_id: savedNotification.id
+              }
+            );
+            console.log('[CommentsService] Push notification sent to notifyUserId:', notifyUserId);
+          } else {
+            console.log('[CommentsService] No player IDs found for notifyUserId:', notifyUserId);
+          }
         }
       } catch (err) {
-        console.error('[CommentsService] Error sending/saving comment notification:', err);
+        console.error('[CommentsService] Error sending/saving comment notifications:', err);
       }
+
       return comment;
     } catch (error) {
       console.error(
