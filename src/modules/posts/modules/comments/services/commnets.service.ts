@@ -19,6 +19,7 @@ import { NOTIFICATION_TYPE } from '@app/modules/user/modules/notifications/const
 import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
+import { PushNotificationService } from '@app/shared/services/push-notification.service';
 
 @Injectable()
 export class CommentsService {
@@ -31,6 +32,7 @@ export class CommentsService {
     private artistPostUserService: ArtistPostUserService,
     private notificationService: NotificationService,
     private userDeviceService: UserDeviceService,
+    private pushNotificationService: PushNotificationService,
   ) {}
 
   /**
@@ -107,7 +109,17 @@ export class CommentsService {
         const playerIds = await this.userDeviceService.getActivePlayerIds(toId);
         
         if (playerIds.length > 0) {
-          await this.notificationService.sendNotification(savedNotification, playerIds);
+          // Send push notification directly using pushNotificationService
+          await this.pushNotificationService.sendPushNotification(
+            playerIds,
+            'Comment',
+            createCommentInput?.message,
+            {
+              type: NOTIFICATION_TYPE.COMMENT,
+              post_id: postId,
+              notification_id: savedNotification.id
+            }
+          );
         }
       } catch (err) {
         console.error('🚀 ~ Sending/Saving Notification ~ err:', err);

@@ -13,7 +13,7 @@ export const NOTIFICATION_TYPE = {
   LIKE_POST: 'reaction',
   DISLIKE_POST: 'reaction',
   REACTION: 'reaction',
-  COMMENT: 'comments',
+  COMMENT: 'comment',
   LIKE_COMMENT: 'reaction',
   DISLIKE_COMMENT: 'reaction',
   INVITE: 'invite',
