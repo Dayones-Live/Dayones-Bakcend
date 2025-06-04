@@ -17,6 +17,6 @@ import { BlocksModule } from '../../blocks/blocks.module';
   ],
   controllers: [ConversationController],
   providers: [ConversationService, ConversationMapper],
-  exports: [ConversationService],
+  exports: [ConversationService, TypeOrmModule],
 })
 export class ConversationModule {}

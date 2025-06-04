@@ -2,6 +2,7 @@ import { Repository } from 'typeorm';
 import { Paginate } from '@app/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Message } from '../entities/message.entity';
+import { Conversations } from '@app/modules/user/modules/chat/conversations/entities/conversation.entity';
 import { MessageMapper } from '../dto/message.mapper';
 import { SocketInitializer } from '@app/modules/user/modules/socket/socket';
 import { ERROR_MESSAGES } from '@app/shared/constants/constants';
@@ -28,6 +29,7 @@ import { BlocksService } from '@app/modules/user/modules/blocks/services/blocks.
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 import { NotificationService } from '@app/shared/services/notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
+import { PushNotificationService } from '@app/shared/services/push-notification.service';
 
 @Injectable()
 export class MessageService {
@@ -36,6 +38,8 @@ export class MessageService {
   constructor(
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
+    @InjectRepository(Conversations)
+    private conversationRepository: Repository<Conversations>,
     @InjectRepository(Notifications)
     private notificationsRepository: Repository<Notifications>,
     private messageMapper: MessageMapper,
@@ -45,6 +49,7 @@ export class MessageService {
     private blockService: BlocksService,
     private notificationService: NotificationService,
     private userDeviceService: UserDeviceService,
+    private pushNotificationService: PushNotificationService,
   ) {}
 
   /**
@@ -159,6 +164,7 @@ export class MessageService {
           conversationId: req.conversationId
         });
 
+        // Save in-app notification
         const notification = new Notifications();
         notification.to_id = toId;
         notification.is_read = false;
@@ -178,7 +184,17 @@ export class MessageService {
         const playerIds = await this.userDeviceService.getActivePlayerIds(toId);
         
         if (playerIds.length > 0) {
-          await this.notificationService.sendNotification(savedNotification, playerIds);
+          // Send push notification
+          await this.pushNotificationService.sendPushNotification(
+            playerIds,
+            NOTIFICATION_TITLE.MESSAGE,
+            req?.message || `[${req?.mediaType}]`,
+            {
+              type: NOTIFICATION_TYPE.MESSAGE,
+              conversation_id: req.conversationId,
+              notification_id: savedNotification.id
+            }
+          );
         }
         
         this.logger.log('Message notification sent successfully');

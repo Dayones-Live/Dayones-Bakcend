@@ -44,20 +44,28 @@ export class UserService {
    */
   async createUser(createUserInput: CreateUserInput): Promise<User> {
     try {
-      const existingUser = await this.userRepository.findOne({
-        where: { email: createUserInput?.email },
-      });
-
-      if (existingUser) {
-        throw new HttpException(
-          `User with Email: ${createUserInput.email} already exists`,
-          HttpStatus.CONFLICT,
-        );
+      // 1. Try to find by user_sub
+      if (createUserInput.userSub) {
+        const existingBySub = await this.userRepository.findOne({ where: { user_sub: createUserInput.userSub } });
+        if (existingBySub) {
+          return existingBySub;
+        }
       }
+
+      // 2. Try to find by email
+      const existingByEmail = await this.userRepository.findOne({ where: { email: createUserInput.email } });
+      if (existingByEmail) {
+        // If user_sub is missing or different, update it
+        if (!existingByEmail.user_sub || existingByEmail.user_sub !== createUserInput.userSub) {
+          existingByEmail.user_sub = createUserInput.userSub;
+          await this.userRepository.save(existingByEmail);
+        }
+        return existingByEmail;
+      }
+
+      // 3. Create new user
       const createUserDto = this.userMapper.dtoToEntity(createUserInput);
-      // Ensure the role is an array, as per the entity definition
       const newUser = await this.userRepository.save(createUserDto);
-      // await this.userRepository.save(newUser);
       return newUser;
     } catch (error) {
       console.error(

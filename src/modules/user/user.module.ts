@@ -12,6 +12,8 @@ import { NotificationModule } from './modules/notifications/notification.module'
 import { UserDevice } from './entities/user-device.entity';
 import { UserDeviceService } from './services/user-device.service';
 import { UserDeviceController } from './controllers/user-device.controller';
+import { PushNotificationTestController } from './controllers/push-notification-test.controller';
+import { SharedModule } from '@app/shared/shared.module';
 
 @Module({
   imports: [
@@ -21,8 +23,9 @@ import { UserDeviceController } from './controllers/user-device.controller';
     ChatModule,
     ArtistPostModule,
     ArtistPostUserModule,
+    SharedModule,
   ],
-  controllers: [UserController, UserDeviceController],
+  controllers: [UserController, UserDeviceController, PushNotificationTestController],
   providers: [UserService, UserMapper, UserDeviceService],
   exports: [UserService, UserDeviceService],
 })
