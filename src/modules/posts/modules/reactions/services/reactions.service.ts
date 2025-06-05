@@ -11,6 +11,8 @@ import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { NOTIFICATION_TITLE, NOTIFICATION_TYPE } from '@app/modules/user/modules/notifications/constants';
 import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
+import { PushNotificationService } from '@app/shared/services/push-notification.service';
+import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 
 @Injectable()
 export class ReactionService {
@@ -21,6 +23,8 @@ export class ReactionService {
     private notificationsRepository: Repository<Notifications>,
     private reactionsMapper: ReactionsMapper,
     private artistPostUserService: ArtistPostUserService,
+    private pushNotificationService: PushNotificationService,
+    private userDeviceService: UserDeviceService,
   ) {}
 
   /**
@@ -108,7 +112,23 @@ export class ReactionService {
         notification.to_id = toId;
         notification.post_id = postId;
         
-        await this.notificationsRepository.save(notification);
+        const savedNotification = await this.notificationsRepository.save(notification);
+
+        // Get active OneSignal player IDs for the recipient
+        const playerIds = await this.userDeviceService.getActivePlayerIds(notification.to_id);
+        
+        if (playerIds.length > 0) {
+          await this.pushNotificationService.sendPushNotification(
+            playerIds,
+            notification.title,
+            notification.message,
+            {
+              type: notification.type,
+              post_id: notification.post_id,
+              notification_id: savedNotification.id
+            }
+          );
+        }
       } catch (err) {
         console.error('🚀 ~ Sending/Saving Reaction Notificaiton ~ err:', err);
       }

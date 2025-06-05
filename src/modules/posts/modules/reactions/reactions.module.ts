@@ -7,12 +7,15 @@ import { ReactionsMapper } from './dto/reaction.mapper';
 import { ReactionsController } from './controllers/reaction.controller';
 import { ArtistPostUserModule } from '../artist-post-user/atrist-post-user.module';
 import { NotificationModule } from '@app/modules/user/modules/notifications/notification.module';
+import { SharedModule } from '@app/shared/shared.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Reactions]),
     forwardRef(() => UserModule),
     ArtistPostUserModule,
     NotificationModule,
+    SharedModule,
   ],
   controllers: [ReactionsController],
   providers: [ReactionService, ReactionsMapper],

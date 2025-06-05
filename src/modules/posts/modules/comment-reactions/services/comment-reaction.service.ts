@@ -15,6 +15,8 @@ import { CommentsService } from '../../comments/services/commnets.service';
 import { User } from '@app/modules/user/entities/user.entity';
 import { NOTIFICATION_TITLE, NOTIFICATION_TYPE } from '@app/modules/user/modules/notifications/constants';
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
+import { PushNotificationService } from '@app/shared/services/push-notification.service';
+import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 
 @Injectable()
 export class CommentReactionsService {
@@ -25,6 +27,8 @@ export class CommentReactionsService {
     private notificationsRepository: Repository<Notifications>,
     private commentReactionMapper: CommentReactionMapper,
     private commentsService: CommentsService,
+    private pushNotificationService: PushNotificationService,
+    private userDeviceService: UserDeviceService,
   ) {}
 
   /**
@@ -73,7 +77,24 @@ export class CommentReactionsService {
       notification.type = NOTIFICATION_TYPE.REACTION;
       notification.post_id = comment?.artistPostUser?.artist_post_id;
       
-      await this.notificationsRepository.save(notification);
+      const savedNotification = await this.notificationsRepository.save(notification);
+
+      // Get active OneSignal player IDs for the recipient
+      const playerIds = await this.userDeviceService.getActivePlayerIds(notification.to_id);
+      
+      if (playerIds.length > 0) {
+        await this.pushNotificationService.sendPushNotification(
+          playerIds,
+          notification.title,
+          notification.message,
+          {
+            type: notification.type,
+            post_id: notification.post_id,
+            notification_id: savedNotification.id
+          }
+        );
+      }
+
       return await this.commentReactionRepository.save(likeACommentDto);
     } catch (error) {
       console.error(
