@@ -13,9 +13,9 @@ import { SharedModule } from '@app/shared/shared.module';
   imports: [
     TypeOrmModule.forFeature([Reactions]),
     forwardRef(() => UserModule),
-    ArtistPostUserModule,
-    NotificationModule,
-    SharedModule,
+    forwardRef(() => ArtistPostUserModule),
+    forwardRef(() => NotificationModule),
+    forwardRef(() => SharedModule),
   ],
   controllers: [ReactionsController],
   providers: [ReactionService, ReactionsMapper],

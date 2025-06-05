@@ -12,9 +12,9 @@ import { UserModule } from '@app/modules/user/user.module';
   imports: [
     TypeOrmModule.forFeature([CommentReactions]),
     forwardRef(() => CommentsModule),
-    NotificationModule,
-    SharedModule,
-    UserModule,
+    forwardRef(() => NotificationModule),
+    forwardRef(() => SharedModule),
+    forwardRef(() => UserModule),
   ],
   controllers: [],
   providers: [CommentReactionsService, CommentReactionMapper],
