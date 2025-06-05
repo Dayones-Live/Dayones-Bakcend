@@ -130,7 +130,14 @@ export class CommentsService {
             message: createCommentInput?.message,
             post_id: postId
           });
-          notification.message = `${user.full_name} commented: "${createCommentInput?.message}"`;
+          
+          // Get the user who commented
+          const commenter = await this.artistPostUserRepository.findOne({
+            where: { user_id: userId },
+            relations: ['user']
+          });
+          
+          notification.message = `${commenter.user.full_name} commented: "${createCommentInput?.message}"`;
           notification.to_id = notifyUserId;
 
           const savedNotification = await this.notificationsRepository.save(notification);

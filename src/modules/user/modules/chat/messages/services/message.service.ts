@@ -174,7 +174,14 @@ export class MessageService {
           message: req?.message || `[${req?.mediaType}]`,
           conversation_id: req.conversationId
         });
-        notification.message = `${user.full_name}: ${req?.message || `[${req?.mediaType}]`}`;
+        
+        // Get the sender's user information
+        const sender = await this.conversationRepository.findOne({
+          where: { id: req.conversationId },
+          relations: ['sender']
+        });
+        
+        notification.message = `${sender.sender.full_name}: ${req?.message || `[${req?.mediaType}]`}`;
         notification.type = NOTIFICATION_TYPE.MESSAGE;
         notification.conversation_id = req.conversationId;
 
