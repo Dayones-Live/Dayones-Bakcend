@@ -104,7 +104,7 @@ export class ReactionService {
           notification.title = NOTIFICATION_TITLE.LIKE_POST;
           notification.is_read = false;
           notification.from_id = userId;
-          notification.message = 'Someone like your post';
+          notification.message = `${post.user.full_name} liked your post`;
           notification.type = NOTIFICATION_TYPE.REACTION;
           notification.to_id = postOwnerId; // Send to post owner
           notification.post_id = postId;

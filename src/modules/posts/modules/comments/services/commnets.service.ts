@@ -20,6 +20,7 @@ import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
+import { NOTIFICATION_TITLE } from '@app/modules/user/modules/notifications/constants';
 
 @Injectable()
 export class CommentsService {
@@ -123,13 +124,13 @@ export class CommentsService {
           notification.is_read = false;
           notification.from_id = userId;
           notification.post_id = postId;
-          notification.title = 'Comment';
+          notification.title = NOTIFICATION_TITLE.COMMENT;
           notification.type = NOTIFICATION_TYPE.COMMENT;
           notification.data = JSON.stringify({
             message: createCommentInput?.message,
             post_id: postId
           });
-          notification.message = createCommentInput?.message;
+          notification.message = `${user.full_name} commented: "${createCommentInput?.message}"`;
           notification.to_id = notifyUserId;
 
           const savedNotification = await this.notificationsRepository.save(notification);
