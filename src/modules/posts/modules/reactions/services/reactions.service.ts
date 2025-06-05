@@ -13,6 +13,7 @@ import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/enti
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
+import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
 
 @Injectable()
 export class ReactionService {
@@ -23,6 +24,8 @@ export class ReactionService {
     private reactionsRepository: Repository<Reactions>,
     @InjectRepository(Notifications)
     private notificationsRepository: Repository<Notifications>,
+    @InjectRepository(ArtistPost)
+    private artistPostRepository: Repository<ArtistPost>,
     private reactionsMapper: ReactionsMapper,
     private artistPostUserService: ArtistPostUserService,
     private pushNotificationService: PushNotificationService,
@@ -45,13 +48,27 @@ export class ReactionService {
 
       this.logger.debug(`Processing like for post ${postId} by user ${userId}`);
 
-      // Get the artist post user for this post
+      // First, get the post to find the owner
+      const post = await this.artistPostRepository.findOne({
+        where: { id: postId },
+        relations: ['user'],
+      });
+
+      if (!post) {
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      postOwnerId = post.user_id;
+      this.logger.debug(`Post owner ID: ${postOwnerId}, User ID: ${userId}`);
+
+      // Get the artist post user record for this post
       const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(
         userId,
         postId,
       );
-
-      this.logger.debug('Found artist post user:', artistPostUser);
 
       if (!artistPostUser) {
         throw new HttpException(
@@ -59,20 +76,6 @@ export class ReactionService {
           HttpStatus.NOT_FOUND,
         );
       }
-
-      // Verify this is a valid post (has ACCEPTED status and is an ARTIST)
-      if (
-        artistPostUser.status !== Invite_Status.ACCEPTED ||
-        artistPostUser.user?.role[0] !== Roles.ARTIST
-      ) {
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-
-      postOwnerId = artistPostUser.user_id;
-      this.logger.debug(`Post owner ID: ${postOwnerId}, User ID: ${userId}`);
 
       // Check if user has already liked the post
       const isAlreadyLiked = await this.reactionsRepository.findOne({
