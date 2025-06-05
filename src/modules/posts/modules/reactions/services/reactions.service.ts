@@ -40,7 +40,7 @@ export class ReactionService {
     try {
       let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
       let reaction: Reactions = {} as Reactions;
-      let toId: string = '';
+      let postOwnerId: string = '';
 
       // Retrieve the generic artist post user based on the post ID
       const artistPostUserGeneric =
@@ -67,7 +67,7 @@ export class ReactionService {
           this.reactionsMapper.dtoToEntity(createReactionInput);
         // Use the upsert method
         reaction = await this.reactionsRepository.save(reactionDto);
-        toId = artistPostUserGeneric.user_id;
+        postOwnerId = artistPostUserGeneric.user_id;
       } else {
         // Fetch the artistPostUserId through user id and artistPost
         const artistPostUser =
@@ -97,40 +97,42 @@ export class ReactionService {
           this.reactionsMapper.dtoToEntity(createReactionInput);
         // Use the upsert method
         reaction = await this.reactionsRepository.save(reactionDto);
-        toId = artistPostUser?.user_id;
+        postOwnerId = artistPostUser?.user_id;
       }
 
-      // Create and save notification
-      try {
-        const notification = new Notifications();
-        notification.data = JSON.stringify(reaction);
-        notification.title = NOTIFICATION_TITLE.LIKE_POST;
-        notification.is_read = false;
-        notification.from_id = userId;
-        notification.message = 'Someone like your post';
-        notification.type = NOTIFICATION_TYPE.REACTION;
-        notification.to_id = toId;
-        notification.post_id = postId;
-        
-        const savedNotification = await this.notificationsRepository.save(notification);
+      // Only create and send notification if the liker is not the post owner
+      if (postOwnerId !== userId) {
+        try {
+          const notification = new Notifications();
+          notification.data = JSON.stringify(reaction);
+          notification.title = NOTIFICATION_TITLE.LIKE_POST;
+          notification.is_read = false;
+          notification.from_id = userId;
+          notification.message = 'Someone like your post';
+          notification.type = NOTIFICATION_TYPE.REACTION;
+          notification.to_id = postOwnerId; // Send to post owner
+          notification.post_id = postId;
+          
+          const savedNotification = await this.notificationsRepository.save(notification);
 
-        // Get active OneSignal player IDs for the recipient
-        const playerIds = await this.userDeviceService.getActivePlayerIds(notification.to_id);
-        
-        if (playerIds.length > 0) {
-          await this.pushNotificationService.sendPushNotification(
-            playerIds,
-            notification.title,
-            notification.message,
-            {
-              type: notification.type,
-              post_id: notification.post_id,
-              notification_id: savedNotification.id
-            }
-          );
+          // Get active OneSignal player IDs for the post owner
+          const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+          
+          if (playerIds.length > 0) {
+            await this.pushNotificationService.sendPushNotification(
+              playerIds,
+              notification.title,
+              notification.message,
+              {
+                type: notification.type,
+                post_id: notification.post_id,
+                notification_id: savedNotification.id
+              }
+            );
+          }
+        } catch (err) {
+          console.error('🚀 ~ Sending/Saving Reaction Notificaiton ~ err:', err);
         }
-      } catch (err) {
-        console.error('🚀 ~ Sending/Saving Reaction Notificaiton ~ err:', err);
       }
 
       return reaction;
