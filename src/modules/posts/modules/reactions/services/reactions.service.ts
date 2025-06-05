@@ -40,46 +40,44 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
-      let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
       let reaction: Reactions = {} as Reactions;
       let postOwnerId: string = '';
 
       this.logger.debug(`Processing like for post ${postId} by user ${userId}`);
 
-      // Get all artist post users for this post
-      const artistPostUsers = await this.artistPostUserService.getArtistPostByPostId(
+      // Get the artist post user for this post
+      const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(
         userId,
         postId,
       );
 
-      this.logger.debug('Found artist post users:', artistPostUsers);
+      this.logger.debug('Found artist post user:', artistPostUser);
 
-      if (!artistPostUsers || artistPostUsers.length === 0) {
+      if (!artistPostUser) {
         throw new HttpException(
           ERROR_MESSAGES.POST_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
 
-      // Find the post owner (the user who created the post)
-      const postOwner = artistPostUsers.find(
-        (apu) => apu.status === Invite_Status.ACCEPTED && apu.user?.role[0] === Roles.ARTIST,
-      );
-
-      if (!postOwner) {
+      // Verify this is a valid post (has ACCEPTED status and is an ARTIST)
+      if (
+        artistPostUser.status !== Invite_Status.ACCEPTED ||
+        artistPostUser.user?.role[0] !== Roles.ARTIST
+      ) {
         throw new HttpException(
           ERROR_MESSAGES.POST_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
 
-      postOwnerId = postOwner.user_id;
+      postOwnerId = artistPostUser.user_id;
       this.logger.debug(`Post owner ID: ${postOwnerId}, User ID: ${userId}`);
 
       // Check if user has already liked the post
       const isAlreadyLiked = await this.reactionsRepository.findOne({
         where: {
-          artist_post_user_id: postOwner.id,
+          artist_post_user_id: artistPostUser.id,
           react_by: userId,
         },
       });
@@ -89,7 +87,7 @@ export class ReactionService {
       }
 
       // Create the reaction
-      createReactionInput.artistPostUserId = postOwner.id;
+      createReactionInput.artistPostUserId = artistPostUser.id;
       createReactionInput.reactBy = userId;
       const reactionDto = this.reactionsMapper.dtoToEntity(createReactionInput);
       reaction = await this.reactionsRepository.save(reactionDto);
