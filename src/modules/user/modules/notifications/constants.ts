@@ -1,12 +1,12 @@
 export const NOTIFICATION_TITLE = {
-  LIKE_POST: 'New Like',
-  DISLIKE_POST: 'New Dislike',
-  REACTION: 'New Reaction',
-  COMMENT: 'New Comment',
-  MESSAGE: 'New Message',
-  LIKE_COMMENT: 'New Like on Comment',
-  DISLIKE_COMMENT: 'New Dislike on Comment',
-  INVITE: 'New Invitation',
+  LIKE_POST: 'DayOnes',
+  DISLIKE_POST: 'DayOnes',
+  REACTION: 'DayOnes',
+  COMMENT: 'DayOnes',
+  MESSAGE: 'DayOnes',
+  LIKE_COMMENT: 'DayOnes',
+  DISLIKE_COMMENT: 'DayOnes',
+  INVITE: 'DayOnes',
 } as const;
 
 export const NOTIFICATION_TYPE = {

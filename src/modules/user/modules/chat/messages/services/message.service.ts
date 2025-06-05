@@ -181,7 +181,7 @@ export class MessageService {
           relations: ['sender']
         });
         
-        notification.message = `${sender.sender.full_name}: ${req?.message || `[${req?.mediaType}]`}`;
+        notification.message = `${sender.sender.full_name} sent you a DM`;
         notification.type = NOTIFICATION_TYPE.MESSAGE;
         notification.conversation_id = req.conversationId;
 

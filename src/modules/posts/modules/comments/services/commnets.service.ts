@@ -137,7 +137,7 @@ export class CommentsService {
             relations: ['user']
           });
           
-          notification.message = `${commenter.user.full_name} commented: "${createCommentInput?.message}"`;
+          notification.message = `${commenter.user.full_name} commented on your post`;
           notification.to_id = notifyUserId;
 
           const savedNotification = await this.notificationsRepository.save(notification);
