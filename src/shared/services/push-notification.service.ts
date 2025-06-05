@@ -47,6 +47,8 @@ export class PushNotificationService {
           en: title,
         },
         data: data || {},
+        badge: 1,
+        badge_type: 'Increase'
       };
 
       const response = await axios.post(

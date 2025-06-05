@@ -108,6 +108,14 @@ export class NotificationsController {
       notification.is_read = true;
       const updatedNotification = await this.notificationsRepository.save(notification);
       
+      // Get active OneSignal player IDs for the user
+      const playerIds = await this.userDeviceService.getActivePlayerIds(req?.user?.id);
+      
+      if (playerIds.length > 0) {
+        // Reset badge count when notification is marked as read
+        await this.notificationService.resetBadgeCount(playerIds);
+      }
+      
       res
         .status(HttpStatus.OK)
         .json({ 

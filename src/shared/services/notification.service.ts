@@ -138,4 +138,38 @@ export class NotificationService {
       throw error;
     }
   }
+
+  async resetBadgeCount(playerIds: string[]): Promise<void> {
+    try {
+      if (!this.appId || !this.restApiKey) {
+        throw new Error('OneSignal credentials not configured');
+      }
+
+      const payload = {
+        app_id: this.appId,
+        include_player_ids: playerIds,
+        badge: 0, // Reset badge count to 0
+        badge_type: 'SetTo' // This tells OneSignal to set the badge count to a specific number
+      };
+
+      await axios.post(
+        'https://onesignal.com/api/v1/notifications',
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${this.restApiKey}`,
+          },
+        },
+      );
+
+      this.logger.log('Badge count reset successfully');
+    } catch (error) {
+      this.logger.error('Error resetting badge count:', error.message);
+      if (error.response) {
+        this.logger.error('OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+      }
+      throw error;
+    }
+  }
 } 
