@@ -3,12 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Reactions } from './entities/reaction.entity';
 import { UserModule } from '@app/modules/user/user.module';
 import { ReactionService } from './services/reactions.service';
-import { ReactionController } from './controllers/reactions.controller';
+import { ReactionsController } from './controllers/reaction.controller';
 import { ReactionsMapper } from './dto/reaction.mapper';
-import { ArtistPostUserModule } from '../../artist-post-user/artist-post-user.module';
+import { ArtistPostUserModule } from '../artist-post-user/artist-post-user.module';
 import { NotificationModule } from '@app/modules/user/modules/notifications/notification.module';
 import { SharedModule } from '@app/shared/shared.module';
-import { ArtistPost } from '../../artist-post/entities/artist-post.entity';
+import { ArtistPost } from '../artist-post/entities/artist-post.entity';
 
 @Module({
   imports: [
@@ -18,7 +18,7 @@ import { ArtistPost } from '../../artist-post/entities/artist-post.entity';
     forwardRef(() => NotificationModule),
     forwardRef(() => SharedModule),
   ],
-  controllers: [ReactionController],
+  controllers: [ReactionsController],
   providers: [ReactionService, ReactionsMapper],
   exports: [ReactionService],
 })
