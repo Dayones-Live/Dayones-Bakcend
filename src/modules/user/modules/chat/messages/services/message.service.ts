@@ -195,7 +195,7 @@ export class MessageService {
           await this.pushNotificationService.sendPushNotification(
             playerIds,
             NOTIFICATION_TITLE.MESSAGE,
-            req?.message || `[${req?.mediaType}]`,
+            `${sender.sender.full_name} just sent you a DM`,
             {
               type: NOTIFICATION_TYPE.MESSAGE,
               conversation_id: req.conversationId,
