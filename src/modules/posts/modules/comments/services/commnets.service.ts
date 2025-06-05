@@ -150,8 +150,8 @@ export class CommentsService {
             console.log('[CommentsService] Sending push notification to notifyUserId:', notifyUserId);
             await this.pushNotificationService.sendPushNotification(
               playerIds,
-              'Comment',
-              createCommentInput?.message,
+              'DayOnes',
+              `${commenter.user.full_name} Just Commented`,
               {
                 type: NOTIFICATION_TYPE.COMMENT,
                 post_id: postId,
