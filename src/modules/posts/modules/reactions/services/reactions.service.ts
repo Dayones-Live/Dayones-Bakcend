@@ -46,67 +46,53 @@ export class ReactionService {
 
       this.logger.debug(`Processing like for post ${postId} by user ${userId}`);
 
-      // Retrieve the generic artist post user based on the post ID
-      const artistPostUserGeneric =
-        await this.artistPostUserService.getGenericArtistPostUserByPostId(
-          postId,
+      // Get all artist post users for this post
+      const artistPostUsers = await this.artistPostUserService.getArtistPostByPostId(
+        userId,
+        postId,
+      );
+
+      this.logger.debug('Found artist post users:', artistPostUsers);
+
+      if (!artistPostUsers || artistPostUsers.length === 0) {
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
         );
-
-      if (artistPostUserGeneric) {
-        this.logger.debug('Found generic artist post user:', artistPostUserGeneric);
-        const isAlreadyLikes = await this.reactionsRepository.findOne({
-          where: {
-            artist_post_user_id: artistPostUserGeneric?.id,
-            react_by: userId,
-          },
-        });
-
-        if (isAlreadyLikes) {
-          throw new HttpException(`Post Already Liked!`, HttpStatus.CONFLICT);
-        }
-        createReactionInput.artistPostUserId = artistPostUserGeneric?.id;
-        if (artistPostUserGeneric.user_id !== userId) {
-          createReactionInput.reactBy = userId;
-        }
-        const reactionDto =
-          this.reactionsMapper.dtoToEntity(createReactionInput);
-        // Use the upsert method
-        reaction = await this.reactionsRepository.save(reactionDto);
-        postOwnerId = artistPostUserGeneric.user_id;
-      } else {
-        this.logger.debug('No generic artist post user found, checking artist post user');
-        // Fetch the artistPostUserId through user id and artistPost
-        const artistPostUser =
-          await this.artistPostUserService.getArtistPostByPostId(
-            userId,
-            postId,
-          );
-        if (
-          artistPostUser?.status !== Invite_Status.ACCEPTED &&
-          artistPostUser?.user?.role[0] !== Roles.ARTIST
-        ) {
-          throw new HttpException(
-            ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
-            HttpStatus.FORBIDDEN,
-          );
-        }
-        const isAlreadyLikes = await this.reactionsRepository.findOne({
-          where: {
-            artist_post_user_id: artistPostUser?.id,
-          },
-        });
-        if (isAlreadyLikes) {
-          throw new HttpException(`Post Already Liked!`, HttpStatus.CONFLICT);
-        }
-        createReactionInput.artistPostUserId = artistPostUser?.id;
-        const reactionDto =
-          this.reactionsMapper.dtoToEntity(createReactionInput);
-        // Use the upsert method
-        reaction = await this.reactionsRepository.save(reactionDto);
-        postOwnerId = artistPostUser?.user_id;
       }
 
+      // Find the post owner (the user who created the post)
+      const postOwner = artistPostUsers.find(
+        (apu) => apu.status === Invite_Status.ACCEPTED && apu.user?.role[0] === Roles.ARTIST,
+      );
+
+      if (!postOwner) {
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      postOwnerId = postOwner.user_id;
       this.logger.debug(`Post owner ID: ${postOwnerId}, User ID: ${userId}`);
+
+      // Check if user has already liked the post
+      const isAlreadyLiked = await this.reactionsRepository.findOne({
+        where: {
+          artist_post_user_id: postOwner.id,
+          react_by: userId,
+        },
+      });
+
+      if (isAlreadyLiked) {
+        throw new HttpException(`Post Already Liked!`, HttpStatus.CONFLICT);
+      }
+
+      // Create the reaction
+      createReactionInput.artistPostUserId = postOwner.id;
+      createReactionInput.reactBy = userId;
+      const reactionDto = this.reactionsMapper.dtoToEntity(createReactionInput);
+      reaction = await this.reactionsRepository.save(reactionDto);
 
       // Only create and send notification if the liker is not the post owner
       if (postOwnerId !== userId) {
