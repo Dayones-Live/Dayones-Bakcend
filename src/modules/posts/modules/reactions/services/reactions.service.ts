@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Reactions } from '../entities/reaction.entity';
@@ -16,6 +16,8 @@ import { UserDeviceService } from '@app/modules/user/services/user-device.servic
 
 @Injectable()
 export class ReactionService {
+  private readonly logger = new Logger(ReactionService.name);
+
   constructor(
     @InjectRepository(Reactions)
     private reactionsRepository: Repository<Reactions>,
@@ -42,6 +44,8 @@ export class ReactionService {
       let reaction: Reactions = {} as Reactions;
       let postOwnerId: string = '';
 
+      this.logger.debug(`Processing like for post ${postId} by user ${userId}`);
+
       // Retrieve the generic artist post user based on the post ID
       const artistPostUserGeneric =
         await this.artistPostUserService.getGenericArtistPostUserByPostId(
@@ -49,6 +53,7 @@ export class ReactionService {
         );
 
       if (artistPostUserGeneric) {
+        this.logger.debug('Found generic artist post user:', artistPostUserGeneric);
         const isAlreadyLikes = await this.reactionsRepository.findOne({
           where: {
             artist_post_user_id: artistPostUserGeneric?.id,
@@ -69,6 +74,7 @@ export class ReactionService {
         reaction = await this.reactionsRepository.save(reactionDto);
         postOwnerId = artistPostUserGeneric.user_id;
       } else {
+        this.logger.debug('No generic artist post user found, checking artist post user');
         // Fetch the artistPostUserId through user id and artistPost
         const artistPostUser =
           await this.artistPostUserService.getArtistPostByPostId(
@@ -100,8 +106,11 @@ export class ReactionService {
         postOwnerId = artistPostUser?.user_id;
       }
 
+      this.logger.debug(`Post owner ID: ${postOwnerId}, User ID: ${userId}`);
+
       // Only create and send notification if the liker is not the post owner
       if (postOwnerId !== userId) {
+        this.logger.debug('Creating notification for post like');
         try {
           const notification = new Notifications();
           notification.data = JSON.stringify(reaction);
@@ -114,11 +123,14 @@ export class ReactionService {
           notification.post_id = postId;
           
           const savedNotification = await this.notificationsRepository.save(notification);
+          this.logger.debug('Notification saved:', savedNotification);
 
           // Get active OneSignal player IDs for the post owner
           const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+          this.logger.debug(`Found ${playerIds.length} player IDs for post owner ${postOwnerId}:`, playerIds);
           
           if (playerIds.length > 0) {
+            this.logger.debug('Sending push notification');
             await this.pushNotificationService.sendPushNotification(
               playerIds,
               notification.title,
@@ -129,14 +141,21 @@ export class ReactionService {
                 notification_id: savedNotification.id
               }
             );
+            this.logger.debug('Push notification sent successfully');
+          } else {
+            this.logger.warn(`No active player IDs found for post owner ${postOwnerId}`);
           }
         } catch (err) {
+          this.logger.error('Error sending/saving reaction notification:', err);
           console.error('🚀 ~ Sending/Saving Reaction Notificaiton ~ err:', err);
         }
+      } else {
+        this.logger.debug('Skipping notification - user is liking their own post');
       }
 
       return reaction;
     } catch (error) {
+      this.logger.error('Error in likeAPost:', error);
       console.error(
         '🚀 ~ file:reaction.service.ts:96 ~ ReactionService ~ createReaction ~ error:',
         error,
