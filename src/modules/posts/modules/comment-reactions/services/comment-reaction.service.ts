@@ -73,7 +73,7 @@ export class CommentReactionsService {
         post_id: comment?.artistPostUser?.artist_post_id,
         test_value: 'DAYONES_NOTIF'
       });
-      notification.message = `${user?.full_name} ${NOTIFICATION_TITLE.LIKE_COMMENT}`;
+      notification.message = `${user.full_name} liked your comment`;
       notification.type = NOTIFICATION_TYPE.REACTION;
       notification.post_id = comment?.artistPostUser?.artist_post_id;
       

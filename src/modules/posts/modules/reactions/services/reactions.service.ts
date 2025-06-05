@@ -104,7 +104,11 @@ export class ReactionService {
           notification.title = NOTIFICATION_TITLE.LIKE_POST;
           notification.is_read = false;
           notification.from_id = userId;
-          notification.message = `${post.user.full_name} liked your post`;
+          
+          // Get the liker's information
+          const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+          
+          notification.message = `${liker.user.full_name} liked your post`;
           notification.type = NOTIFICATION_TYPE.REACTION;
           notification.to_id = postOwnerId; // Send to post owner
           notification.post_id = postId;
