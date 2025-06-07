@@ -27,6 +27,6 @@ import { SharedModule } from '@app/shared/shared.module';
   ],
   controllers: [UserController, UserDeviceController, PushNotificationTestController],
   providers: [UserService, UserMapper, UserDeviceService],
-  exports: [UserService, UserDeviceService],
+  exports: [UserService, UserDeviceService, TypeOrmModule],
 })
 export class UserModule {}
