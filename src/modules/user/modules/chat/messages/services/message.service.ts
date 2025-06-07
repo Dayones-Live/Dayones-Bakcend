@@ -30,6 +30,7 @@ import { Notifications } from '@app/modules/user/modules/notifications/entities/
 import { NotificationService } from '@app/shared/services/notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
+import { User } from '@app/modules/user/entities/user.entity';
 
 @Injectable()
 export class MessageService {
@@ -50,6 +51,8 @@ export class MessageService {
     private notificationService: NotificationService,
     private userDeviceService: UserDeviceService,
     private pushNotificationService: PushNotificationService,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   /**
@@ -176,12 +179,11 @@ export class MessageService {
         });
         
         // Get the sender's user information
-        const sender = await this.conversationRepository.findOne({
-          where: { id: req.conversationId },
-          relations: ['sender']
+        const sender = await this.userRepository.findOne({
+          where: { id: userId }
         });
         
-        notification.message = `${sender.sender.full_name} just sent you a DM`;
+        notification.message = `${sender.full_name} just sent you a DM`;
         notification.type = NOTIFICATION_TYPE.MESSAGE;
         notification.conversation_id = req.conversationId;
 
@@ -195,7 +197,7 @@ export class MessageService {
           await this.pushNotificationService.sendPushNotification(
             playerIds,
             NOTIFICATION_TITLE.MESSAGE,
-            `${sender.sender.full_name} just sent you a DM`,
+            `${sender.full_name} just sent you a DM`,
             {
               type: NOTIFICATION_TYPE.MESSAGE,
               conversation_id: req.conversationId,
