@@ -51,91 +51,31 @@ export class CommentsService {
     userId: string,
   ): Promise<Comments> {
     try {
-      let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
-      const artistPostUserGeneric =
-        await this.artistPostUserService.getGenericArtistPostUserByPostId(
-          postId,
+      const comment = this.commentsMapper.dtoToEntity(createCommentInput);
+      const post = await this.artistPostUserService.getArtistPostByPostId(postId, postId);
+
+      if (!post) {
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
         );
-      let comment: Comments = {} as Comments;
-      if (artistPostUserGeneric) {
-        createCommentInput.artistPostUserId = artistPostUserGeneric?.id;
-        if (artistPostUserGeneric.user_id !== userId) {
-          createCommentInput.commentBy = userId;
-        }
-        const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
-        // Use the upsert method
-        comment = await this.commentsRepository.save(commentDto);
-      } else {
-        // Fetch the artistPostUserId through user id and artistPost
-        artistPostUser = await this.artistPostUserService.getArtistPostByPostId(
-          userId,
-          postId,
-        );
-        if (!artistPostUser) {
-          throw new HttpException(
-            ERROR_MESSAGES.POST_NOT_FOUND,
-            HttpStatus.NOT_FOUND,
-          );
-        }
-        if (
-          artistPostUser.status !== Invite_Status.ACCEPTED &&
-          artistPostUser?.user?.role[0] !== Roles.ARTIST
-        ) {
-          throw new HttpException(
-            ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
-            HttpStatus.FORBIDDEN,
-          );
-        }
-        createCommentInput.artistPostUserId = artistPostUser?.id;
-        const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
-        // Use the upsert method
-        comment = await this.commentsRepository.save(commentDto);
       }
 
-      // Get all users who are viewing the post (except the commenter)
-      const postViewers = await this.artistPostUserRepository.find({
-        where: {
-          artist_post_id: postId,
-          status: Invite_Status.ACCEPTED,
-          user_id: Not(userId), // Exclude the commenter
-        },
-        relations: ['user'],
-      });
+      const postOwnerId = post.artistPost?.user_id;
 
-      // Get the artist (post creator) user_id
-      let artistUserId: string | undefined;
-      if (artistPostUserGeneric && artistPostUserGeneric.artistPost?.user_id) {
-        artistUserId = artistPostUserGeneric.artistPost.user_id;
-      } else if (artistPostUser && artistPostUser.artistPost?.user_id) {
-        artistUserId = artistPostUser.artistPost.user_id;
-      }
+      // Only create and send notification if the commenter is not the post owner
+      if (postOwnerId !== userId) {
+        // Get the commenter's information
+        const commenter = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
 
-      // Build a set of user_ids to notify (viewers + artist, no duplicates, no commenter)
-      const notifyUserIds = new Set<string>(postViewers.map(v => v.user_id));
-      if (artistUserId && artistUserId !== userId) {
-        notifyUserIds.add(artistUserId);
-      }
-
-      // Get the user who commented
-      const commenter = await this.artistPostUserRepository.findOne({
-        where: { user_id: userId },
-        relations: ['user']
-      });
-
-      // Send notification to each recipient
-      for (const notifyUserId of notifyUserIds) {
-        // Check if the recipient is an artist
-        const recipient = await this.artistPostUserRepository.findOne({
-          where: { user_id: notifyUserId },
-          relations: ['user']
-        });
-
-        const isArtist = recipient?.user?.role?.includes(Roles.ARTIST);
+        // Check if the post owner is an artist
+        const postOwnerUser = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
+        const isArtist = postOwnerUser?.user?.role?.includes(Roles.ARTIST);
 
         if (isArtist) {
           // For artists, check if we should bundle the notification
           const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
-            notifyUserId,
+            postOwnerId,
             postId,
             NOTIFICATION_TYPE.COMMENT
           );
@@ -143,14 +83,14 @@ export class CommentsService {
           if (shouldBundle) {
             // Create bundled notification
             const bundledNotification = await this.notificationBundlingService.createBundledNotification(
-              notifyUserId,
+              postOwnerId,
               postId,
               NOTIFICATION_TYPE.COMMENT
             );
 
             if (bundledNotification) {
-              // Get active OneSignal player IDs for the recipient
-              const playerIds = await this.userDeviceService.getActivePlayerIds(notifyUserId);
+              // Get active OneSignal player IDs for the post owner
+              const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
               
               if (playerIds.length > 0) {
                 await this.pushNotificationService.sendPushNotification(
@@ -179,12 +119,12 @@ export class CommentsService {
               post_id: postId
             });
             notification.message = `${commenter.user.full_name} just commented`;
-            notification.to_id = notifyUserId;
+            notification.to_id = postOwnerId;
 
             const savedNotification = await this.notificationsRepository.save(notification);
             
-            // Get active OneSignal player IDs for the recipient
-            const playerIds = await this.userDeviceService.getActivePlayerIds(notifyUserId);
+            // Get active OneSignal player IDs for the post owner
+            const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
             
             if (playerIds.length > 0) {
               await this.pushNotificationService.sendPushNotification(
@@ -200,7 +140,7 @@ export class CommentsService {
             }
           }
         } else {
-          // For non-artists, send individual notification as before
+          // For non-artists, send individual notification
           const notification = new Notifications();
           notification.is_read = false;
           notification.from_id = userId;
@@ -212,11 +152,11 @@ export class CommentsService {
             post_id: postId
           });
           notification.message = `${commenter.user.full_name} just commented`;
-          notification.to_id = notifyUserId;
+          notification.to_id = postOwnerId;
 
           const savedNotification = await this.notificationsRepository.save(notification);
           
-          const playerIds = await this.userDeviceService.getActivePlayerIds(notifyUserId);
+          const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
           
           if (playerIds.length > 0) {
             await this.pushNotificationService.sendPushNotification(
@@ -233,7 +173,7 @@ export class CommentsService {
         }
       }
 
-      return comment;
+      return await this.commentsRepository.save(comment);
     } catch (error) {
       console.error(
         '🚀 ~ file:comment.service.ts:96 ~ CommentsService ~ createComment ~ error:',

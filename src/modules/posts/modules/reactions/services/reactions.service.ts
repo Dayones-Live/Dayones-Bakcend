@@ -45,26 +45,20 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
-      // Get the artist post user record first
-      const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      
-      if (!artistPostUser) {
+      const reaction = this.reactionMapper.dtoToEntity(createReactionInput);
+      const post = await this.artistPostRepository.findOne({
+        where: { id: postId },
+        relations: ['user']
+      });
+
+      if (!post) {
         throw new HttpException(
-          'User does not have access to this post',
-          HttpStatus.FORBIDDEN
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
         );
       }
 
-      // Set the artist_post_user_id in the input
-      createReactionInput.artistPostUserId = artistPostUser.id;
-
-      const reaction = await this.reactionRepository.save(
-        this.reactionMapper.dtoToEntity(createReactionInput),
-      );
-
-      // Get the post owner's ID
-      const postOwner = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      const postOwnerId = postOwner?.artistPost?.user_id;
+      const postOwnerId = post.user_id;
 
       // Only create and send notification if the liker is not the post owner
       if (postOwnerId !== userId) {
@@ -143,7 +137,7 @@ export class ReactionService {
               }
             }
           } else {
-            // For non-artists, send individual notification as before
+            // For non-artists, send individual notification
             const notification = new Notifications();
             notification.data = JSON.stringify(reaction);
             notification.title = NOTIFICATION_TITLE.LIKE_POST;
@@ -182,17 +176,10 @@ export class ReactionService {
         this.logger.debug('Skipping notification - user is liking their own post');
       }
 
-      return reaction;
+      return await this.reactionRepository.save(reaction);
     } catch (error) {
-      this.logger.error('Error in likeAPost:', error);
-      console.error(
-        '🚀 ~ file:reaction.service.ts:96 ~ ReactionService ~ createReaction ~ error:',
-        error,
-      );
-      throw new HttpException(
-        ` ${error?.message}`,
-        error?.status || HttpStatus.BAD_REQUEST,
-      );
+      this.logger.error('Error liking post:', error);
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
 
