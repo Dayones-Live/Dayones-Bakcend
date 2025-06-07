@@ -67,7 +67,7 @@ export class CommentsService {
       const comment = this.commentsMapper.dtoToEntity(createCommentInput);
       
       // Get the post with its owner
-      const post = await this.artistPostUserService.getArtistPostByPostId(postId, postId);
+      const post = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
 
       if (!post) {
         throw new HttpException(
