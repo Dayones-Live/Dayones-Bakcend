@@ -45,6 +45,19 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
+      // Get the artist post user record first
+      const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      
+      if (!artistPostUser) {
+        throw new HttpException(
+          'User does not have access to this post',
+          HttpStatus.FORBIDDEN
+        );
+      }
+
+      // Set the artist_post_user_id in the input
+      createReactionInput.artistPostUserId = artistPostUser.id;
+
       const reaction = await this.reactionRepository.save(
         this.reactionMapper.dtoToEntity(createReactionInput),
       );
