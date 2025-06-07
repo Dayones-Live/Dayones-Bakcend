@@ -59,6 +59,8 @@ export class ReactionService {
       createReactionInput.artistPostUserId = artistPostUser.id;
 
       const reaction = this.reactionMapper.dtoToEntity(createReactionInput);
+      
+      // Get the post with its owner
       const post = await this.artistPostRepository.findOne({
         where: { id: postId },
         relations: ['user']

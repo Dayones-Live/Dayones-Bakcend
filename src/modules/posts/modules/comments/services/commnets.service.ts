@@ -65,6 +65,8 @@ export class CommentsService {
       createCommentInput.artistPostUserId = artistPostUser.id;
 
       const comment = this.commentsMapper.dtoToEntity(createCommentInput);
+      
+      // Get the post with its owner
       const post = await this.artistPostUserService.getArtistPostByPostId(postId, postId);
 
       if (!post) {
