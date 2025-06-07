@@ -21,6 +21,7 @@ import { Notifications } from '@app/modules/user/modules/notifications/entities/
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
 import { NOTIFICATION_TITLE } from '@app/modules/user/modules/notifications/constants';
+import { NotificationBundlingService } from '@app/shared/services/notification-bundling.service';
 
 @Injectable()
 export class CommentsService {
@@ -36,6 +37,7 @@ export class CommentsService {
     private pushNotificationService: PushNotificationService,
     @InjectRepository(ArtistPostUser)
     private artistPostUserRepository: Repository<ArtistPostUser>,
+    private notificationBundlingService: NotificationBundlingService,
   ) {}
 
   /**
@@ -90,36 +92,115 @@ export class CommentsService {
         comment = await this.commentsRepository.save(commentDto);
       }
 
-      // Send notifications to post viewers and artist
-      try {
-        // Get all users who are viewing the post (except the commenter)
-        const postViewers = await this.artistPostUserRepository.find({
-          where: {
-            artist_post_id: postId,
-            status: Invite_Status.ACCEPTED,
-            user_id: Not(userId), // Exclude the commenter
-          },
-          relations: ['user'],
+      // Get all users who are viewing the post (except the commenter)
+      const postViewers = await this.artistPostUserRepository.find({
+        where: {
+          artist_post_id: postId,
+          status: Invite_Status.ACCEPTED,
+          user_id: Not(userId), // Exclude the commenter
+        },
+        relations: ['user'],
+      });
+
+      // Get the artist (post creator) user_id
+      let artistUserId: string | undefined;
+      if (artistPostUserGeneric && artistPostUserGeneric.artistPost?.user_id) {
+        artistUserId = artistPostUserGeneric.artistPost.user_id;
+      } else if (artistPostUser && artistPostUser.artistPost?.user_id) {
+        artistUserId = artistPostUser.artistPost.user_id;
+      }
+
+      // Build a set of user_ids to notify (viewers + artist, no duplicates, no commenter)
+      const notifyUserIds = new Set<string>(postViewers.map(v => v.user_id));
+      if (artistUserId && artistUserId !== userId) {
+        notifyUserIds.add(artistUserId);
+      }
+
+      // Get the user who commented
+      const commenter = await this.artistPostUserRepository.findOne({
+        where: { user_id: userId },
+        relations: ['user']
+      });
+
+      // Send notification to each recipient
+      for (const notifyUserId of notifyUserIds) {
+        // Check if the recipient is an artist
+        const recipient = await this.artistPostUserRepository.findOne({
+          where: { user_id: notifyUserId },
+          relations: ['user']
         });
 
-        // Get the artist (post creator) user_id
-        let artistUserId: string | undefined;
-        if (artistPostUserGeneric && artistPostUserGeneric.artistPost?.user_id) {
-          artistUserId = artistPostUserGeneric.artistPost.user_id;
-        } else if (artistPostUser && artistPostUser.artistPost?.user_id) {
-          artistUserId = artistPostUser.artistPost.user_id;
-        }
+        const isArtist = recipient?.user?.role?.includes(Roles.ARTIST);
 
-        // Build a set of user_ids to notify (viewers + artist, no duplicates, no commenter)
-        const notifyUserIds = new Set<string>(postViewers.map(v => v.user_id));
-        if (artistUserId && artistUserId !== userId) {
-          notifyUserIds.add(artistUserId);
-        }
+        if (isArtist) {
+          // For artists, check if we should bundle the notification
+          const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
+            notifyUserId,
+            postId,
+            NOTIFICATION_TYPE.COMMENT
+          );
 
-        console.log('[CommentsService] Notifying user IDs:', Array.from(notifyUserIds));
+          if (shouldBundle) {
+            // Create bundled notification
+            const bundledNotification = await this.notificationBundlingService.createBundledNotification(
+              notifyUserId,
+              postId,
+              NOTIFICATION_TYPE.COMMENT
+            );
 
-        // Send notification to each recipient
-        for (const notifyUserId of notifyUserIds) {
+            if (bundledNotification) {
+              // Get active OneSignal player IDs for the recipient
+              const playerIds = await this.userDeviceService.getActivePlayerIds(notifyUserId);
+              
+              if (playerIds.length > 0) {
+                await this.pushNotificationService.sendPushNotification(
+                  playerIds,
+                  bundledNotification.title,
+                  bundledNotification.message,
+                  {
+                    type: bundledNotification.type,
+                    post_id: bundledNotification.post_id,
+                    notification_id: bundledNotification.id,
+                    is_bundled: true
+                  }
+                );
+              }
+            }
+          } else {
+            // Create individual notification
+            const notification = new Notifications();
+            notification.is_read = false;
+            notification.from_id = userId;
+            notification.post_id = postId;
+            notification.title = NOTIFICATION_TITLE.COMMENT;
+            notification.type = NOTIFICATION_TYPE.COMMENT;
+            notification.data = JSON.stringify({
+              message: createCommentInput?.message,
+              post_id: postId
+            });
+            notification.message = `${commenter.user.full_name} just commented`;
+            notification.to_id = notifyUserId;
+
+            const savedNotification = await this.notificationsRepository.save(notification);
+            
+            // Get active OneSignal player IDs for the recipient
+            const playerIds = await this.userDeviceService.getActivePlayerIds(notifyUserId);
+            
+            if (playerIds.length > 0) {
+              await this.pushNotificationService.sendPushNotification(
+                playerIds,
+                notification.title,
+                notification.message,
+                {
+                  type: notification.type,
+                  post_id: notification.post_id,
+                  notification_id: savedNotification.id
+                }
+              );
+            }
+          }
+        } else {
+          // For non-artists, send individual notification as before
           const notification = new Notifications();
           notification.is_read = false;
           notification.from_id = userId;
@@ -130,41 +211,26 @@ export class CommentsService {
             message: createCommentInput?.message,
             post_id: postId
           });
-          
-          // Get the user who commented
-          const commenter = await this.artistPostUserRepository.findOne({
-            where: { user_id: userId },
-            relations: ['user']
-          });
-          
           notification.message = `${commenter.user.full_name} just commented`;
           notification.to_id = notifyUserId;
 
           const savedNotification = await this.notificationsRepository.save(notification);
           
-          // Get active OneSignal player IDs for the recipient
           const playerIds = await this.userDeviceService.getActivePlayerIds(notifyUserId);
-          console.log('[CommentsService] Player IDs for notifyUserId:', notifyUserId, playerIds);
           
           if (playerIds.length > 0) {
-            console.log('[CommentsService] Sending push notification to notifyUserId:', notifyUserId);
             await this.pushNotificationService.sendPushNotification(
               playerIds,
-              'DayOnes',
-              `${commenter.user.full_name} Just Commented`,
+              notification.title,
+              notification.message,
               {
-                type: NOTIFICATION_TYPE.COMMENT,
-                post_id: postId,
+                type: notification.type,
+                post_id: notification.post_id,
                 notification_id: savedNotification.id
               }
             );
-            console.log('[CommentsService] Push notification sent to notifyUserId:', notifyUserId);
-          } else {
-            console.log('[CommentsService] No player IDs found for notifyUserId:', notifyUserId);
           }
         }
-      } catch (err) {
-        console.error('[CommentsService] Error sending/saving comment notifications:', err);
       }
 
       return comment;

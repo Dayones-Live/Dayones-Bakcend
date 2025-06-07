@@ -14,6 +14,7 @@ import { Notifications } from '@app/modules/user/modules/notifications/entities/
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
+import { NotificationBundlingService } from '@app/shared/services/notification-bundling.service';
 
 @Injectable()
 export class ReactionService {
@@ -21,15 +22,16 @@ export class ReactionService {
 
   constructor(
     @InjectRepository(Reactions)
-    private reactionsRepository: Repository<Reactions>,
+    private reactionRepository: Repository<Reactions>,
     @InjectRepository(Notifications)
     private notificationsRepository: Repository<Notifications>,
     @InjectRepository(ArtistPost)
     private artistPostRepository: Repository<ArtistPost>,
-    private reactionsMapper: ReactionsMapper,
+    private reactionMapper: ReactionsMapper,
     private artistPostUserService: ArtistPostUserService,
     private pushNotificationService: PushNotificationService,
     private userDeviceService: UserDeviceService,
+    private notificationBundlingService: NotificationBundlingService,
   ) {}
 
   /**
@@ -43,98 +45,121 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
-      let reaction: Reactions = {} as Reactions;
-      let postOwnerId: string = '';
-
-      this.logger.debug(`Processing like for post ${postId} by user ${userId}`);
-
-      // First, get the post to find the owner
-      const post = await this.artistPostRepository.findOne({
-        where: { id: postId },
-        relations: ['user'],
-      });
-
-      if (!post) {
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-
-      postOwnerId = post.user_id;
-      this.logger.debug(`Post owner ID: ${postOwnerId}, User ID: ${userId}`);
-
-      // Get the artist post user record for this post
-      const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(
-        userId,
-        postId,
+      const reaction = await this.reactionRepository.save(
+        this.reactionMapper.dtoToEntity(createReactionInput),
       );
 
-      if (!artistPostUser) {
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-
-      // Check if user has already liked the post
-      const isAlreadyLiked = await this.reactionsRepository.findOne({
-        where: {
-          artist_post_user_id: artistPostUser.id,
-          react_by: userId,
-        },
-      });
-
-      if (isAlreadyLiked) {
-        throw new HttpException(`Post Already Liked!`, HttpStatus.CONFLICT);
-      }
-
-      // Create the reaction
-      createReactionInput.artistPostUserId = artistPostUser.id;
-      createReactionInput.reactBy = userId;
-      const reactionDto = this.reactionsMapper.dtoToEntity(createReactionInput);
-      reaction = await this.reactionsRepository.save(reactionDto);
+      // Get the post owner's ID
+      const postOwner = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      const postOwnerId = postOwner?.artistPost?.user_id;
 
       // Only create and send notification if the liker is not the post owner
       if (postOwnerId !== userId) {
         this.logger.debug('Creating notification for post like');
         try {
-          const notification = new Notifications();
-          notification.data = JSON.stringify(reaction);
-          notification.title = NOTIFICATION_TITLE.LIKE_POST;
-          notification.is_read = false;
-          notification.from_id = userId;
-          
-          // Get the liker's information
-          const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-          
-          notification.message = `${liker.user.full_name} liked your post`;
-          notification.type = NOTIFICATION_TYPE.REACTION;
-          notification.to_id = postOwnerId; // Send to post owner
-          notification.post_id = postId;
-          
-          const savedNotification = await this.notificationsRepository.save(notification);
-          this.logger.debug('Notification saved:', savedNotification);
+          // Check if the post owner is an artist
+          const postOwnerUser = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
+          const isArtist = postOwnerUser?.user?.role?.includes(Roles.ARTIST);
 
-          // Get active OneSignal player IDs for the post owner
-          const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-          this.logger.debug(`Found ${playerIds.length} player IDs for post owner ${postOwnerId}:`, playerIds);
-          
-          if (playerIds.length > 0) {
-            this.logger.debug('Sending push notification');
-            await this.pushNotificationService.sendPushNotification(
-              playerIds,
-              notification.title,
-              notification.message,
-              {
-                type: notification.type,
-                post_id: notification.post_id,
-                notification_id: savedNotification.id
-              }
+          if (isArtist) {
+            // For artists, check if we should bundle the notification
+            const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
+              postOwnerId,
+              postId,
+              NOTIFICATION_TYPE.LIKE_POST
             );
-            this.logger.debug('Push notification sent successfully');
+
+            if (shouldBundle) {
+              // Create bundled notification
+              const bundledNotification = await this.notificationBundlingService.createBundledNotification(
+                postOwnerId,
+                postId,
+                NOTIFICATION_TYPE.LIKE_POST
+              );
+
+              if (bundledNotification) {
+                // Get active OneSignal player IDs for the post owner
+                const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+                
+                if (playerIds.length > 0) {
+                  await this.pushNotificationService.sendPushNotification(
+                    playerIds,
+                    bundledNotification.title,
+                    bundledNotification.message,
+                    {
+                      type: bundledNotification.type,
+                      post_id: bundledNotification.post_id,
+                      notification_id: bundledNotification.id,
+                      is_bundled: true
+                    }
+                  );
+                }
+              }
+            } else {
+              // Create individual notification
+              const notification = new Notifications();
+              notification.data = JSON.stringify(reaction);
+              notification.title = NOTIFICATION_TITLE.LIKE_POST;
+              notification.is_read = false;
+              notification.from_id = userId;
+              
+              // Get the liker's information
+              const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+              
+              notification.message = `${liker.user.full_name} liked your post`;
+              notification.type = NOTIFICATION_TYPE.REACTION;
+              notification.to_id = postOwnerId;
+              notification.post_id = postId;
+              
+              const savedNotification = await this.notificationsRepository.save(notification);
+
+              // Get active OneSignal player IDs for the post owner
+              const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+              
+              if (playerIds.length > 0) {
+                await this.pushNotificationService.sendPushNotification(
+                  playerIds,
+                  notification.title,
+                  notification.message,
+                  {
+                    type: notification.type,
+                    post_id: notification.post_id,
+                    notification_id: savedNotification.id
+                  }
+                );
+              }
+            }
           } else {
-            this.logger.warn(`No active player IDs found for post owner ${postOwnerId}`);
+            // For non-artists, send individual notification as before
+            const notification = new Notifications();
+            notification.data = JSON.stringify(reaction);
+            notification.title = NOTIFICATION_TITLE.LIKE_POST;
+            notification.is_read = false;
+            notification.from_id = userId;
+            
+            const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+            
+            notification.message = `${liker.user.full_name} liked your post`;
+            notification.type = NOTIFICATION_TYPE.REACTION;
+            notification.to_id = postOwnerId;
+            notification.post_id = postId;
+            
+            const savedNotification = await this.notificationsRepository.save(notification);
+
+            const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+            
+            if (playerIds.length > 0) {
+              await this.pushNotificationService.sendPushNotification(
+                playerIds,
+                notification.title,
+                notification.message,
+                {
+                  type: notification.type,
+                  post_id: notification.post_id,
+                  notification_id: savedNotification.id
+                }
+              );
+            }
           }
         } catch (err) {
           this.logger.error('Error sending/saving reaction notification:', err);
@@ -168,7 +193,7 @@ export class ReactionService {
       const artistPostUser =
         await this.artistPostUserService.getArtistPostByPostId(user?.id, id);
       // Delete the signature based on both id and user_id
-      const deleteResult = await this.reactionsRepository.delete({
+      const deleteResult = await this.reactionRepository.delete({
         artist_post_user_id: artistPostUser.id,
       });
 

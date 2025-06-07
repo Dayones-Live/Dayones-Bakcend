@@ -23,7 +23,7 @@ export class Notifications extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: true })
   @IsUUID()
   @Index()
   from_id: string;
@@ -32,7 +32,7 @@ export class Notifications extends BaseEntity {
   @JoinColumn({ name: 'from_id' })
   fromUser: User;
 
-  @Column()
+  @Column({ nullable: false })
   @IsUUID()
   @Index()
   to_id: string;
@@ -49,7 +49,7 @@ export class Notifications extends BaseEntity {
   @IsNotEmpty({ message: 'message is required' })
   message: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'jsonb' })
   data: string;
 
   @Column({ nullable: false })
@@ -66,9 +66,19 @@ export class Notifications extends BaseEntity {
   @Column({ nullable: true })
   conversation_id: string;
 
-  @CreateDateColumn()
+  @Column({ nullable: false, default: false })
+  is_bundled: boolean;
+
+  @Column({ nullable: true })
+  bundled_notification_id: string;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
-  @UpdateDateColumn()
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
   updated_at: Date;
 }
