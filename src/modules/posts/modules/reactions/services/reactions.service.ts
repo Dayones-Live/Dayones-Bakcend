@@ -87,7 +87,7 @@ export class ReactionService {
           const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
             postOwnerId,
             postId,
-            NOTIFICATION_TYPE.LIKE
+            NOTIFICATION_TYPE.LIKE_POST
           );
 
           if (shouldBundle) {
@@ -95,7 +95,7 @@ export class ReactionService {
             const bundledNotification = await this.notificationBundlingService.createBundledNotification(
               postOwnerId,
               postId,
-              NOTIFICATION_TYPE.LIKE
+              NOTIFICATION_TYPE.LIKE_POST
             );
 
             if (bundledNotification) {
@@ -122,8 +122,8 @@ export class ReactionService {
             notification.is_read = false;
             notification.from_id = userId;
             notification.post_id = postId;
-            notification.title = NOTIFICATION_TITLE.LIKE;
-            notification.type = NOTIFICATION_TYPE.LIKE;
+            notification.title = NOTIFICATION_TITLE.LIKE_POST;
+            notification.type = NOTIFICATION_TYPE.LIKE_POST;
             notification.data = JSON.stringify({
               post_id: postId
             });
@@ -154,8 +154,8 @@ export class ReactionService {
           notification.is_read = false;
           notification.from_id = userId;
           notification.post_id = postId;
-          notification.title = NOTIFICATION_TITLE.LIKE;
-          notification.type = NOTIFICATION_TYPE.LIKE;
+          notification.title = NOTIFICATION_TITLE.LIKE_POST;
+          notification.type = NOTIFICATION_TYPE.LIKE_POST;
           notification.data = JSON.stringify({
             post_id: postId
           });
