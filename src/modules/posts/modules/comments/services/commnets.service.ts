@@ -51,6 +51,19 @@ export class CommentsService {
     userId: string,
   ): Promise<Comments> {
     try {
+      // Get the artist post user record first
+      const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      
+      if (!artistPostUser) {
+        throw new HttpException(
+          'User does not have access to this post',
+          HttpStatus.FORBIDDEN
+        );
+      }
+
+      // Set the artist_post_user_id in the input
+      createCommentInput.artistPostUserId = artistPostUser.id;
+
       const comment = this.commentsMapper.dtoToEntity(createCommentInput);
       const post = await this.artistPostUserService.getArtistPostByPostId(postId, postId);
 

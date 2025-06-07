@@ -45,6 +45,19 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
+      // Get the artist post user record first
+      const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      
+      if (!artistPostUser) {
+        throw new HttpException(
+          'User does not have access to this post',
+          HttpStatus.FORBIDDEN
+        );
+      }
+
+      // Set the artist_post_user_id in the input
+      createReactionInput.artistPostUserId = artistPostUser.id;
+
       const reaction = this.reactionMapper.dtoToEntity(createReactionInput);
       const post = await this.artistPostRepository.findOne({
         where: { id: postId },
@@ -62,97 +75,64 @@ export class ReactionService {
 
       // Only create and send notification if the liker is not the post owner
       if (postOwnerId !== userId) {
-        this.logger.debug('Creating notification for post like');
-        try {
-          // Check if the post owner is an artist
-          const postOwnerUser = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
-          const isArtist = postOwnerUser?.user?.role?.includes(Roles.ARTIST);
+        // Get the liker's information
+        const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
 
-          if (isArtist) {
-            // For artists, check if we should bundle the notification
-            const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
+        // Check if the post owner is an artist
+        const postOwnerUser = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
+        const isArtist = postOwnerUser?.user?.role?.includes(Roles.ARTIST);
+
+        if (isArtist) {
+          // For artists, check if we should bundle the notification
+          const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
+            postOwnerId,
+            postId,
+            NOTIFICATION_TYPE.LIKE
+          );
+
+          if (shouldBundle) {
+            // Create bundled notification
+            const bundledNotification = await this.notificationBundlingService.createBundledNotification(
               postOwnerId,
               postId,
-              NOTIFICATION_TYPE.LIKE_POST
+              NOTIFICATION_TYPE.LIKE
             );
 
-            if (shouldBundle) {
-              // Create bundled notification
-              const bundledNotification = await this.notificationBundlingService.createBundledNotification(
-                postOwnerId,
-                postId,
-                NOTIFICATION_TYPE.LIKE_POST
-              );
-
-              if (bundledNotification) {
-                // Get active OneSignal player IDs for the post owner
-                const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-                
-                if (playerIds.length > 0) {
-                  await this.pushNotificationService.sendPushNotification(
-                    playerIds,
-                    bundledNotification.title,
-                    bundledNotification.message,
-                    {
-                      type: bundledNotification.type,
-                      post_id: bundledNotification.post_id,
-                      notification_id: bundledNotification.id,
-                      is_bundled: true
-                    }
-                  );
-                }
-              }
-            } else {
-              // Create individual notification
-              const notification = new Notifications();
-              notification.data = JSON.stringify(reaction);
-              notification.title = NOTIFICATION_TITLE.LIKE_POST;
-              notification.is_read = false;
-              notification.from_id = userId;
-              
-              // Get the liker's information
-              const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-              
-              notification.message = `${liker.user.full_name} liked your post`;
-              notification.type = NOTIFICATION_TYPE.REACTION;
-              notification.to_id = postOwnerId;
-              notification.post_id = postId;
-              
-              const savedNotification = await this.notificationsRepository.save(notification);
-
+            if (bundledNotification) {
               // Get active OneSignal player IDs for the post owner
               const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
               
               if (playerIds.length > 0) {
                 await this.pushNotificationService.sendPushNotification(
                   playerIds,
-                  notification.title,
-                  notification.message,
+                  bundledNotification.title,
+                  bundledNotification.message,
                   {
-                    type: notification.type,
-                    post_id: notification.post_id,
-                    notification_id: savedNotification.id
+                    type: bundledNotification.type,
+                    post_id: bundledNotification.post_id,
+                    notification_id: bundledNotification.id,
+                    is_bundled: true
                   }
                 );
               }
             }
           } else {
-            // For non-artists, send individual notification
+            // Create individual notification
             const notification = new Notifications();
-            notification.data = JSON.stringify(reaction);
-            notification.title = NOTIFICATION_TITLE.LIKE_POST;
             notification.is_read = false;
             notification.from_id = userId;
-            
-            const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-            
-            notification.message = `${liker.user.full_name} liked your post`;
-            notification.type = NOTIFICATION_TYPE.REACTION;
-            notification.to_id = postOwnerId;
             notification.post_id = postId;
-            
-            const savedNotification = await this.notificationsRepository.save(notification);
+            notification.title = NOTIFICATION_TITLE.LIKE;
+            notification.type = NOTIFICATION_TYPE.LIKE;
+            notification.data = JSON.stringify({
+              post_id: postId
+            });
+            notification.message = `${liker.user.full_name} just liked your post`;
+            notification.to_id = postOwnerId;
 
+            const savedNotification = await this.notificationsRepository.save(notification);
+            
+            // Get active OneSignal player IDs for the post owner
             const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
             
             if (playerIds.length > 0) {
@@ -168,18 +148,46 @@ export class ReactionService {
               );
             }
           }
-        } catch (err) {
-          this.logger.error('Error sending/saving reaction notification:', err);
-          console.error('🚀 ~ Sending/Saving Reaction Notificaiton ~ err:', err);
+        } else {
+          // For non-artists, send individual notification
+          const notification = new Notifications();
+          notification.is_read = false;
+          notification.from_id = userId;
+          notification.post_id = postId;
+          notification.title = NOTIFICATION_TITLE.LIKE;
+          notification.type = NOTIFICATION_TYPE.LIKE;
+          notification.data = JSON.stringify({
+            post_id: postId
+          });
+          notification.message = `${liker.user.full_name} just liked your post`;
+          notification.to_id = postOwnerId;
+
+          const savedNotification = await this.notificationsRepository.save(notification);
+          
+          const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+          
+          if (playerIds.length > 0) {
+            await this.pushNotificationService.sendPushNotification(
+              playerIds,
+              notification.title,
+              notification.message,
+              {
+                type: notification.type,
+                post_id: notification.post_id,
+                notification_id: savedNotification.id
+              }
+            );
+          }
         }
-      } else {
-        this.logger.debug('Skipping notification - user is liking their own post');
       }
 
       return await this.reactionRepository.save(reaction);
     } catch (error) {
-      this.logger.error('Error liking post:', error);
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+      console.error(
+        '🚀 ~ file:reactions.service.ts:96 ~ ReactionService ~ likeAPost ~ error:',
+        error,
+      );
+      throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }
 
