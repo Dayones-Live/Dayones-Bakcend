@@ -8,6 +8,7 @@ import {
   Req,
   Res,
   UseGuards,
+  Body,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
@@ -18,7 +19,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationService } from '@app/shared/services/notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
+import { PushNotificationService } from '@app/shared/services/push-notification.service';
+import { NotificationBundlingService } from '@app/shared/services/notification-bundling.service';
+import { ApiTags } from '@nestjs/swagger';
+import { NOTIFICATION_TYPE, NOTIFICATION_TITLE } from '../constants';
+import { Roles } from '@app/shared/constants/constants';
 
+@ApiTags('Notifications')
 @Controller('notifications')
 @UseGuards(CognitoGuard)
 export class NotificationsController {
@@ -28,7 +35,85 @@ export class NotificationsController {
     private notificationMapper: NotificationMapper,
     private notificationService: NotificationService,
     private userDeviceService: UserDeviceService,
+    private pushNotificationService: PushNotificationService,
+    private notificationBundlingService: NotificationBundlingService,
   ) {}
+
+  @Post('test-bundling')
+  async testNotificationBundling(
+    @Res() res: Response,
+    @Req() req: Request,
+    @Body()
+    body: {
+      postId: string;
+      numInteractions: number;
+      interactionType: typeof NOTIFICATION_TYPE[keyof typeof NOTIFICATION_TYPE];
+      delayBetweenMs?: number;
+    }
+  ) {
+    try {
+      const { postId, numInteractions, interactionType, delayBetweenMs = 1000 } = body;
+      const results = [];
+
+      // Create multiple notifications with delays
+      for (let i = 0; i < numInteractions; i++) {
+        const notification = new Notifications();
+        notification.to_id = req?.user?.id;
+        notification.from_id = req?.user?.id;
+        notification.post_id = postId;
+        notification.title = NOTIFICATION_TITLE[interactionType];
+        notification.type = interactionType;
+        notification.is_read = false;
+        notification.message = `Test interaction ${i + 1}`;
+        notification.data = JSON.stringify({
+          test: true,
+          interaction_number: i + 1
+        });
+
+        const savedNotification = await this.notificationsRepository.save(notification);
+        results.push(savedNotification);
+
+        // Get active OneSignal player IDs
+        const playerIds = await this.userDeviceService.getActivePlayerIds(req?.user?.id);
+        
+        if (playerIds.length > 0) {
+          await this.pushNotificationService.sendPushNotification(
+            playerIds,
+            notification.title,
+            notification.message,
+            {
+              type: notification.type,
+              post_id: notification.post_id,
+              notification_id: savedNotification.id
+            }
+          );
+        }
+
+        // Wait for the specified delay
+        await new Promise(resolve => setTimeout(resolve, delayBetweenMs));
+      }
+
+      // Check if bundling occurred
+      const bundledNotifications = await this.notificationsRepository.find({
+        where: {
+          to_id: req?.user?.id,
+          post_id: postId,
+          is_bundled: true
+        }
+      });
+
+      res.status(HttpStatus.OK).json({
+        message: 'Test notifications sent',
+        data: {
+          individual_notifications: results,
+          bundled_notifications: bundledNotifications
+        }
+      });
+    } catch (error) {
+      console.error('Error in test notification bundling:', error);
+      throw error;
+    }
+  }
 
   @Post('test')
   async testNotification(@Res() res: Response, @Req() req: Request) {
@@ -48,15 +133,23 @@ export class NotificationsController {
       const playerIds = await this.userDeviceService.getActivePlayerIds(req?.user?.id);
       
       if (playerIds.length > 0) {
-        await this.notificationService.sendNotification(savedNotification, playerIds);
+        await this.pushNotificationService.sendPushNotification(
+          playerIds,
+          notification.title,
+          notification.message,
+          {
+            type: notification.type,
+            notification_id: savedNotification.id
+          }
+        );
         res.status(HttpStatus.OK).json({
           message: 'Test notification sent successfully',
-          data: this.notificationMapper.toDto(savedNotification),
+          data: savedNotification,
         });
       } else {
         res.status(HttpStatus.OK).json({
           message: 'Test notification saved but no active devices found',
-          data: this.notificationMapper.toDto(savedNotification),
+          data: savedNotification,
         });
       }
     } catch (error) {
