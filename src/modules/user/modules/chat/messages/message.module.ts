@@ -11,12 +11,14 @@ import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
 import { SharedModule } from '@app/shared/shared.module';
 import { NotificationModule } from '@app/modules/user/modules/notifications/notification.module';
 import { User } from '@app/modules/user/entities/user.entity';
+import { UserModule } from '@app/modules/user/user.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Message, Conversations, Notifications, User]),
     forwardRef(() => ConversationModule),
     forwardRef(() => NotificationModule),
+    forwardRef(() => UserModule),
     BlocksModule,
     SharedModule,
   ],
