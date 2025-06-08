@@ -68,11 +68,51 @@ export class ReactionService {
       if (postOwnerId !== userId) {
         const postOwner = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
 
-        // Only send notification if the liker is a fan and the post owner is an artist
-        const isLikerFan = !liker?.user?.role?.includes(Roles.ARTIST);
+        // Check roles for both liker and post owner
+        const isLikerArtist = liker?.user?.role?.includes(Roles.ARTIST);
         const isPostOwnerArtist = postOwner?.user?.role?.includes(Roles.ARTIST);
 
-        if (isLikerFan && isPostOwnerArtist) {
+        if (isLikerArtist) {
+          // For artist likes, send notification to all fans who have access to the post
+          const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
+          
+          for (const fan of fans) {
+            // Skip sending notification to the artist themselves
+            if (fan.user_id === userId) continue;
+
+            // Create individual notification for each fan
+            const notification = new Notifications();
+            notification.is_read = false;
+            notification.from_id = userId;
+            notification.post_id = postId;
+            notification.title = NOTIFICATION_TITLE.LIKE_POST;
+            notification.type = NOTIFICATION_TYPE.LIKE_POST;
+            notification.data = JSON.stringify({
+              post_id: postId
+            });
+            notification.message = `${liker.user.full_name} just liked your post`;
+            notification.to_id = fan.user_id;
+
+            const savedNotification = await this.notificationsRepository.save(notification);
+            
+            // Get active OneSignal player IDs for the fan
+            const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
+            
+            if (playerIds.length > 0) {
+              await this.pushNotificationService.sendPushNotification(
+                playerIds,
+                notification.title,
+                notification.message,
+                {
+                  type: notification.type,
+                  post_id: notification.post_id,
+                  notification_id: savedNotification.id
+                }
+              );
+            }
+          }
+        } else if (isPostOwnerArtist) {
+          // For fan likes, send notification only to the artist post owner
           // Check if we should bundle the notification
           const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
             postOwnerId,

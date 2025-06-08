@@ -83,6 +83,9 @@ export class CommentsService {
           const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
           
           for (const fan of fans) {
+            // Skip sending notification to the artist themselves
+            if (fan.user_id === userId) continue;
+
             // Create individual notification for each fan
             const notification = new Notifications();
             notification.is_read = false;
