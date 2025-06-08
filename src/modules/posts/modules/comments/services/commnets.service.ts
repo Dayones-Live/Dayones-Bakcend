@@ -51,42 +51,20 @@ export class CommentsService {
     userId: string,
   ): Promise<Comments> {
     try {
-      // Get the artist post user record first
-      const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      
-      if (!artistPostUser) {
-        throw new HttpException(
-          'User does not have access to this post',
-          HttpStatus.FORBIDDEN
-        );
-      }
-
-      // Set the artist_post_user_id in the input
-      createCommentInput.artistPostUserId = artistPostUser.id;
-
       const comment = this.commentsMapper.dtoToEntity(createCommentInput);
-      
-      // Get the post with its owner
-      const post = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-
-      if (!post) {
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-
-      const postOwnerId = post.artistPost?.user_id;
+      const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
 
       // Only create and send notification if the commenter is not the post owner
       if (postOwnerId !== userId) {
         // Get the commenter's information
         const commenter = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+        const postOwner = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
 
         // Check if the commenter is an artist
-        const isArtist = commenter?.user?.role?.includes(Roles.ARTIST);
+        const isCommenterArtist = commenter?.user?.role?.includes(Roles.ARTIST);
+        const isPostOwnerArtist = postOwner?.user?.role?.includes(Roles.ARTIST);
 
-        if (isArtist) {
+        if (isCommenterArtist) {
           // For artist comments, send notification to all fans who have access to the post
           const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
           
@@ -123,8 +101,8 @@ export class CommentsService {
               );
             }
           }
-        } else {
-          // For non-artist comments, send notification to post owner
+        } else if (isPostOwnerArtist) {
+          // For fan comments, send notification only to the artist post owner
           const notification = new Notifications();
           notification.is_read = false;
           notification.from_id = userId;

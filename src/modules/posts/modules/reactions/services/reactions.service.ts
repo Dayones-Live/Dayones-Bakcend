@@ -45,47 +45,21 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
-      // Get the artist post user record first
-      const artistPostUser = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      
-      if (!artistPostUser) {
-        throw new HttpException(
-          'User does not have access to this post',
-          HttpStatus.FORBIDDEN
-        );
-      }
-
-      // Set the artist_post_user_id in the input
-      createReactionInput.artistPostUserId = artistPostUser.id;
-
       const reaction = this.reactionMapper.dtoToEntity(createReactionInput);
-      
-      // Get the post with its owner
-      const post = await this.artistPostRepository.findOne({
-        where: { id: postId },
-        relations: ['user']
-      });
-
-      if (!post) {
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-
-      const postOwnerId = post.user_id;
+      const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
 
       // Only create and send notification if the liker is not the post owner
       if (postOwnerId !== userId) {
         // Get the liker's information
         const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+        const postOwner = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
 
-        // Check if the post owner is an artist
-        const postOwnerUser = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
-        const isArtist = postOwnerUser?.user?.role?.includes(Roles.ARTIST);
+        // Only send notification if the liker is a fan and the post owner is an artist
+        const isLikerFan = !liker?.user?.role?.includes(Roles.ARTIST);
+        const isPostOwnerArtist = postOwner?.user?.role?.includes(Roles.ARTIST);
 
-        if (isArtist) {
-          // For artists, check if we should bundle the notification
+        if (isLikerFan && isPostOwnerArtist) {
+          // Check if we should bundle the notification
           const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
             postOwnerId,
             postId,
@@ -149,36 +123,6 @@ export class ReactionService {
                 }
               );
             }
-          }
-        } else {
-          // For non-artists, send individual notification
-          const notification = new Notifications();
-          notification.is_read = false;
-          notification.from_id = userId;
-          notification.post_id = postId;
-          notification.title = NOTIFICATION_TITLE.LIKE_POST;
-          notification.type = NOTIFICATION_TYPE.LIKE_POST;
-          notification.data = JSON.stringify({
-            post_id: postId
-          });
-          notification.message = `${liker.user.full_name} just liked your post`;
-          notification.to_id = postOwnerId;
-
-          const savedNotification = await this.notificationsRepository.save(notification);
-          
-          const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-          
-          if (playerIds.length > 0) {
-            await this.pushNotificationService.sendPushNotification(
-              playerIds,
-              notification.title,
-              notification.message,
-              {
-                type: notification.type,
-                post_id: notification.post_id,
-                notification_id: savedNotification.id
-              }
-            );
           }
         }
       }

@@ -441,4 +441,20 @@ export class ArtistPostUserService {
       throw err;
     }
   }
+
+  async getPostOwnerId(postId: string): Promise<string> {
+    const post = await this.artistPostUserRepository.findOne({
+      where: { id: postId },
+      select: ['user_id']
+    });
+
+    if (!post) {
+      throw new HttpException(
+        ERROR_MESSAGES.POST_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return post.user_id;
+  }
 }
