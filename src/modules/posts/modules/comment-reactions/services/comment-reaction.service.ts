@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CommentReactions } from '../entities/comment-reaction.entity';
 import { CommentReactionInput } from '../dto/types';
-import { ERROR_MESSAGES } from '@app/shared/constants/constants';
+import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { CommentReactionMapper } from '../dto/comment-reaction.mapper';
 import { CommentsService } from '../../comments/services/commnets.service';
 import { User } from '@app/modules/user/entities/user.entity';
@@ -17,7 +17,6 @@ import { NOTIFICATION_TITLE, NOTIFICATION_TYPE } from '@app/modules/user/modules
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
-import { Roles } from '@app/modules/user/modules/roles/constants';
 
 @Injectable()
 export class CommentReactionsService {

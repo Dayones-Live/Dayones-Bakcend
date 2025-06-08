@@ -300,4 +300,20 @@ export class CommentsService {
       throw error;
     }
   }
+
+  async getCommentOwner(commentId: string): Promise<User> {
+    const comment = await this.commentsRepository.findOne({
+      where: { id: commentId },
+      relations: ['artistPostUser', 'artistPostUser.user']
+    });
+
+    if (!comment) {
+      throw new HttpException(
+        ERROR_MESSAGES.COMMENT_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return comment.artistPostUser?.user;
+  }
 }
