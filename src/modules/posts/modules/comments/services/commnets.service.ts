@@ -51,75 +51,65 @@ export class CommentsService {
     userId: string,
   ): Promise<Comments> {
     try {
-      const comment = this.commentsMapper.dtoToEntity(createCommentInput);
-      const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
-
-      // Get the commenter's information
-      const commenter = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      if (!commenter) {
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
+      let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
+      const artistPostUserGeneric =
+        await this.artistPostUserService.getGenericArtistPostUserByPostId(
+          postId,
         );
+      let comment: Comments = {} as Comments;
+      if (artistPostUserGeneric) {
+        createCommentInput.artistPostUserId = artistPostUserGeneric?.id;
+        if (artistPostUserGeneric.user_id !== userId) {
+          createCommentInput.commentBy = userId;
+        }
+        const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
+        // Use the upsert method
+        comment = await this.commentsRepository.save(commentDto);
+      } else {
+        // Fetch the artistPostUserId through user id and artistPost
+        artistPostUser = await this.artistPostUserService.getArtistPostByPostId(
+          userId,
+          postId,
+        );
+        if (!artistPostUser) {
+          throw new HttpException(
+            ERROR_MESSAGES.POST_NOT_FOUND,
+            HttpStatus.NOT_FOUND,
+          );
+        }
+        if (
+          artistPostUser.status !== Invite_Status.ACCEPTED &&
+          artistPostUser?.user?.role[0] !== Roles.ARTIST
+        ) {
+          throw new HttpException(
+            ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
+            HttpStatus.FORBIDDEN,
+          );
+        }
+        createCommentInput.artistPostUserId = artistPostUser?.id;
+        const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
+        // Use the upsert method
+        comment = await this.commentsRepository.save(commentDto);
       }
 
-      // Set the artist_post_user_id on the comment
-      comment.artist_post_user_id = commenter.id;
-      comment.comment_by = userId;
+      // Get the commenter's information
+      const commenter = await this.artistPostUserRepository.findOne({
+        where: { user_id: userId },
+        relations: ['user']
+      });
 
-      // Save the comment first
-      const savedComment = await this.commentsRepository.save(comment);
+      // Check if the commenter is an artist
+      const isCommenterArtist = commenter?.user?.role?.includes(Roles.ARTIST);
 
-      // Only create and send notification if the commenter is not the post owner
-      if (postOwnerId !== userId) {
-        const postOwner = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
+      if (isCommenterArtist) {
+        // If commenter is an artist, notify all fans who have access to the post
+        const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
+        
+        for (const fan of fans) {
+          // Skip sending notification to the artist themselves
+          if (fan.user_id === userId) continue;
 
-        // Check if the commenter is an artist
-        const isCommenterArtist = commenter?.user?.role?.includes(Roles.ARTIST);
-        const isPostOwnerArtist = postOwner?.user?.role?.includes(Roles.ARTIST);
-
-        if (isCommenterArtist) {
-          // For artist comments, send notification to all fans who have access to the post
-          const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
-          
-          for (const fan of fans) {
-            // Skip sending notification to the artist themselves
-            if (fan.user_id === userId) continue;
-
-            // Create individual notification for each fan
-            const notification = new Notifications();
-            notification.is_read = false;
-            notification.from_id = userId;
-            notification.post_id = postId;
-            notification.title = NOTIFICATION_TITLE.COMMENT;
-            notification.type = NOTIFICATION_TYPE.COMMENT;
-            notification.data = JSON.stringify({
-              message: createCommentInput?.message,
-              post_id: postId
-            });
-            notification.message = `${commenter.user.full_name} just commented`;
-            notification.to_id = fan.user_id;
-
-            const savedNotification = await this.notificationsRepository.save(notification);
-            
-            // Get active OneSignal player IDs for the fan
-            const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
-            
-            if (playerIds.length > 0) {
-              await this.pushNotificationService.sendPushNotification(
-                playerIds,
-                notification.title,
-                notification.message,
-                {
-                  type: notification.type,
-                  post_id: notification.post_id,
-                  notification_id: savedNotification.id
-                }
-              );
-            }
-          }
-        } else if (isPostOwnerArtist) {
-          // For fan comments, send notification only to the artist post owner
+          // Create individual notification for each fan
           const notification = new Notifications();
           notification.is_read = false;
           notification.from_id = userId;
@@ -131,11 +121,12 @@ export class CommentsService {
             post_id: postId
           });
           notification.message = `${commenter.user.full_name} just commented`;
-          notification.to_id = postOwnerId;
+          notification.to_id = fan.user_id;
 
           const savedNotification = await this.notificationsRepository.save(notification);
           
-          const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+          // Get active OneSignal player IDs for the fan
+          const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
           
           if (playerIds.length > 0) {
             await this.pushNotificationService.sendPushNotification(
@@ -150,9 +141,48 @@ export class CommentsService {
             );
           }
         }
+      } else {
+        // If commenter is a fan, notify only the artist post owner
+        const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
+        
+        // Skip if the fan is commenting on their own post
+        if (postOwnerId === userId) {
+          return comment;
+        }
+
+        // Create notification for the artist
+        const notification = new Notifications();
+        notification.is_read = false;
+        notification.from_id = userId;
+        notification.post_id = postId;
+        notification.title = NOTIFICATION_TITLE.COMMENT;
+        notification.type = NOTIFICATION_TYPE.COMMENT;
+        notification.data = JSON.stringify({
+          message: createCommentInput?.message,
+          post_id: postId
+        });
+        notification.message = `${commenter.user.full_name} just commented`;
+        notification.to_id = postOwnerId;
+
+        const savedNotification = await this.notificationsRepository.save(notification);
+        
+        const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+        
+        if (playerIds.length > 0) {
+          await this.pushNotificationService.sendPushNotification(
+            playerIds,
+            notification.title,
+            notification.message,
+            {
+              type: notification.type,
+              post_id: notification.post_id,
+              notification_id: savedNotification.id
+            }
+          );
+        }
       }
 
-      return savedComment;
+      return comment;
     } catch (error) {
       console.error(
         '🚀 ~ file:comment.service.ts:96 ~ CommentsService ~ createComment ~ error:',
