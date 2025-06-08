@@ -417,4 +417,28 @@ export class ArtistPostUserService {
       throw err;
     }
   }
+
+  /**
+   * Get all fans who have access to a post
+   * @param postId - The ID of the post
+   * @returns Array of ArtistPostUser records for fans with access
+   */
+  async getFansWithAccessToPost(postId: string): Promise<ArtistPostUser[]> {
+    try {
+      const fans = await this.artistPostUserRepository.find({
+        relations: ['user'],
+        where: {
+          artist_post_id: postId,
+          status: Invite_Status.ACCEPTED,
+        },
+      });
+      return fans;
+    } catch (err) {
+      console.error(
+        '🚀 ~ file:artist.post.user.service.ts ~ getFansWithAccessToPost ~ error:',
+        err,
+      );
+      throw err;
+    }
+  }
 }

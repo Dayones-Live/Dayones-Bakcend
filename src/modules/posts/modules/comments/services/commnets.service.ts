@@ -83,46 +83,15 @@ export class CommentsService {
         // Get the commenter's information
         const commenter = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
 
-        // Check if the post owner is an artist
-        const postOwnerUser = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
-        const isArtist = postOwnerUser?.user?.role?.includes(Roles.ARTIST);
+        // Check if the commenter is an artist
+        const isArtist = commenter?.user?.role?.includes(Roles.ARTIST);
 
         if (isArtist) {
-          // For artists, check if we should bundle the notification
-          const shouldBundle = await this.notificationBundlingService.shouldBundleNotification(
-            postOwnerId,
-            postId,
-            NOTIFICATION_TYPE.COMMENT
-          );
-
-          if (shouldBundle) {
-            // Create bundled notification
-            const bundledNotification = await this.notificationBundlingService.createBundledNotification(
-              postOwnerId,
-              postId,
-              NOTIFICATION_TYPE.COMMENT
-            );
-
-            if (bundledNotification) {
-              // Get active OneSignal player IDs for the post owner
-              const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-              
-              if (playerIds.length > 0) {
-                await this.pushNotificationService.sendPushNotification(
-                  playerIds,
-                  bundledNotification.title,
-                  bundledNotification.message,
-                  {
-                    type: bundledNotification.type,
-                    post_id: bundledNotification.post_id,
-                    notification_id: bundledNotification.id,
-                    is_bundled: true
-                  }
-                );
-              }
-            }
-          } else {
-            // Create individual notification
+          // For artist comments, send notification to all fans who have access to the post
+          const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
+          
+          for (const fan of fans) {
+            // Create individual notification for each fan
             const notification = new Notifications();
             notification.is_read = false;
             notification.from_id = userId;
@@ -134,12 +103,12 @@ export class CommentsService {
               post_id: postId
             });
             notification.message = `${commenter.user.full_name} just commented`;
-            notification.to_id = postOwnerId;
+            notification.to_id = fan.user_id;
 
             const savedNotification = await this.notificationsRepository.save(notification);
             
-            // Get active OneSignal player IDs for the post owner
-            const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+            // Get active OneSignal player IDs for the fan
+            const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
             
             if (playerIds.length > 0) {
               await this.pushNotificationService.sendPushNotification(
@@ -155,7 +124,7 @@ export class CommentsService {
             }
           }
         } else {
-          // For non-artists, send individual notification
+          // For non-artist comments, send notification to post owner
           const notification = new Notifications();
           notification.is_read = false;
           notification.from_id = userId;
