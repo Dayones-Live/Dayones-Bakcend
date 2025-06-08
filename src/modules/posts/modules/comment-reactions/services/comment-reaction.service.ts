@@ -17,6 +17,7 @@ import { NOTIFICATION_TITLE, NOTIFICATION_TYPE } from '@app/modules/user/modules
 import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
+import { Roles } from '@app/modules/user/modules/roles/constants';
 
 @Injectable()
 export class CommentReactionsService {
@@ -62,37 +63,46 @@ export class CommentReactionsService {
         createCommentReactionInput,
       );
 
-      // Create notification
-      const notification = new Notifications();
-      notification.to_id = comment?.comment_by || comment?.artistPostUser?.user_id;
-      notification.is_read = false;
-      notification.from_id = user?.id;
-      notification.title = NOTIFICATION_TITLE.LIKE_COMMENT;
-      notification.data = JSON.stringify({
-        ...likeACommentDto,
-        post_id: comment?.artistPostUser?.artist_post_id,
-        test_value: 'DAYONES_NOTIF'
-      });
-      notification.message = `${user.full_name} liked your comment`;
-      notification.type = NOTIFICATION_TYPE.REACTION;
-      notification.post_id = comment?.artistPostUser?.artist_post_id;
+      // Get the comment owner's information
+      const commentOwner = await this.commentsService.getCommentOwner(createCommentReactionInput.commentId);
       
-      const savedNotification = await this.notificationsRepository.save(notification);
+      // Only send notification if the liker is a fan and the comment owner is an artist
+      const isLikerFan = !user.role?.includes(Roles.ARTIST);
+      const isCommentOwnerArtist = commentOwner?.role?.includes(Roles.ARTIST);
 
-      // Get active OneSignal player IDs for the recipient
-      const playerIds = await this.userDeviceService.getActivePlayerIds(notification.to_id);
-      
-      if (playerIds.length > 0) {
-        await this.pushNotificationService.sendPushNotification(
-          playerIds,
-          notification.title,
-          notification.message,
-          {
-            type: notification.type,
-            post_id: notification.post_id,
-            notification_id: savedNotification.id
-          }
-        );
+      if (isLikerFan && isCommentOwnerArtist) {
+        // Create notification
+        const notification = new Notifications();
+        notification.to_id = comment?.comment_by || comment?.artistPostUser?.user_id;
+        notification.is_read = false;
+        notification.from_id = user?.id;
+        notification.title = NOTIFICATION_TITLE.LIKE_COMMENT;
+        notification.data = JSON.stringify({
+          ...likeACommentDto,
+          post_id: comment?.artistPostUser?.artist_post_id,
+          test_value: 'DAYONES_NOTIF'
+        });
+        notification.message = `${user.full_name} liked your comment`;
+        notification.type = NOTIFICATION_TYPE.REACTION;
+        notification.post_id = comment?.artistPostUser?.artist_post_id;
+        
+        const savedNotification = await this.notificationsRepository.save(notification);
+
+        // Get active OneSignal player IDs for the recipient
+        const playerIds = await this.userDeviceService.getActivePlayerIds(notification.to_id);
+        
+        if (playerIds.length > 0) {
+          await this.pushNotificationService.sendPushNotification(
+            playerIds,
+            notification.title,
+            notification.message,
+            {
+              type: notification.type,
+              post_id: notification.post_id,
+              notification_id: savedNotification.id
+            }
+          );
+        }
       }
 
       return await this.commentReactionRepository.save(likeACommentDto);
