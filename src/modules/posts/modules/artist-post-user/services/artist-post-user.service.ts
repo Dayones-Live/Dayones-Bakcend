@@ -7,7 +7,7 @@ import {
   UserInvitesResponse,
 } from '../dto/types';
 import { ArtistPostUser } from '../entities/artist-post-user.entity';
-import { ArtistPostUserMapper } from '../dto/atrist-post-user.mapper';
+import { ArtistPostUserMapper } from '../dto/artist-post-user.mapper';
 import { InviteStatus } from 'aws-sdk/clients/chime';
 import { Invite_Status } from '../constants/constants';
 import { User } from '@user/entities/user.entity';
@@ -26,6 +26,8 @@ export class ArtistPostUserService {
   constructor(
     @InjectRepository(ArtistPostUser)
     private artistPostUserRepository: Repository<ArtistPostUser>,
+    @InjectRepository(ArtistPost)
+    private artistPostRepository: Repository<ArtistPost>,
     private artistPostUserMapper: ArtistPostUserMapper,
   ) {}
 
@@ -443,7 +445,7 @@ export class ArtistPostUserService {
   }
 
   async getPostOwnerId(postId: string): Promise<string> {
-    const post = await this.artistPostUserRepository.findOne({
+    const post = await this.artistPostRepository.findOne({
       where: { id: postId },
       select: ['user_id']
     });
