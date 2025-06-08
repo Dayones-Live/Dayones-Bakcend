@@ -7,12 +7,12 @@ import {
   UserInvitesResponse,
 } from '../dto/types';
 import { ArtistPostUser } from '../entities/artist-post-user.entity';
-import { ArtistPostUserMapper } from '../dto/artist-post-user.mapper';
+import { ArtistPostUserMapper } from '../dto/atrist-post-user.mapper';
 import { InviteStatus } from 'aws-sdk/clients/chime';
 import { Invite_Status } from '../constants/constants';
-import { User } from '@user/entities/user.entity';
+import { User } from '@app/modules/user/entities/user.entity';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
-import { ArtistPost } from '../../artist-post/entities/artist-post.entity';
+import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
 import {
   AllPostsResponse,
   ArtistPostResponse,
