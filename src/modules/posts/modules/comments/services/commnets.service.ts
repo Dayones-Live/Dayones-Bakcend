@@ -54,10 +54,24 @@ export class CommentsService {
       const comment = this.commentsMapper.dtoToEntity(createCommentInput);
       const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
 
+      // Get the commenter's information
+      const commenter = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      if (!commenter) {
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Set the artist_post_user_id on the comment
+      comment.artist_post_user_id = commenter.id;
+      comment.comment_by = userId;
+
+      // Save the comment first
+      const savedComment = await this.commentsRepository.save(comment);
+
       // Only create and send notification if the commenter is not the post owner
       if (postOwnerId !== userId) {
-        // Get the commenter's information
-        const commenter = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
         const postOwner = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
 
         // Check if the commenter is an artist
@@ -135,7 +149,7 @@ export class CommentsService {
         }
       }
 
-      return await this.commentsRepository.save(comment);
+      return savedComment;
     } catch (error) {
       console.error(
         '🚀 ~ file:comment.service.ts:96 ~ CommentsService ~ createComment ~ error:',
