@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -20,6 +21,8 @@ import { UserDeviceService } from '@app/modules/user/services/user-device.servic
 
 @Injectable()
 export class CommentReactionsService {
+  private readonly logger = new Logger(CommentReactionsService.name);
+
   constructor(
     @InjectRepository(CommentReactions)
     private commentReactionRepository: Repository<CommentReactions>,
@@ -41,11 +44,19 @@ export class CommentReactionsService {
     user: User,
   ): Promise<CommentReactions> {
     try {
+      this.logger.log(`[COMMENT_LIKE] Starting like process for comment ${createCommentReactionInput.commentId} by user ${user.id}`);
+      
       const comment = await this.commentsService.getCommentDetails(
         createCommentReactionInput?.commentId,
         createCommentReactionInput?.likedBy,
         user,
       );
+      this.logger.log(`[COMMENT_LIKE] Found comment: ${JSON.stringify({
+        id: comment.id,
+        commentBy: comment.comment_by,
+        postId: comment.artistPostUser?.artist_post_id
+      })}`);
+
       const existingCommentLike = await this.commentReactionRepository.findOne({
         where: {
           liked_by: createCommentReactionInput.likedBy,
@@ -53,6 +64,7 @@ export class CommentReactionsService {
         },
       });
       if (existingCommentLike) {
+        this.logger.warn(`[COMMENT_LIKE] Comment already liked by user ${user.id}`);
         throw new HttpException(
           ERROR_MESSAGES.COMMENT_ALREADY_LIKED_BY_USER,
           HttpStatus.CONFLICT,
@@ -64,12 +76,22 @@ export class CommentReactionsService {
 
       // Get the comment owner's information
       const commentOwner = await this.commentsService.getCommentOwner(createCommentReactionInput.commentId);
+      this.logger.log(`[COMMENT_LIKE] Comment owner: ${JSON.stringify({
+        id: commentOwner.id,
+        role: commentOwner.role
+      })}`);
       
-      // Only send notification if the liker is a fan and the comment owner is an artist
-      const isLikerFan = !user.role?.includes(Roles.ARTIST);
+      // Check roles for notification logic
+      const isLikerArtist = user.role?.includes(Roles.ARTIST);
       const isCommentOwnerArtist = commentOwner?.role?.includes(Roles.ARTIST);
+      this.logger.log(`[COMMENT_LIKE] Roles - Liker is artist: ${isLikerArtist}, Comment owner is artist: ${isCommentOwnerArtist}`);
 
-      if (isLikerFan && isCommentOwnerArtist) {
+      // Send notification if:
+      // 1. Fan likes artist's comment
+      // 2. Artist likes fan's comment
+      if ((!isLikerArtist && isCommentOwnerArtist) || (isLikerArtist && !isCommentOwnerArtist)) {
+        this.logger.log(`[COMMENT_LIKE] Creating notification for comment owner ${commentOwner.id}`);
+        
         // Create notification
         const notification = new Notifications();
         notification.to_id = comment?.comment_by || comment?.artistPostUser?.user_id;
@@ -78,19 +100,21 @@ export class CommentReactionsService {
         notification.title = NOTIFICATION_TITLE.LIKE_COMMENT;
         notification.data = JSON.stringify({
           ...likeACommentDto,
-          post_id: comment?.artistPostUser?.artist_post_id,
-          test_value: 'DAYONES_NOTIF'
+          post_id: comment?.artistPostUser?.artist_post_id
         });
         notification.message = `${user.full_name} liked your comment`;
         notification.type = NOTIFICATION_TYPE.REACTION;
         notification.post_id = comment?.artistPostUser?.artist_post_id;
         
         const savedNotification = await this.notificationsRepository.save(notification);
+        this.logger.log(`[COMMENT_LIKE] Saved notification with ID: ${savedNotification.id}`);
 
         // Get active OneSignal player IDs for the recipient
         const playerIds = await this.userDeviceService.getActivePlayerIds(notification.to_id);
+        this.logger.log(`[COMMENT_LIKE] Found ${playerIds.length} active devices for recipient ${notification.to_id}`);
         
         if (playerIds.length > 0) {
+          this.logger.log(`[COMMENT_LIKE] Sending push notification to ${notification.to_id} with player IDs: ${playerIds.join(', ')}`);
           await this.pushNotificationService.sendPushNotification(
             playerIds,
             notification.title,
@@ -101,15 +125,19 @@ export class CommentReactionsService {
               notification_id: savedNotification.id
             }
           );
+          this.logger.log(`[COMMENT_LIKE] Successfully sent push notification to ${notification.to_id}`);
+        } else {
+          this.logger.warn(`[COMMENT_LIKE] No active devices found for recipient ${notification.to_id}`);
         }
+      } else {
+        this.logger.log(`[COMMENT_LIKE] Skipping notification - same role interaction`);
       }
 
-      return await this.commentReactionRepository.save(likeACommentDto);
+      const savedReaction = await this.commentReactionRepository.save(likeACommentDto);
+      this.logger.log(`[COMMENT_LIKE] Saved reaction with ID: ${savedReaction.id}`);
+      return savedReaction;
     } catch (error) {
-      console.error(
-        '🚀 ~ file:-reactions.service.ts:96 ~ CommentsService ~ createComment ~ error:',
-        error,
-      );
+      this.logger.error(`[COMMENT_LIKE] Error in likeAComment: ${error.message}`, error.stack);
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }
