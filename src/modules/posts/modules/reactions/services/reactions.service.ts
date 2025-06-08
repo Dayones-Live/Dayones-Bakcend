@@ -45,13 +45,27 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
-      const reaction = this.reactionMapper.dtoToEntity(createReactionInput);
+      // Get the liker's information first
+      const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+      if (!liker) {
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Create and set up the reaction
+      const reaction = new Reactions();
+      reaction.artist_post_user_id = liker.id;
+      reaction.react_by = userId;
+
+      // Save the reaction first
+      const savedReaction = await this.reactionRepository.save(reaction);
+
       const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
 
       // Only create and send notification if the liker is not the post owner
       if (postOwnerId !== userId) {
-        // Get the liker's information
-        const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
         const postOwner = await this.artistPostUserService.getArtistPostByPostId(postOwnerId, postId);
 
         // Only send notification if the liker is a fan and the post owner is an artist
@@ -127,7 +141,7 @@ export class ReactionService {
         }
       }
 
-      return await this.reactionRepository.save(reaction);
+      return savedReaction;
     } catch (error) {
       console.error(
         '🚀 ~ file:reactions.service.ts:96 ~ ReactionService ~ likeAPost ~ error:',
