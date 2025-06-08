@@ -87,38 +87,37 @@ export class ReactionService {
       this.logger.log(`[LIKE] User ${userId} is artist: ${isLikerArtist}`);
 
       if (isLikerArtist) {
-        // If liker is an artist, notify all fans who have access to the post
-        const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
-        this.logger.log(`[LIKE] Found ${fans.length} fans to notify for post ${postId}`);
+        // If liker is an artist, notify all fans with access
+        const fansWithAccess = await this.artistPostUserService.getFansWithAccessToPost(postId);
+        this.logger.log(`[LIKE] Found ${fansWithAccess.length} fans to notify for post ${postId}`);
         
-        for (const fan of fans) {
-          // Skip sending notification to the artist themselves
+        for (const fan of fansWithAccess) {
+          // Skip if the fan is the same as the liker
           if (fan.user_id === userId) {
-            this.logger.log(`[LIKE] Skipping notification to artist themselves (user ${userId})`);
+            this.logger.log(`[LIKE] Skipping notification for liker ${userId} (fan)`);
             continue;
           }
-
+          
           this.logger.log(`[LIKE] Creating notification for fan ${fan.user_id}`);
-          // Create individual notification for each fan
           const notification = new Notifications();
+          notification.to_id = fan.user_id;
           notification.is_read = false;
           notification.from_id = userId;
-          notification.post_id = postId;
           notification.title = NOTIFICATION_TITLE.LIKE_POST;
-          notification.type = NOTIFICATION_TYPE.LIKE_POST;
           notification.data = JSON.stringify({
-            post_id: postId
+            post_id: postId,
           });
-          notification.message = `${likerUser.user.full_name} just liked your post`;
-          notification.to_id = fan.user_id;
+          notification.message = `${likerUser.user.full_name} liked a post`;
+          notification.type = NOTIFICATION_TYPE.REACTION;
+          notification.post_id = postId;
 
           const savedNotification = await this.notificationsRepository.save(notification);
           this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
-          
+
           // Get active OneSignal player IDs for the fan
           const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
           this.logger.log(`[LIKE] Found ${playerIds.length} active devices for fan ${fan.user_id}`);
-          
+
           if (playerIds.length > 0) {
             this.logger.log(`[LIKE] Sending push notification to fan ${fan.user_id} with player IDs: ${playerIds.join(', ')}`);
             await this.pushNotificationService.sendPushNotification(
@@ -137,51 +136,50 @@ export class ReactionService {
           }
         }
       } else {
-        // If liker is a fan, notify only the artist post owner
+        // If liker is a fan, only notify the post owner (artist)
         const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
         this.logger.log(`[LIKE] Post owner ID: ${postOwnerId}`);
-        
-        // Skip if the fan is liking their own post
+
+        // Skip if the post owner is the same as the liker
         if (postOwnerId === userId) {
-          this.logger.log(`[LIKE] Fan ${userId} is liking their own post, skipping notification`);
-          return savedReaction;
-        }
-
-        this.logger.log(`[LIKE] Creating notification for artist ${postOwnerId}`);
-        // Create notification for the artist
-        const notification = new Notifications();
-        notification.is_read = false;
-        notification.from_id = userId;
-        notification.post_id = postId;
-        notification.title = NOTIFICATION_TITLE.LIKE_POST;
-        notification.type = NOTIFICATION_TYPE.LIKE_POST;
-        notification.data = JSON.stringify({
-          post_id: postId
-        });
-        notification.message = `${likerUser.user.full_name} just liked your post`;
-        notification.to_id = postOwnerId;
-
-        const savedNotification = await this.notificationsRepository.save(notification);
-        this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
-        
-        const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-        this.logger.log(`[LIKE] Found ${playerIds.length} active devices for artist ${postOwnerId}`);
-        
-        if (playerIds.length > 0) {
-          this.logger.log(`[LIKE] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
-          await this.pushNotificationService.sendPushNotification(
-            playerIds,
-            notification.title,
-            notification.message,
-            {
-              type: notification.type,
-              post_id: notification.post_id,
-              notification_id: savedNotification.id
-            }
-          );
-          this.logger.log(`[LIKE] Successfully sent push notification to artist ${postOwnerId}`);
+          this.logger.log(`[LIKE] Skipping notification for liker ${userId} (post owner)`);
         } else {
-          this.logger.warn(`[LIKE] No active devices found for artist ${postOwnerId}`);
+          this.logger.log(`[LIKE] Creating notification for artist ${postOwnerId}`);
+          const notification = new Notifications();
+          notification.to_id = postOwnerId;
+          notification.is_read = false;
+          notification.from_id = userId;
+          notification.title = NOTIFICATION_TITLE.LIKE_POST;
+          notification.data = JSON.stringify({
+            post_id: postId,
+          });
+          notification.message = `${likerUser.user.full_name} liked your post`;
+          notification.type = NOTIFICATION_TYPE.REACTION;
+          notification.post_id = postId;
+
+          const savedNotification = await this.notificationsRepository.save(notification);
+          this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
+
+          // Get active OneSignal player IDs for the artist
+          const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+          this.logger.log(`[LIKE] Found ${playerIds.length} active devices for artist ${postOwnerId}`);
+
+          if (playerIds.length > 0) {
+            this.logger.log(`[LIKE] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
+            await this.pushNotificationService.sendPushNotification(
+              playerIds,
+              notification.title,
+              notification.message,
+              {
+                type: notification.type,
+                post_id: notification.post_id,
+                notification_id: savedNotification.id
+              }
+            );
+            this.logger.log(`[LIKE] Successfully sent push notification to artist ${postOwnerId}`);
+          } else {
+            this.logger.warn(`[LIKE] No active devices found for artist ${postOwnerId}`);
+          }
         }
       }
 
