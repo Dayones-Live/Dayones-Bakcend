@@ -97,6 +97,17 @@ export class ReactionService {
             this.logger.log(`[LIKE] Skipping notification for liker ${userId} (fan)`);
             continue;
           }
+
+          // Get active OneSignal player IDs for the fan
+          const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
+          
+          // Skip if the fan has the same device IDs as the liker
+          const likerPlayerIds = await this.userDeviceService.getActivePlayerIds(userId);
+          const hasCommonDevice = playerIds.some(id => likerPlayerIds.includes(id));
+          if (hasCommonDevice) {
+            this.logger.log(`[LIKE] Skipping notification for fan ${fan.user_id} - same device as liker`);
+            continue;
+          }
           
           this.logger.log(`[LIKE] Creating notification for fan ${fan.user_id}`);
           const notification = new Notifications();
@@ -113,10 +124,6 @@ export class ReactionService {
 
           const savedNotification = await this.notificationsRepository.save(notification);
           this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
-
-          // Get active OneSignal player IDs for the fan
-          const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
-          this.logger.log(`[LIKE] Found ${playerIds.length} active devices for fan ${fan.user_id}`);
 
           if (playerIds.length > 0) {
             this.logger.log(`[LIKE] Sending push notification to fan ${fan.user_id} with player IDs: ${playerIds.join(', ')}`);
@@ -144,41 +151,47 @@ export class ReactionService {
         if (postOwnerId === userId) {
           this.logger.log(`[LIKE] Skipping notification for liker ${userId} (post owner)`);
         } else {
-          this.logger.log(`[LIKE] Creating notification for artist ${postOwnerId}`);
-          const notification = new Notifications();
-          notification.to_id = postOwnerId;
-          notification.is_read = false;
-          notification.from_id = userId;
-          notification.title = NOTIFICATION_TITLE.LIKE_POST;
-          notification.data = JSON.stringify({
-            post_id: postId,
-          });
-          notification.message = `${likerUser.user.full_name} liked your post`;
-          notification.type = NOTIFICATION_TYPE.REACTION;
-          notification.post_id = postId;
-
-          const savedNotification = await this.notificationsRepository.save(notification);
-          this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
-
           // Get active OneSignal player IDs for the artist
           const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-          this.logger.log(`[LIKE] Found ${playerIds.length} active devices for artist ${postOwnerId}`);
-
-          if (playerIds.length > 0) {
-            this.logger.log(`[LIKE] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
-            await this.pushNotificationService.sendPushNotification(
-              playerIds,
-              notification.title,
-              notification.message,
-              {
-                type: notification.type,
-                post_id: notification.post_id,
-                notification_id: savedNotification.id
-              }
-            );
-            this.logger.log(`[LIKE] Successfully sent push notification to artist ${postOwnerId}`);
+          
+          // Skip if the artist has the same device IDs as the liker
+          const likerPlayerIds = await this.userDeviceService.getActivePlayerIds(userId);
+          const hasCommonDevice = playerIds.some(id => likerPlayerIds.includes(id));
+          if (hasCommonDevice) {
+            this.logger.log(`[LIKE] Skipping notification for artist ${postOwnerId} - same device as liker`);
           } else {
-            this.logger.warn(`[LIKE] No active devices found for artist ${postOwnerId}`);
+            this.logger.log(`[LIKE] Creating notification for artist ${postOwnerId}`);
+            const notification = new Notifications();
+            notification.to_id = postOwnerId;
+            notification.is_read = false;
+            notification.from_id = userId;
+            notification.title = NOTIFICATION_TITLE.LIKE_POST;
+            notification.data = JSON.stringify({
+              post_id: postId,
+            });
+            notification.message = `${likerUser.user.full_name} liked your post`;
+            notification.type = NOTIFICATION_TYPE.REACTION;
+            notification.post_id = postId;
+
+            const savedNotification = await this.notificationsRepository.save(notification);
+            this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
+
+            if (playerIds.length > 0) {
+              this.logger.log(`[LIKE] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
+              await this.pushNotificationService.sendPushNotification(
+                playerIds,
+                notification.title,
+                notification.message,
+                {
+                  type: notification.type,
+                  post_id: notification.post_id,
+                  notification_id: savedNotification.id
+                }
+              );
+              this.logger.log(`[LIKE] Successfully sent push notification to artist ${postOwnerId}`);
+            } else {
+              this.logger.warn(`[LIKE] No active devices found for artist ${postOwnerId}`);
+            }
           }
         }
       }

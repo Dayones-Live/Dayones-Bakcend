@@ -132,6 +132,18 @@ export class CommentsService {
             this.logger.log(`[COMMENT] Skipping notification for commenter ${userId} (fan)`);
             continue;
           }
+
+          // Get active OneSignal player IDs for the fan
+          const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
+          
+          // Skip if the fan has the same device IDs as the commenter
+          const commenterPlayerIds = await this.userDeviceService.getActivePlayerIds(userId);
+          const hasCommonDevice = playerIds.some(id => commenterPlayerIds.includes(id));
+          if (hasCommonDevice) {
+            this.logger.log(`[COMMENT] Skipping notification for fan ${fan.user_id} - same device as commenter`);
+            continue;
+          }
+
           this.logger.log(`[COMMENT] Creating notification for fan ${fan.user_id}`);
           const notification = new Notifications();
           notification.to_id = fan.user_id;
@@ -148,10 +160,6 @@ export class CommentsService {
 
           const savedNotification = await this.notificationsRepository.save(notification);
           this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
-
-          // Get active OneSignal player IDs for the fan
-          const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
-          this.logger.log(`[COMMENT] Found ${playerIds.length} active devices for fan ${fan.user_id}`);
 
           if (playerIds.length > 0) {
             this.logger.log(`[COMMENT] Sending push notification to fan ${fan.user_id} with player IDs: ${playerIds.join(', ')}`);
@@ -179,42 +187,48 @@ export class CommentsService {
         if (postOwnerId === userId) {
           this.logger.log(`[COMMENT] Skipping notification for commenter ${userId} (post owner)`);
         } else {
-          this.logger.log(`[COMMENT] Creating notification for artist ${postOwnerId}`);
-          const notification = new Notifications();
-          notification.to_id = postOwnerId;
-          notification.is_read = false;
-          notification.from_id = userId;
-          notification.title = NOTIFICATION_TITLE.COMMENT;
-          notification.data = JSON.stringify({
-            message: createCommentInput?.message,
-            post_id: postId,
-          });
-          notification.message = `${commenter.user.full_name} commented on your post`;
-          notification.type = NOTIFICATION_TYPE.COMMENT;
-          notification.post_id = postId;
-
-          const savedNotification = await this.notificationsRepository.save(notification);
-          this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
-
           // Get active OneSignal player IDs for the artist
           const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-          this.logger.log(`[COMMENT] Found ${playerIds.length} active devices for artist ${postOwnerId}`);
-
-          if (playerIds.length > 0) {
-            this.logger.log(`[COMMENT] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
-            await this.pushNotificationService.sendPushNotification(
-              playerIds,
-              notification.title,
-              notification.message,
-              {
-                type: notification.type,
-                post_id: notification.post_id,
-                notification_id: savedNotification.id
-              }
-            );
-            this.logger.log(`[COMMENT] Successfully sent push notification to artist ${postOwnerId}`);
+          
+          // Skip if the artist has the same device IDs as the commenter
+          const commenterPlayerIds = await this.userDeviceService.getActivePlayerIds(userId);
+          const hasCommonDevice = playerIds.some(id => commenterPlayerIds.includes(id));
+          if (hasCommonDevice) {
+            this.logger.log(`[COMMENT] Skipping notification for artist ${postOwnerId} - same device as commenter`);
           } else {
-            this.logger.warn(`[COMMENT] No active devices found for artist ${postOwnerId}`);
+            this.logger.log(`[COMMENT] Creating notification for artist ${postOwnerId}`);
+            const notification = new Notifications();
+            notification.to_id = postOwnerId;
+            notification.is_read = false;
+            notification.from_id = userId;
+            notification.title = NOTIFICATION_TITLE.COMMENT;
+            notification.data = JSON.stringify({
+              message: createCommentInput?.message,
+              post_id: postId,
+            });
+            notification.message = `${commenter.user.full_name} commented on your post`;
+            notification.type = NOTIFICATION_TYPE.COMMENT;
+            notification.post_id = postId;
+
+            const savedNotification = await this.notificationsRepository.save(notification);
+            this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
+
+            if (playerIds.length > 0) {
+              this.logger.log(`[COMMENT] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
+              await this.pushNotificationService.sendPushNotification(
+                playerIds,
+                notification.title,
+                notification.message,
+                {
+                  type: notification.type,
+                  post_id: notification.post_id,
+                  notification_id: savedNotification.id
+                }
+              );
+              this.logger.log(`[COMMENT] Successfully sent push notification to artist ${postOwnerId}`);
+            } else {
+              this.logger.warn(`[COMMENT] No active devices found for artist ${postOwnerId}`);
+            }
           }
         }
       }
