@@ -20,7 +20,7 @@ import {
 import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { In } from 'typeorm';
+import { In, Not } from 'typeorm';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -428,11 +428,16 @@ export class ArtistPostUserService {
    */
   async getFansWithAccessToPost(postId: string): Promise<ArtistPostUser[]> {
     try {
+      // First get the post owner ID
+      const postOwnerId = await this.getPostOwnerId(postId);
+      
+      // Then get all fans with access, excluding the post owner
       const fans = await this.artistPostUserRepository.find({
         relations: ['user'],
         where: {
           artist_post_id: postId,
           status: In([Invite_Status.ACCEPTED, Invite_Status.GENERIC]),
+          user_id: Not(postOwnerId) // Exclude the post owner
         },
       });
       return fans;
