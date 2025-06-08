@@ -22,9 +22,12 @@ import { UserDeviceService } from '@app/modules/user/services/user-device.servic
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
 import { NOTIFICATION_TITLE } from '@app/modules/user/modules/notifications/constants';
 import { NotificationBundlingService } from '@app/shared/services/notification-bundling.service';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class CommentsService {
+  private readonly logger = new Logger(CommentsService.name);
+
   constructor(
     @InjectRepository(Comments)
     private commentsRepository: Repository<Comments>,
@@ -51,13 +54,17 @@ export class CommentsService {
     userId: string,
   ): Promise<Comments> {
     try {
+      this.logger.log(`[COMMENT] Starting comment process for post ${postId} by user ${userId}`);
+      
       let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
       const artistPostUserGeneric =
         await this.artistPostUserService.getGenericArtistPostUserByPostId(
           postId,
         );
       let comment: Comments = {} as Comments;
+      
       if (artistPostUserGeneric) {
+        this.logger.log(`[COMMENT] Found generic post user for post ${postId}`);
         createCommentInput.artistPostUserId = artistPostUserGeneric?.id;
         if (artistPostUserGeneric.user_id !== userId) {
           createCommentInput.commentBy = userId;
@@ -65,13 +72,16 @@ export class CommentsService {
         const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
+        this.logger.log(`[COMMENT] Saved comment with ID: ${comment.id} for generic post`);
       } else {
+        this.logger.log(`[COMMENT] No generic post found, checking regular post access`);
         // Fetch the artistPostUserId through user id and artistPost
         artistPostUser = await this.artistPostUserService.getArtistPostByPostId(
           userId,
           postId,
         );
         if (!artistPostUser) {
+          this.logger.error(`[COMMENT] Post ${postId} not found for user ${userId}`);
           throw new HttpException(
             ERROR_MESSAGES.POST_NOT_FOUND,
             HttpStatus.NOT_FOUND,
@@ -81,6 +91,7 @@ export class CommentsService {
           artistPostUser.status !== Invite_Status.ACCEPTED &&
           artistPostUser?.user?.role[0] !== Roles.ARTIST
         ) {
+          this.logger.error(`[COMMENT] User ${userId} does not have access to post ${postId}`);
           throw new HttpException(
             ERROR_MESSAGES.INVITE_NOT_ACCEPTED,
             HttpStatus.FORBIDDEN,
@@ -90,25 +101,40 @@ export class CommentsService {
         const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
+        this.logger.log(`[COMMENT] Saved comment with ID: ${comment.id} for regular post`);
       }
 
       // Get the commenter's information
       const commenter = await this.artistPostUserRepository.findOne({
         where: { user_id: userId },
-        relations: ['user']
+        relations: ['user', 'artistPost']
       });
+
+      if (!commenter) {
+        this.logger.error(`[COMMENT] Commenter information not found for user ${userId}`);
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
 
       // Check if the commenter is an artist
       const isCommenterArtist = commenter?.user?.role?.includes(Roles.ARTIST);
+      this.logger.log(`[COMMENT] User ${userId} is artist: ${isCommenterArtist}`);
 
       if (isCommenterArtist) {
         // If commenter is an artist, notify all fans who have access to the post
         const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
+        this.logger.log(`[COMMENT] Found ${fans.length} fans to notify for post ${postId}`);
         
         for (const fan of fans) {
           // Skip sending notification to the artist themselves
-          if (fan.user_id === userId) continue;
+          if (fan.user_id === userId) {
+            this.logger.log(`[COMMENT] Skipping notification to artist themselves (user ${userId})`);
+            continue;
+          }
 
+          this.logger.log(`[COMMENT] Creating notification for fan ${fan.user_id}`);
           // Create individual notification for each fan
           const notification = new Notifications();
           notification.is_read = false;
@@ -124,11 +150,14 @@ export class CommentsService {
           notification.to_id = fan.user_id;
 
           const savedNotification = await this.notificationsRepository.save(notification);
+          this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
           
           // Get active OneSignal player IDs for the fan
           const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
+          this.logger.log(`[COMMENT] Found ${playerIds.length} active devices for fan ${fan.user_id}`);
           
           if (playerIds.length > 0) {
+            this.logger.log(`[COMMENT] Sending push notification to fan ${fan.user_id} with player IDs: ${playerIds.join(', ')}`);
             await this.pushNotificationService.sendPushNotification(
               playerIds,
               notification.title,
@@ -139,17 +168,23 @@ export class CommentsService {
                 notification_id: savedNotification.id
               }
             );
+            this.logger.log(`[COMMENT] Successfully sent push notification to fan ${fan.user_id}`);
+          } else {
+            this.logger.warn(`[COMMENT] No active devices found for fan ${fan.user_id}`);
           }
         }
       } else {
         // If commenter is a fan, notify only the artist post owner
         const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
+        this.logger.log(`[COMMENT] Post owner ID: ${postOwnerId}`);
         
         // Skip if the fan is commenting on their own post
         if (postOwnerId === userId) {
+          this.logger.log(`[COMMENT] Fan ${userId} is commenting on their own post, skipping notification`);
           return comment;
         }
 
+        this.logger.log(`[COMMENT] Creating notification for artist ${postOwnerId}`);
         // Create notification for the artist
         const notification = new Notifications();
         notification.is_read = false;
@@ -165,10 +200,13 @@ export class CommentsService {
         notification.to_id = postOwnerId;
 
         const savedNotification = await this.notificationsRepository.save(notification);
+        this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
         
         const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+        this.logger.log(`[COMMENT] Found ${playerIds.length} active devices for artist ${postOwnerId}`);
         
         if (playerIds.length > 0) {
+          this.logger.log(`[COMMENT] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
           await this.pushNotificationService.sendPushNotification(
             playerIds,
             notification.title,
@@ -179,15 +217,15 @@ export class CommentsService {
               notification_id: savedNotification.id
             }
           );
+          this.logger.log(`[COMMENT] Successfully sent push notification to artist ${postOwnerId}`);
+        } else {
+          this.logger.warn(`[COMMENT] No active devices found for artist ${postOwnerId}`);
         }
       }
 
       return comment;
     } catch (error) {
-      console.error(
-        '🚀 ~ file:comment.service.ts:96 ~ CommentsService ~ createComment ~ error:',
-        error,
-      );
+      this.logger.error(`[COMMENT] Error in commentAPost: ${error.message}`, error.stack);
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }

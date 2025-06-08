@@ -20,6 +20,7 @@ import {
 import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { In } from 'typeorm';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -431,7 +432,7 @@ export class ArtistPostUserService {
         relations: ['user'],
         where: {
           artist_post_id: postId,
-          status: Invite_Status.ACCEPTED,
+          status: In([Invite_Status.ACCEPTED, Invite_Status.GENERIC]),
         },
       });
       return fans;

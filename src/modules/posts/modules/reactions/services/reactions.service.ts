@@ -45,14 +45,22 @@ export class ReactionService {
     userId: string,
   ): Promise<Reactions> {
     try {
+      this.logger.log(`[LIKE] Starting like process for post ${postId} by user ${userId}`);
+      
       // Get the liker's information first
       const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
       if (!liker) {
+        this.logger.error(`[LIKE] Post ${postId} not found for user ${userId}`);
         throw new HttpException(
           ERROR_MESSAGES.POST_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
+      this.logger.log(`[LIKE] Found liker: ${JSON.stringify({
+        id: liker.id,
+        userId: liker.user_id,
+        role: liker.user?.role
+      })}`);
 
       // Create and set up the reaction
       const reaction = new Reactions();
@@ -61,18 +69,36 @@ export class ReactionService {
 
       // Save the reaction first
       const savedReaction = await this.reactionRepository.save(reaction);
+      this.logger.log(`[LIKE] Saved reaction with ID: ${savedReaction.id}`);
+
+      // Get the liker's user information
+      const likerUser = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+
+      if (!likerUser) {
+        this.logger.error(`[LIKE] User information not found for user ${userId}`);
+        throw new HttpException(
+          ERROR_MESSAGES.POST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
 
       // Check if the liker is an artist
-      const isLikerArtist = liker?.user?.role?.includes(Roles.ARTIST);
+      const isLikerArtist = likerUser?.user?.role?.includes(Roles.ARTIST);
+      this.logger.log(`[LIKE] User ${userId} is artist: ${isLikerArtist}`);
 
       if (isLikerArtist) {
         // If liker is an artist, notify all fans who have access to the post
         const fans = await this.artistPostUserService.getFansWithAccessToPost(postId);
+        this.logger.log(`[LIKE] Found ${fans.length} fans to notify for post ${postId}`);
         
         for (const fan of fans) {
           // Skip sending notification to the artist themselves
-          if (fan.user_id === userId) continue;
+          if (fan.user_id === userId) {
+            this.logger.log(`[LIKE] Skipping notification to artist themselves (user ${userId})`);
+            continue;
+          }
 
+          this.logger.log(`[LIKE] Creating notification for fan ${fan.user_id}`);
           // Create individual notification for each fan
           const notification = new Notifications();
           notification.is_read = false;
@@ -83,15 +109,18 @@ export class ReactionService {
           notification.data = JSON.stringify({
             post_id: postId
           });
-          notification.message = `${liker.user.full_name} just liked your post`;
+          notification.message = `${likerUser.user.full_name} just liked your post`;
           notification.to_id = fan.user_id;
 
           const savedNotification = await this.notificationsRepository.save(notification);
+          this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
           
           // Get active OneSignal player IDs for the fan
           const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
+          this.logger.log(`[LIKE] Found ${playerIds.length} active devices for fan ${fan.user_id}`);
           
           if (playerIds.length > 0) {
+            this.logger.log(`[LIKE] Sending push notification to fan ${fan.user_id} with player IDs: ${playerIds.join(', ')}`);
             await this.pushNotificationService.sendPushNotification(
               playerIds,
               notification.title,
@@ -102,17 +131,23 @@ export class ReactionService {
                 notification_id: savedNotification.id
               }
             );
+            this.logger.log(`[LIKE] Successfully sent push notification to fan ${fan.user_id}`);
+          } else {
+            this.logger.warn(`[LIKE] No active devices found for fan ${fan.user_id}`);
           }
         }
       } else {
         // If liker is a fan, notify only the artist post owner
         const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
+        this.logger.log(`[LIKE] Post owner ID: ${postOwnerId}`);
         
         // Skip if the fan is liking their own post
         if (postOwnerId === userId) {
+          this.logger.log(`[LIKE] Fan ${userId} is liking their own post, skipping notification`);
           return savedReaction;
         }
 
+        this.logger.log(`[LIKE] Creating notification for artist ${postOwnerId}`);
         // Create notification for the artist
         const notification = new Notifications();
         notification.is_read = false;
@@ -123,14 +158,17 @@ export class ReactionService {
         notification.data = JSON.stringify({
           post_id: postId
         });
-        notification.message = `${liker.user.full_name} just liked your post`;
+        notification.message = `${likerUser.user.full_name} just liked your post`;
         notification.to_id = postOwnerId;
 
         const savedNotification = await this.notificationsRepository.save(notification);
+        this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
         
         const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+        this.logger.log(`[LIKE] Found ${playerIds.length} active devices for artist ${postOwnerId}`);
         
         if (playerIds.length > 0) {
+          this.logger.log(`[LIKE] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
           await this.pushNotificationService.sendPushNotification(
             playerIds,
             notification.title,
@@ -141,15 +179,15 @@ export class ReactionService {
               notification_id: savedNotification.id
             }
           );
+          this.logger.log(`[LIKE] Successfully sent push notification to artist ${postOwnerId}`);
+        } else {
+          this.logger.warn(`[LIKE] No active devices found for artist ${postOwnerId}`);
         }
       }
 
       return savedReaction;
     } catch (error) {
-      console.error(
-        '🚀 ~ file:reactions.service.ts:96 ~ ReactionService ~ likeAPost ~ error:',
-        error,
-      );
+      this.logger.error(`[LIKE] Error in likeAPost: ${error.message}`, error.stack);
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }
