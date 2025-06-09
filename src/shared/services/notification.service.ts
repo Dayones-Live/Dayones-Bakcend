@@ -150,13 +150,16 @@ export class NotificationService {
         app_id: this.appId,
         include_player_ids: playerIds,
         contents: {
-          en: " " // Empty space as content to satisfy OneSignal's requirement
+          en: "Notification" // Required non-empty content
         },
         headings: {
-          en: " " // Empty space as heading to satisfy OneSignal's requirement
+          en: "Update" // Required non-empty heading
         },
         badge: 0,
-        badge_type: 'SetTo'
+        badge_type: 'SetTo',
+        android_channel_id: "silent", // Use silent channel for Android
+        ios_sound: "silent.wav", // Use silent sound for iOS
+        android_sound: "silent" // Use silent sound for Android
       };
 
       this.logger.log('Resetting badge count for players:', playerIds);
