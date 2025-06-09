@@ -157,9 +157,8 @@ export class NotificationService {
         },
         badge: 0,
         badge_type: 'SetTo',
-        android_channel_id: "silent", // Use silent channel for Android
-        ios_sound: "silent.wav", // Use silent sound for iOS
-        android_sound: "silent" // Use silent sound for Android
+        android_visibility: 0, // Make notification invisible on Android
+        ios_sound: "silent.wav" // Use silent sound for iOS
       };
 
       this.logger.log('Resetting badge count for players:', playerIds);
