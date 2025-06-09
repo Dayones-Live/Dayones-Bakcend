@@ -43,7 +43,7 @@ import { UserUpdateInput } from '@user/dto/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
 
 @Injectable()
