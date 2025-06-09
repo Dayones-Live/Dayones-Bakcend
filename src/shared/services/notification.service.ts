@@ -145,24 +145,18 @@ export class NotificationService {
         throw new Error('OneSignal credentials not configured');
       }
 
+      // Use OneSignal's dedicated endpoint for updating badge counts
       const payload = {
         app_id: this.appId,
         include_player_ids: playerIds,
-        badge: 0,
-        badge_type: 'SetTo',
-        contents: {
-          en: ' ' // Adding empty content to satisfy OneSignal requirement
-        },
-        headings: {
-          en: ' ' // Adding empty heading to satisfy OneSignal requirement
-        }
+        badge: 0
       };
 
       this.logger.log('Resetting badge count for players:', playerIds);
       this.logger.log('OneSignal API payload:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
-        'https://onesignal.com/api/v1/notifications',
+        'https://onesignal.com/api/v1/players/badge',
         payload,
         {
           headers: {
@@ -178,7 +172,8 @@ export class NotificationService {
       if (error.response) {
         this.logger.error('OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
       }
-      throw error;
+      // Don't throw the error - we want to continue even if badge reset fails
+      this.logger.warn('Continuing despite badge reset failure');
     }
   }
 } 
