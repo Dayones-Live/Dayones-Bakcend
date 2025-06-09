@@ -149,6 +149,12 @@ export class NotificationService {
       const payload = {
         app_id: this.appId,
         include_player_ids: playerIds,
+        contents: {
+          en: " " // Empty space as content to satisfy OneSignal's requirement
+        },
+        headings: {
+          en: " " // Empty space as heading to satisfy OneSignal's requirement
+        },
         badge: 0,
         badge_type: 'SetTo'
       };
