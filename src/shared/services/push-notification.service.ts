@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 
 @Injectable()
 export class PushNotificationService {
@@ -10,6 +11,7 @@ export class PushNotificationService {
 
   constructor(
     private configService: ConfigService,
+    private userDeviceService: UserDeviceService,
   ) {
     this.appId = this.configService.get<string>('ONESIGNAL_APP_ID');
     this.restApiKey = this.configService.get<string>('ONESIGNAL_REST_API_KEY');
@@ -64,6 +66,22 @@ export class PushNotificationService {
 
       this.logger.log('Push notification sent successfully');
       this.logger.debug('OneSignal response:', response.data);
+
+      // Handle invalid player IDs
+      if (response.data?.errors?.invalid_player_ids?.length > 0) {
+        const invalidPlayerIds = response.data.errors.invalid_player_ids;
+        this.logger.warn(`Found ${invalidPlayerIds.length} invalid player IDs:`, invalidPlayerIds);
+        
+        // Deactivate invalid devices
+        for (const invalidPlayerId of invalidPlayerIds) {
+          try {
+            await this.userDeviceService.unregisterDevice(null, invalidPlayerId);
+            this.logger.log(`Deactivated invalid device with player ID: ${invalidPlayerId}`);
+          } catch (error) {
+            this.logger.error(`Failed to deactivate invalid device ${invalidPlayerId}:`, error);
+          }
+        }
+      }
     } catch (error) {
       this.logger.error('Error sending push notification:', error.message);
       if (error.response) {
