@@ -164,11 +164,17 @@ export class NotificationsController {
       const notifications = await this.notificationsRepository.find({
         where: { to_id: req?.user?.id },
         order: { created_at: 'DESC' },
+        relations: ['fromUser'],
       });
       
-      const response = notifications.map(notification => 
-        this.notificationMapper.toDto(notification)
-      );
+      const response = notifications.map(notification => ({
+        ...this.notificationMapper.toDto(notification),
+        from_user_profile: notification.fromUser ? {
+          id: notification.fromUser.id,
+          full_name: notification.fromUser.full_name,
+          avatar_url: notification.fromUser.avatar_url
+        } : null
+      }));
 
       res.status(HttpStatus.OK).json({
         message: 'Notifications Fetched Successfully',
