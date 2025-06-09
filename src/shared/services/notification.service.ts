@@ -148,11 +148,20 @@ export class NotificationService {
       const payload = {
         app_id: this.appId,
         include_player_ids: playerIds,
-        badge: 0, // Reset badge count to 0
-        badge_type: 'SetTo' // This tells OneSignal to set the badge count to a specific number
+        badge: 0,
+        badge_type: 'SetTo',
+        contents: {
+          en: ' ' // Adding empty content to satisfy OneSignal requirement
+        },
+        headings: {
+          en: ' ' // Adding empty heading to satisfy OneSignal requirement
+        }
       };
 
-      await axios.post(
+      this.logger.log('Resetting badge count for players:', playerIds);
+      this.logger.log('OneSignal API payload:', JSON.stringify(payload, null, 2));
+
+      const response = await axios.post(
         'https://onesignal.com/api/v1/notifications',
         payload,
         {
@@ -163,7 +172,7 @@ export class NotificationService {
         },
       );
 
-      this.logger.log('Badge count reset successfully');
+      this.logger.log('OneSignal API response:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       this.logger.error('Error resetting badge count:', error.message);
       if (error.response) {
