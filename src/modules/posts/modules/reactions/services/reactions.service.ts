@@ -148,12 +148,7 @@ export class ReactionService {
           // Get active OneSignal player IDs for the artist
           const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
           
-          // Skip if the artist has the same device IDs as the liker
-          const likerPlayerIds = await this.userDeviceService.getActivePlayerIds(userId);
-          const hasCommonDevice = playerIds.some(id => likerPlayerIds.includes(id));
-          if (hasCommonDevice) {
-            this.logger.log(`[LIKE] Skipping notification for artist ${postOwnerId} - same device as liker`);
-          } else {
+          if (playerIds.length > 0) {
             this.logger.log(`[LIKE] Creating notification for artist ${postOwnerId}`);
             const notification = new Notifications();
             notification.to_id = postOwnerId;
@@ -170,22 +165,20 @@ export class ReactionService {
             const savedNotification = await this.notificationsRepository.save(notification);
             this.logger.log(`[LIKE] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
 
-            if (playerIds.length > 0) {
-              this.logger.log(`[LIKE] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
-              await this.pushNotificationService.sendPushNotification(
-                playerIds,
-                notification.title,
-                notification.message,
-                {
-                  type: notification.type,
-                  post_id: notification.post_id,
-                  notification_id: savedNotification.id
-                }
-              );
-              this.logger.log(`[LIKE] Successfully sent push notification to artist ${postOwnerId}`);
-            } else {
-              this.logger.warn(`[LIKE] No active devices found for artist ${postOwnerId}`);
-            }
+            this.logger.log(`[LIKE] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
+            await this.pushNotificationService.sendPushNotification(
+              playerIds,
+              notification.title,
+              notification.message,
+              {
+                type: notification.type,
+                post_id: notification.post_id,
+                notification_id: savedNotification.id
+              }
+            );
+            this.logger.log(`[LIKE] Successfully sent push notification to artist ${postOwnerId}`);
+          } else {
+            this.logger.warn(`[LIKE] No active devices found for artist ${postOwnerId}`);
           }
         }
       }
