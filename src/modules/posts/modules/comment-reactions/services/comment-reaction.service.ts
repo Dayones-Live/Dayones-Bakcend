@@ -113,7 +113,12 @@ export class CommentReactionsService {
         const playerIds = await this.userDeviceService.getActivePlayerIds(notification.to_id);
         this.logger.log(`[COMMENT_LIKE] Found ${playerIds.length} active devices for recipient ${notification.to_id}`);
         
-        if (playerIds.length > 0) {
+        // Skip if the recipient has the same device IDs as the liker
+        const likerPlayerIds = await this.userDeviceService.getActivePlayerIds(user.id);
+        const hasCommonDevice = playerIds.some(id => likerPlayerIds.includes(id));
+        if (hasCommonDevice) {
+          this.logger.log(`[COMMENT_LIKE] Skipping notification for recipient ${notification.to_id} - same device as liker`);
+        } else if (playerIds.length > 0) {
           this.logger.log(`[COMMENT_LIKE] Sending push notification to ${notification.to_id} with player IDs: ${playerIds.join(', ')}`);
           await this.pushNotificationService.sendPushNotification(
             playerIds,

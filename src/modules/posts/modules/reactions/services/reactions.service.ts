@@ -88,16 +88,10 @@ export class ReactionService {
 
       if (isLikerArtist) {
         // If liker is an artist, notify all fans with access
-        const fansWithAccess = await this.artistPostUserService.getFansWithAccessToPost(postId);
+        const fansWithAccess = await this.artistPostUserService.getFansWithAccessToPost(postId, userId);
         this.logger.log(`[LIKE] Found ${fansWithAccess.length} fans to notify for post ${postId}`);
         
         for (const fan of fansWithAccess) {
-          // Skip if the fan is the same as the liker
-          if (fan.user_id === userId) {
-            this.logger.log(`[LIKE] Skipping notification for liker ${userId} (fan)`);
-            continue;
-          }
-
           // Get active OneSignal player IDs for the fan
           const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
           

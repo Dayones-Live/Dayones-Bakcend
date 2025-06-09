@@ -124,15 +124,9 @@ export class CommentsService {
 
       if (isCommenterArtist) {
         // If commenter is an artist, notify all fans with access
-        const fansWithAccess = await this.artistPostUserService.getFansWithAccessToPost(postId);
+        const fansWithAccess = await this.artistPostUserService.getFansWithAccessToPost(postId, userId);
         this.logger.log(`[COMMENT] Found ${fansWithAccess.length} fans to notify for post ${postId}`);
         for (const fan of fansWithAccess) {
-          // Skip if the fan is the same as the commenter
-          if (fan.user_id === userId) {
-            this.logger.log(`[COMMENT] Skipping notification for commenter ${userId} (fan)`);
-            continue;
-          }
-
           // Get active OneSignal player IDs for the fan
           const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
           

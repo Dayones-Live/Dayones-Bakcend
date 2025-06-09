@@ -21,9 +21,12 @@ import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { In, Not } from 'typeorm';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class ArtistPostUserService {
+  private readonly logger = new Logger(ArtistPostUserService.name);
+
   constructor(
     @InjectRepository(ArtistPostUser)
     private artistPostUserRepository: Repository<ArtistPostUser>,
@@ -426,23 +429,35 @@ export class ArtistPostUserService {
    * @param postId - The ID of the post
    * @returns Array of ArtistPostUser records for fans with access
    */
-  async getFansWithAccessToPost(postId: string): Promise<ArtistPostUser[]> {
+  async getFansWithAccessToPost(postId: string, excludeUserId?: string): Promise<ArtistPostUser[]> {
     try {
       // First get the post owner ID
       const postOwnerId = await this.getPostOwnerId(postId);
       
-      // Then get all fans with access, excluding the post owner
+      // Build the where clause
+      const whereClause: any = {
+        artist_post_id: postId,
+        status: In([Invite_Status.ACCEPTED, Invite_Status.GENERIC])
+      };
+
+      // If excludeUserId is provided, exclude that user
+      if (excludeUserId) {
+        whereClause.user_id = Not(excludeUserId);
+      } else {
+        // Otherwise, just exclude the post owner
+        whereClause.user_id = Not(postOwnerId);
+      }
+      
+      // Get all fans with access
       const fans = await this.artistPostUserRepository.find({
         relations: ['user'],
-        where: {
-          artist_post_id: postId,
-          status: In([Invite_Status.ACCEPTED, Invite_Status.GENERIC]),
-          user_id: Not(postOwnerId) // Exclude the post owner
-        },
+        where: whereClause
       });
+
+      this.logger.log(`[FANS] Found ${fans.length} fans with access to post ${postId}`);
       return fans;
     } catch (err) {
-      console.error(
+      this.logger.error(
         '🚀 ~ file:artist.post.user.service.ts ~ getFansWithAccessToPost ~ error:',
         err,
       );
