@@ -145,18 +145,19 @@ export class NotificationService {
         throw new Error('OneSignal credentials not configured');
       }
 
-      // Use OneSignal's dedicated endpoint for updating badge counts
+      // Use OneSignal's correct endpoint for updating badge counts
       const payload = {
         app_id: this.appId,
         include_player_ids: playerIds,
-        badge: 0
+        badge: 0,
+        badge_type: 'SetTo'
       };
 
       this.logger.log('Resetting badge count for players:', playerIds);
       this.logger.log('OneSignal API payload:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
-        'https://onesignal.com/api/v1/players/badge',
+        'https://onesignal.com/api/v1/notifications',
         payload,
         {
           headers: {
