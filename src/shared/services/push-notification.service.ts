@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { UserDevice } from '@app/modules/user/entities/user-device.entity';
 
 @Injectable()
 export class PushNotificationService {
@@ -12,6 +15,8 @@ export class PushNotificationService {
   constructor(
     private configService: ConfigService,
     private userDeviceService: UserDeviceService,
+    @InjectRepository(UserDevice)
+    private userDeviceRepository: Repository<UserDevice>,
   ) {
     this.appId = this.configService.get<string>('ONESIGNAL_APP_ID');
     this.restApiKey = this.configService.get<string>('ONESIGNAL_REST_API_KEY');
@@ -75,8 +80,17 @@ export class PushNotificationService {
         // Deactivate invalid devices
         for (const invalidPlayerId of invalidPlayerIds) {
           try {
-            await this.userDeviceService.unregisterDevice(null, invalidPlayerId);
-            this.logger.log(`Deactivated invalid device with player ID: ${invalidPlayerId}`);
+            // Find the device first to get the user ID
+            const device = await this.userDeviceRepository.findOne({
+              where: { oneSignalPlayerId: invalidPlayerId }
+            });
+
+            if (device) {
+              await this.userDeviceService.unregisterDevice(device.userId, invalidPlayerId);
+              this.logger.log(`Deactivated invalid device with player ID: ${invalidPlayerId} for user: ${device.userId}`);
+            } else {
+              this.logger.warn(`Could not find device with player ID: ${invalidPlayerId}`);
+            }
           } catch (error) {
             this.logger.error(`Failed to deactivate invalid device ${invalidPlayerId}:`, error);
           }
