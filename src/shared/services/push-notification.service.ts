@@ -66,8 +66,6 @@ export class PushNotificationService {
         ios_mutable_content: true,
         ios_content_available: true,
         priority: 10,
-        delivery_time_of_day: 'now',
-        delayed_option: 'now',
         android_channel_id: undefined,
         android_sound: undefined,
         android_priority: undefined,
