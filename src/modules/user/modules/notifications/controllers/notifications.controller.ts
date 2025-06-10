@@ -187,14 +187,19 @@ export class NotificationsController {
       const unreadCount = notifications.filter(n => !n.is_read).length;
       this.logger.log(`[FETCH_NOTIFICATIONS] User ${req?.user?.id} has ${unreadCount} unread notifications`);
 
-      // Get active OneSignal player IDs for the user
-      const playerIds = await this.userDeviceService.getActivePlayerIds(req?.user?.id);
-      
-      if (playerIds.length > 0) {
-        this.logger.log(`[FETCH_NOTIFICATIONS] Updating badge count for user ${req?.user?.id} with player IDs: ${playerIds.join(', ')}`);
-        await this.notificationService.updateBadgeCount(playerIds, unreadCount);
+      // Only update badge count if there are unread notifications
+      if (unreadCount > 0) {
+        // Get active OneSignal player IDs for the user
+        const playerIds = await this.userDeviceService.getActivePlayerIds(req?.user?.id);
+        
+        if (playerIds.length > 0) {
+          this.logger.log(`[FETCH_NOTIFICATIONS] Updating badge count for user ${req?.user?.id} with player IDs: ${playerIds.join(', ')}`);
+          await this.notificationService.updateBadgeCount(playerIds, unreadCount);
+        } else {
+          this.logger.warn(`[FETCH_NOTIFICATIONS] No active devices found for user ${req?.user?.id}`);
+        }
       } else {
-        this.logger.warn(`[FETCH_NOTIFICATIONS] No active devices found for user ${req?.user?.id}`);
+        this.logger.log(`[FETCH_NOTIFICATIONS] No unread notifications, skipping badge update for user ${req?.user?.id}`);
       }
 
       res.status(HttpStatus.OK).json({
