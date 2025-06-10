@@ -65,6 +65,12 @@ export class NotificationService {
         ios_badgeType: 'Increase',
         ios_badgeCount: 1,
         ios_sound: 'default',
+        ios_attachments: {
+          id1: 'https://dayones-test-bucket.s3.us-east-1.amazonaws.com/notification-icon.png'
+        },
+        ios_category: 'message',
+        ios_mutable_content: true,
+        ios_content_available: true,
         android_channel_id: undefined,
         android_sound: undefined,
         android_priority: undefined,
