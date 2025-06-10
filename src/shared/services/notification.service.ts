@@ -216,7 +216,7 @@ export class NotificationService {
     }
   }
 
-  private async updateBadgeCount(playerIds: string[], count: number): Promise<void> {
+  async updateBadgeCount(playerIds: string[], count: number): Promise<void> {
     try {
       if (!this.appId || !this.restApiKey) {
         throw new Error('OneSignal credentials not configured');
