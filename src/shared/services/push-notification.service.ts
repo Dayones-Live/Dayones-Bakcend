@@ -55,7 +55,20 @@ export class PushNotificationService {
         },
         data: data || {},
         badge: 1,
-        badge_type: 'Increase'
+        badge_type: 'Increase',
+        ios_badgeType: 'Increase',
+        ios_badgeCount: 1,
+        ios_sound: 'default',
+        android_sound: 'default',
+        android_channel_id: 'default',
+        android_priority: 'high',
+        android_visibility: 'public',
+        android_led_color: 'FF0000FF',
+        android_accent_color: 'FF0000FF',
+        android_group: 'default',
+        android_group_message: {
+          en: message
+        }
       };
 
       const response = await axios.post(

@@ -20,6 +20,12 @@ export class UserDeviceService {
     console.log(`[UserDeviceService] OneSignal Player ID: ${oneSignalPlayerId}`);
     console.log(`[UserDeviceService] Device Type: ${deviceType}`);
     
+    // Deactivate all other devices for this user
+    await this.userDeviceRepository.update(
+      { userId, isActive: true },
+      { isActive: false }
+    );
+    
     // Check if device already exists
     const existingDevice = await this.userDeviceRepository.findOne({
       where: {

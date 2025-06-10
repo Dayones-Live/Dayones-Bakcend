@@ -62,6 +62,19 @@ export class NotificationService {
           notification_id: notification.id,
           type: notification.type,
         },
+        ios_badgeType: 'Increase',
+        ios_badgeCount: 1,
+        ios_sound: 'default',
+        android_sound: 'default',
+        android_channel_id: 'default',
+        android_priority: 'high',
+        android_visibility: 'public',
+        android_led_color: 'FF0000FF',
+        android_accent_color: 'FF0000FF',
+        android_group: 'default',
+        android_group_message: {
+          en: notification.message
+        }
       };
 
       this.logger.log('OneSignal API payload:', JSON.stringify(payload, null, 2));
