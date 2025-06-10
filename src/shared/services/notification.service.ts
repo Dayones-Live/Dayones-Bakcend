@@ -222,25 +222,17 @@ export class NotificationService {
         throw new Error('OneSignal credentials not configured');
       }
 
+      // Use OneSignal's dedicated badge update API
       const payload = {
         app_id: this.appId,
         include_player_ids: playerIds,
-        contents: {
-          en: "Notification" // Required non-empty content
-        },
-        headings: {
-          en: "Update" // Required non-empty heading
-        },
-        badge: count,
-        badge_type: 'SetTo',
-        android_visibility: 0, // Make notification invisible on Android
-        ios_sound: "silent.wav" // Use silent sound for iOS
+        badge: count
       };
 
       this.logger.log('[BADGE_UPDATE] OneSignal API payload:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
-        'https://onesignal.com/api/v1/notifications',
+        'https://onesignal.com/api/v1/players/badge',
         payload,
         {
           headers: {
@@ -266,25 +258,17 @@ export class NotificationService {
         throw new Error('OneSignal credentials not configured');
       }
 
+      // Use OneSignal's dedicated badge update API
       const payload = {
         app_id: this.appId,
         include_player_ids: playerIds,
-        contents: {
-          en: "Notification" // Required non-empty content
-        },
-        headings: {
-          en: "Update" // Required non-empty heading
-        },
-        badge: 0,
-        badge_type: 'SetTo',
-        android_visibility: 0, // Make notification invisible on Android
-        ios_sound: "silent.wav" // Use silent sound for iOS
+        badge: 0
       };
 
       this.logger.log('[BADGE_RESET] OneSignal API payload:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
-        'https://onesignal.com/api/v1/notifications',
+        'https://onesignal.com/api/v1/players/badge',
         payload,
         {
           headers: {
