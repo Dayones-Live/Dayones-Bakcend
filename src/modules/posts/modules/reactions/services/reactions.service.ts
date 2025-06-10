@@ -47,7 +47,7 @@ export class ReactionService {
     try {
       this.logger.log(`[LIKE] Starting like process for post ${postId} by user ${userId}`);
       
-      // Get the liker's information first
+      // Get the liker's information and verify access
       const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
       if (!liker) {
         this.logger.error(`[LIKE] Post ${postId} not found for user ${userId}`);
@@ -56,6 +56,17 @@ export class ReactionService {
           HttpStatus.NOT_FOUND,
         );
       }
+
+      // Verify the user has proper access to the post
+      const hasAccess = await this.artistPostUserService.verifyUserAccessToPost(userId, postId);
+      if (!hasAccess) {
+        this.logger.error(`[LIKE] User ${userId} does not have access to post ${postId}`);
+        throw new HttpException(
+          ERROR_MESSAGES.ACCESS_DENIED,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
       this.logger.log(`[LIKE] Found liker: ${JSON.stringify({
         id: liker.id,
         userId: liker.user_id,
@@ -92,6 +103,13 @@ export class ReactionService {
         this.logger.log(`[LIKE] Found ${fansWithAccess.length} fans to notify for post ${postId}`);
         
         for (const fan of fansWithAccess) {
+          // Verify fan has proper access to the post
+          const fanHasAccess = await this.artistPostUserService.verifyUserAccessToPost(fan.user_id, postId);
+          if (!fanHasAccess) {
+            this.logger.log(`[LIKE] Skipping notification for fan ${fan.user_id} - no access to post`);
+            continue;
+          }
+
           // Get active OneSignal player IDs for the fan
           const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
           
@@ -128,7 +146,8 @@ export class ReactionService {
               {
                 type: notification.type,
                 post_id: notification.post_id,
-                notification_id: savedNotification.id
+                notification_id: savedNotification.id,
+                user_id: fan.user_id // Add user_id to help frontend identify the correct account
               }
             );
             this.logger.log(`[LIKE] Successfully sent push notification to fan ${fan.user_id}`);
@@ -145,6 +164,13 @@ export class ReactionService {
         if (postOwnerId === userId) {
           this.logger.log(`[LIKE] Skipping notification for liker ${userId} (post owner)`);
         } else {
+          // Verify artist has proper access to the post
+          const artistHasAccess = await this.artistPostUserService.verifyUserAccessToPost(postOwnerId, postId);
+          if (!artistHasAccess) {
+            this.logger.log(`[LIKE] Skipping notification for artist ${postOwnerId} - no access to post`);
+            return savedReaction;
+          }
+
           // Get active OneSignal player IDs for the artist
           const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
           
@@ -173,7 +199,8 @@ export class ReactionService {
               {
                 type: notification.type,
                 post_id: notification.post_id,
-                notification_id: savedNotification.id
+                notification_id: savedNotification.id,
+                user_id: postOwnerId // Add user_id to help frontend identify the correct account
               }
             );
             this.logger.log(`[LIKE] Successfully sent push notification to artist ${postOwnerId}`);
