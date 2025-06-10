@@ -508,7 +508,7 @@ export class ArtistPostUserService {
       }
 
       // If user is a fan, check if they have been granted access
-      if (postAccess.user.role.includes(Roles.FAN)) {
+      if (postAccess.user.role.includes(Roles.USER)) {
         return postAccess.status === Invite_Status.ACCEPTED;
       }
 
