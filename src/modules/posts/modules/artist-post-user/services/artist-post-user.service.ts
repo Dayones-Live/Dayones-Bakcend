@@ -488,9 +488,9 @@ export class ArtistPostUserService {
         where: {
           user_id: userId,
           artist_post_id: postId,
-          is_active: true
+          status: Invite_Status.ACCEPTED
         },
-        relations: ['user', 'artist_post']
+        relations: ['user', 'artistPost']
       });
 
       if (!postAccess) {
@@ -498,7 +498,7 @@ export class ArtistPostUserService {
       }
 
       // If user is the post owner, they have access
-      if (postAccess.artist_post.user_id === userId) {
+      if (postAccess.artistPost.user_id === userId) {
         return true;
       }
 
@@ -508,8 +508,8 @@ export class ArtistPostUserService {
       }
 
       // If user is a fan, check if they have been granted access
-      if (postAccess.user.role.includes('FAN')) {
-        return postAccess.is_active;
+      if (postAccess.user.role.includes(Roles.FAN)) {
+        return postAccess.status === Invite_Status.ACCEPTED;
       }
 
       return false;
