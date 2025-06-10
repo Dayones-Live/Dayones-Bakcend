@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
   Body,
+  Delete,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { CognitoGuard } from '@auth/guards/aws.cognito.guard';
@@ -21,7 +22,7 @@ import { NotificationService } from '@app/shared/services/notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
 import { NotificationBundlingService } from '@app/shared/services/notification-bundling.service';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { NOTIFICATION_TYPE, NOTIFICATION_TITLE } from '../constants';
 import { Roles } from '@app/shared/constants/constants';
 import { Logger } from '@nestjs/common';
@@ -249,6 +250,42 @@ export class NotificationsController {
       });
     } catch (error) {
       this.logger.error(`[MARK_ALL_READ] Error marking all notifications as read: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a notification' })
+  @ApiParam({ name: 'id', description: 'Notification ID' })
+  async deleteNotification(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    try {
+      await this.notificationService.deleteNotification(id, req?.user?.id);
+      res.status(HttpStatus.OK).json({
+        message: 'Notification deleted successfully',
+      });
+    } catch (error) {
+      this.logger.error(`Error deleting notification: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Delete()
+  @ApiOperation({ summary: 'Delete all notifications for the current user' })
+  async deleteAllNotifications(
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    try {
+      await this.notificationService.deleteAllNotifications(req?.user?.id);
+      res.status(HttpStatus.OK).json({
+        message: 'All notifications deleted successfully',
+      });
+    } catch (error) {
+      this.logger.error(`Error deleting all notifications: ${error.message}`);
       throw error;
     }
   }

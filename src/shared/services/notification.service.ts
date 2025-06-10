@@ -317,4 +317,69 @@ export class NotificationService {
       return [];
     }
   }
+
+  async deleteNotification(notificationId: string, userId: string): Promise<void> {
+    try {
+      this.logger.log(`[DELETE] Attempting to delete notification ${notificationId} for user ${userId}`);
+      
+      // Find the notification
+      const notification = await this.notificationsRepository.findOne({
+        where: { id: notificationId, to_id: userId },
+      });
+
+      if (!notification) {
+        this.logger.warn(`[DELETE] Notification ${notificationId} not found for user ${userId}`);
+        throw new Error('Notification not found');
+      }
+
+      // Delete from local database
+      await this.notificationsRepository.remove(notification);
+      this.logger.log(`[DELETE] Successfully deleted notification ${notificationId} from database`);
+
+      // Get active OneSignal player IDs for the user
+      const playerIds = await this.getActivePlayerIds(userId);
+      
+      if (playerIds.length > 0) {
+        // Get unread count for badge update
+        const unreadCount = await this.notificationsRepository.count({
+          where: { to_id: userId, is_read: false },
+        });
+
+        // Update badge count
+        await this.updateBadgeCount(playerIds, unreadCount);
+        this.logger.log(`[DELETE] Updated badge count to ${unreadCount} for user ${userId}`);
+      }
+    } catch (error) {
+      this.logger.error(`[DELETE] Error deleting notification: ${error.message}`);
+      if (error.response) {
+        this.logger.error('[DELETE] OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+      }
+      throw error;
+    }
+  }
+
+  async deleteAllNotifications(userId: string): Promise<void> {
+    try {
+      this.logger.log(`[DELETE_ALL] Attempting to delete all notifications for user ${userId}`);
+      
+      // Delete all notifications from local database
+      await this.notificationsRepository.delete({ to_id: userId });
+      this.logger.log(`[DELETE_ALL] Successfully deleted all notifications from database for user ${userId}`);
+
+      // Get active OneSignal player IDs for the user
+      const playerIds = await this.getActivePlayerIds(userId);
+      
+      if (playerIds.length > 0) {
+        // Reset badge count to 0
+        await this.resetBadgeCount(playerIds);
+        this.logger.log(`[DELETE_ALL] Reset badge count for user ${userId}`);
+      }
+    } catch (error) {
+      this.logger.error(`[DELETE_ALL] Error deleting all notifications: ${error.message}`);
+      if (error.response) {
+        this.logger.error('[DELETE_ALL] OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+      }
+      throw error;
+    }
+  }
 } 
