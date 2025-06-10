@@ -487,10 +487,10 @@ export class ArtistPostUserService {
       const postAccess = await this.artistPostUserRepository.findOne({
         where: {
           user_id: userId,
-          post_id: postId,
+          artist_post_id: postId,
           is_active: true
         },
-        relations: ['user', 'post']
+        relations: ['user', 'artist_post']
       });
 
       if (!postAccess) {
@@ -498,7 +498,7 @@ export class ArtistPostUserService {
       }
 
       // If user is the post owner, they have access
-      if (postAccess.post.user_id === userId) {
+      if (postAccess.artist_post.user_id === userId) {
         return true;
       }
 
@@ -508,7 +508,7 @@ export class ArtistPostUserService {
       }
 
       // If user is a fan, check if they have been granted access
-      if (postAccess.user.role.includes(Roles.FAN)) {
+      if (postAccess.user.role.includes('FAN')) {
         return postAccess.is_active;
       }
 
