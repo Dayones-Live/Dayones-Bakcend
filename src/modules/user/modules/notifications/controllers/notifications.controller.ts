@@ -164,11 +164,15 @@ export class NotificationsController {
   @Get()
   async getAllUserNotification(@Res() res: Response, @Req() req: Request) {
     try {
+      this.logger.log(`[FETCH_NOTIFICATIONS] Fetching notifications for user ${req?.user?.id}`);
+      
       const notifications = await this.notificationsRepository.find({
         where: { to_id: req?.user?.id },
         order: { created_at: 'DESC' },
         relations: ['fromUser'],
       });
+      
+      this.logger.log(`[FETCH_NOTIFICATIONS] Found ${notifications.length} notifications for user ${req?.user?.id}`);
       
       const response = notifications.map(notification => ({
         ...this.notificationMapper.toDto(notification),
@@ -179,15 +183,27 @@ export class NotificationsController {
         } : null
       }));
 
+      // Get unread count for badge
+      const unreadCount = notifications.filter(n => !n.is_read).length;
+      this.logger.log(`[FETCH_NOTIFICATIONS] User ${req?.user?.id} has ${unreadCount} unread notifications`);
+
+      // Get active OneSignal player IDs for the user
+      const playerIds = await this.userDeviceService.getActivePlayerIds(req?.user?.id);
+      
+      if (playerIds.length > 0) {
+        this.logger.log(`[FETCH_NOTIFICATIONS] Updating badge count for user ${req?.user?.id} with player IDs: ${playerIds.join(', ')}`);
+        await this.notificationService.updateBadgeCount(playerIds, unreadCount);
+      } else {
+        this.logger.warn(`[FETCH_NOTIFICATIONS] No active devices found for user ${req?.user?.id}`);
+      }
+
       res.status(HttpStatus.OK).json({
         message: 'Notifications Fetched Successfully',
         data: response,
+        unread_count: unreadCount
       });
     } catch (error) {
-      console.error(
-        '🚀 ~ NotificationsController ~ getAllUserNotification ~ error:',
-        error,
-      );
+      this.logger.error(`[FETCH_NOTIFICATIONS] Error fetching notifications: ${error.message}`);
       throw error;
     }
   }
