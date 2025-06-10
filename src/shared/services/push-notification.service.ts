@@ -59,17 +59,21 @@ export class PushNotificationService {
         ios_badgeType: 'Increase',
         ios_badgeCount: 1,
         ios_sound: 'default',
-        android_sound: 'default',
-        android_channel_id: 'default',
-        android_priority: 'high',
-        android_visibility: 'public',
-        android_led_color: 'FF0000FF',
-        android_accent_color: 'FF0000FF',
-        android_group: 'default',
-        android_group_message: {
-          en: message
-        }
+        android_channel_id: undefined,
+        android_sound: undefined,
+        android_priority: undefined,
+        android_visibility: undefined,
+        android_led_color: undefined,
+        android_accent_color: undefined,
+        android_group: undefined,
+        android_group_message: undefined
       };
+
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined) {
+          delete payload[key];
+        }
+      });
 
       const response = await axios.post(
         'https://onesignal.com/api/v1/notifications',
