@@ -24,11 +24,14 @@ import { NotificationBundlingService } from '@app/shared/services/notification-b
 import { ApiTags } from '@nestjs/swagger';
 import { NOTIFICATION_TYPE, NOTIFICATION_TITLE } from '../constants';
 import { Roles } from '@app/shared/constants/constants';
+import { Logger } from '@nestjs/common';
 
 @ApiTags('Notifications')
 @Controller('notifications')
 @UseGuards(CognitoGuard)
 export class NotificationsController {
+  private readonly logger = new Logger(NotificationsController.name);
+
   constructor(
     @InjectRepository(Notifications)
     private notificationsRepository: Repository<Notifications>,
@@ -196,36 +199,35 @@ export class NotificationsController {
     @Req() req: Request,
   ) {
     try {
-      const notification = await this.notificationsRepository.findOne({
-        where: { id, to_id: req?.user?.id },
+      this.logger.log(`[MARK_READ] Received request to mark notification ${id} as read for user ${req?.user?.id}`);
+      
+      await this.notificationService.markNotificationAsRead(id, req?.user?.id);
+      
+      res.status(HttpStatus.OK).json({ 
+        message: 'Notification marked as read successfully',
+        data: { id }
       });
-
-      if (!notification) {
-        throw new Error('Notification not found');
-      }
-
-      notification.is_read = true;
-      const updatedNotification = await this.notificationsRepository.save(notification);
-      
-      // Get active OneSignal player IDs for the user
-      const playerIds = await this.userDeviceService.getActivePlayerIds(req?.user?.id);
-      
-      if (playerIds.length > 0) {
-        // Reset badge count when notification is marked as read
-        await this.notificationService.resetBadgeCount(playerIds);
-      }
-      
-      res
-        .status(HttpStatus.OK)
-        .json({ 
-          message: 'Notification Updated Successfully', 
-          data: this.notificationMapper.toDto(updatedNotification) 
-        });
     } catch (error) {
-      console.error(
-        '🚀 ~ NotificationsController ~ updateIsRead ~ error:',
-        error,
-      );
+      this.logger.error(`[MARK_READ] Error marking notification as read: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Patch('mark-all-read')
+  async markAllAsRead(
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      this.logger.log(`[MARK_ALL_READ] Received request to mark all notifications as read for user ${req?.user?.id}`);
+      
+      await this.notificationService.markAllNotificationsAsRead(req?.user?.id);
+      
+      res.status(HttpStatus.OK).json({ 
+        message: 'All notifications marked as read successfully'
+      });
+    } catch (error) {
+      this.logger.error(`[MARK_ALL_READ] Error marking all notifications as read: ${error.message}`);
       throw error;
     }
   }
