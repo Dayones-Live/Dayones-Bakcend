@@ -59,6 +59,13 @@ export class PushNotificationService {
         ios_badgeType: 'Increase',
         ios_badgeCount: 1,
         ios_sound: 'default',
+        ios_attachments: {
+          id1: 'https://dayones-test-bucket.s3.us-east-1.amazonaws.com/notification-icon.png'
+        },
+        ios_category: 'message',
+        ios_mutable_content: true,
+        ios_content_available: true,
+        ios_interruption_level: 'time-sensitive',
         android_channel_id: undefined,
         android_sound: undefined,
         android_priority: undefined,
@@ -74,6 +81,8 @@ export class PushNotificationService {
           delete payload[key];
         }
       });
+
+      this.logger.log('Sending push notification with payload:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
         'https://onesignal.com/api/v1/notifications',

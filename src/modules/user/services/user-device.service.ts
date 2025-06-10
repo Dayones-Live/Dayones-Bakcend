@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserDevice } from '../entities/user-device.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class UserDeviceService {
@@ -20,10 +21,10 @@ export class UserDeviceService {
     console.log(`[UserDeviceService] OneSignal Player ID: ${oneSignalPlayerId}`);
     console.log(`[UserDeviceService] Device Type: ${deviceType}`);
     
-    // Deactivate all other devices for this user
+    // First, deactivate all other devices for this user
     await this.userDeviceRepository.update(
       { userId, isActive: true },
-      { isActive: false }
+      { isActive: false, updatedAt: new Date() }
     );
     
     // Check if device already exists
@@ -74,21 +75,21 @@ export class UserDeviceService {
 
   async getActivePlayerIds(userId: string): Promise<string[]> {
     const devices = await this.userDeviceRepository.find({
-      where: {
-        userId,
-        isActive: true,
-      },
-      select: ['oneSignalPlayerId'],
+      where: { userId, isActive: true },
+      order: { updatedAt: 'DESC' }
     });
-
-    // Ensure unique player IDs
-    const uniquePlayerIds = [...new Set(devices.map(device => device.oneSignalPlayerId))];
     
-    // Log device information for debugging
-    console.log(`[UserDeviceService] Found ${devices.length} active devices for user ${userId}`);
-    console.log(`[UserDeviceService] Unique player IDs: ${uniquePlayerIds.join(', ')}`);
+    // If multiple devices are found, deactivate all but the most recent one
+    if (devices.length > 1) {
+      const [mostRecent, ...olderDevices] = devices;
+      await this.userDeviceRepository.update(
+        { id: In(olderDevices.map(d => d.id)) },
+        { isActive: false, updatedAt: new Date() }
+      );
+      return [mostRecent.oneSignalPlayerId];
+    }
     
-    return uniquePlayerIds;
+    return devices.map(device => device.oneSignalPlayerId);
   }
 
   async deactivateAllDevices(userId: string): Promise<void> {
