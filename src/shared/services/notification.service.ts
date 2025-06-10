@@ -222,27 +222,28 @@ export class NotificationService {
         throw new Error('OneSignal credentials not configured');
       }
 
-      // Use OneSignal's dedicated badge update API
-      const payload = {
-        app_id: this.appId,
-        include_player_ids: playerIds,
-        badge: count
-      };
+      // Update each player's badge count individually
+      for (const playerId of playerIds) {
+        const payload = {
+          app_id: this.appId,
+          badge: count
+        };
 
-      this.logger.log('[BADGE_UPDATE] OneSignal API payload:', JSON.stringify(payload, null, 2));
+        this.logger.log(`[BADGE_UPDATE] Updating badge for player ${playerId}:`, JSON.stringify(payload, null, 2));
 
-      const response = await axios.post(
-        'https://onesignal.com/api/v1/players/badge',
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Basic ${this.restApiKey}`,
+        const response = await axios.put(
+          `https://onesignal.com/api/v1/players/${playerId}`,
+          payload,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Basic ${this.restApiKey}`,
+            },
           },
-        },
-      );
+        );
 
-      this.logger.log('[BADGE_UPDATE] OneSignal API response:', JSON.stringify(response.data, null, 2));
+        this.logger.log(`[BADGE_UPDATE] OneSignal API response for player ${playerId}:`, JSON.stringify(response.data, null, 2));
+      }
     } catch (error) {
       this.logger.error('[BADGE_UPDATE] Error updating badge count:', error.message);
       if (error.response) {
@@ -258,27 +259,28 @@ export class NotificationService {
         throw new Error('OneSignal credentials not configured');
       }
 
-      // Use OneSignal's dedicated badge update API
-      const payload = {
-        app_id: this.appId,
-        include_player_ids: playerIds,
-        badge: 0
-      };
+      // Reset badge count for each player individually
+      for (const playerId of playerIds) {
+        const payload = {
+          app_id: this.appId,
+          badge: 0
+        };
 
-      this.logger.log('[BADGE_RESET] OneSignal API payload:', JSON.stringify(payload, null, 2));
+        this.logger.log(`[BADGE_RESET] Resetting badge for player ${playerId}:`, JSON.stringify(payload, null, 2));
 
-      const response = await axios.post(
-        'https://onesignal.com/api/v1/players/badge',
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Basic ${this.restApiKey}`,
+        const response = await axios.put(
+          `https://onesignal.com/api/v1/players/${playerId}`,
+          payload,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Basic ${this.restApiKey}`,
+            },
           },
-        },
-      );
+        );
 
-      this.logger.log('[BADGE_RESET] OneSignal API response:', JSON.stringify(response.data, null, 2));
+        this.logger.log(`[BADGE_RESET] OneSignal API response for player ${playerId}:`, JSON.stringify(response.data, null, 2));
+      }
     } catch (error) {
       this.logger.error('[BADGE_RESET] Error resetting badge count:', error.message);
       if (error.response) {
