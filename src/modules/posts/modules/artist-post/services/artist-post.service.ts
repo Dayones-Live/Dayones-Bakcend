@@ -352,7 +352,7 @@ export class ArtistPostService {
               Invite_Status.ACCEPTED,
               Invite_Status.NULL,
               Invite_Status.GENERIC,
-            ], // Filter for both ACCEPTED and NULL statuses
+            ],
           })
           .groupBy('artistPost.id')
           .addGroupBy('artistPostUser.id')
@@ -361,9 +361,9 @@ export class ArtistPostService {
           .addGroupBy('commentedUser.id')
           .addGroupBy('reaction.id')
           .addGroupBy('reactedUser.id')
-          .addGroupBy('commentReaction.id') // Added commentReaction to group by
+          .addGroupBy('commentReaction.id')
           .getOne();
-          // .getOne();
+
         if (!artistPosts) {
           throw new HttpException(
             ERROR_MESSAGES.POST_NOT_FOUND,
