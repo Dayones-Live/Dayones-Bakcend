@@ -73,6 +73,60 @@ export class CommentsService {
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
         this.logger.log(`[COMMENT] Saved comment with ID: ${comment.id} for generic post`);
+
+        // Get the commenter's information
+        const commenter = await this.artistPostUserRepository.findOne({
+          where: { user_id: userId },
+          relations: ['user', 'artistPost']
+        });
+
+        if (!commenter) {
+          this.logger.error(`[COMMENT] Commenter information not found for user ${userId}`);
+          throw new HttpException(
+            ERROR_MESSAGES.POST_NOT_FOUND,
+            HttpStatus.NOT_FOUND,
+          );
+        }
+
+        // For Generic Posts, only notify the post owner if the commenter is not the owner
+        if (artistPostUserGeneric.user_id !== userId) {
+          const playerIds = await this.userDeviceService.getActivePlayerIds(artistPostUserGeneric.user_id);
+          
+          if (playerIds.length > 0) {
+            this.logger.log(`[COMMENT] Creating notification for generic post owner ${artistPostUserGeneric.user_id}`);
+            const notification = new Notifications();
+            notification.to_id = artistPostUserGeneric.user_id;
+            notification.is_read = false;
+            notification.from_id = userId;
+            notification.title = NOTIFICATION_TITLE.COMMENT;
+            notification.data = JSON.stringify({
+              message: createCommentInput?.message,
+              post_id: postId,
+            });
+            notification.message = `${commenter.user.full_name} commented on your post`;
+            notification.type = NOTIFICATION_TYPE.COMMENT;
+            notification.post_id = postId;
+
+            const savedNotification = await this.notificationsRepository.save(notification);
+            this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for generic post owner`);
+
+            await this.pushNotificationService.sendPushNotification(
+              playerIds,
+              notification.title,
+              notification.message,
+              {
+                type: notification.type,
+                post_id: notification.post_id,
+                notification_id: savedNotification.id
+              }
+            );
+            this.logger.log(`[COMMENT] Successfully sent push notification to generic post owner`);
+          } else {
+            this.logger.warn(`[COMMENT] No active devices found for generic post owner`);
+          }
+        }
+
+        return comment;
       } else {
         this.logger.log(`[COMMENT] No generic post found, checking regular post access`);
         // Fetch the artistPostUserId through user id and artistPost
