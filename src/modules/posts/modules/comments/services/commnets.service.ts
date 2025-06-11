@@ -23,6 +23,7 @@ import { PushNotificationService } from '@app/shared/services/push-notification.
 import { NOTIFICATION_TITLE } from '@app/modules/user/modules/notifications/constants';
 import { NotificationBundlingService } from '@app/shared/services/notification-bundling.service';
 import { Logger } from '@nestjs/common';
+import { MoreThan } from 'typeorm';
 
 @Injectable()
 export class CommentsService {
@@ -263,7 +264,7 @@ export class CommentsService {
               from_id: userId,
               post_id: postId,
               type: NOTIFICATION_TYPE.COMMENT,
-              created_at: new Date(Date.now() - 5 * 60 * 1000) // Within last 5 minutes
+              created_at: MoreThan(new Date(Date.now() - 5 * 60 * 1000)) // Within last 5 minutes
             }
           });
 
