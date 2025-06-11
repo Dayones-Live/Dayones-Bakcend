@@ -160,7 +160,6 @@ export class ArtistPostMapper {
       });
       // Destructure artistPost and add commentsCount, reactionCount and fanCount
       const { artistPostUser, ...rest } = artistPost;
-      console.log('artistPostUser', artistPostUser);
       
       return {
         ...rest,
