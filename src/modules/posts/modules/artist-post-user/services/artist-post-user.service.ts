@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   CreateArtistPostUserInput,
@@ -12,7 +12,7 @@ import { InviteStatus } from 'aws-sdk/clients/chime';
 import { Invite_Status } from '../constants/constants';
 import { User } from '@app/modules/user/entities/user.entity';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
-import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
+import { ArtistPost } from '@artist-post/entities/artist-post.entity';
 import {
   AllPostsResponse,
   ArtistPostResponse,
@@ -20,8 +20,8 @@ import {
 import { Paginate, PaginationDto } from '@app/types';
 import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { In, Not } from 'typeorm';
 import { Logger } from '@nestjs/common';
+import { Post_Type } from '@artist-post/constants';
 
 @Injectable()
 export class ArtistPostUserService {
@@ -434,21 +434,41 @@ export class ArtistPostUserService {
       // First get the post owner ID
       const postOwnerId = await this.getPostOwnerId(postId);
       
-      // Build the where clause
+      // Check if this is a generic post
+      const isGenericPost = await this.artistPostRepository.findOne({
+        where: {
+          id: postId,
+          type: Post_Type.GENERIC
+        }
+      });
+
+      if (isGenericPost) {
+        // For generic posts, get all fans who have ever accepted any post from this artist
+        const fans = await this.artistPostUserRepository
+          .createQueryBuilder('artistPostUser')
+          .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost')
+          .where('artistPost.user_id = :postOwnerId', { postOwnerId })
+          .andWhere('artistPostUser.user_id != :postOwnerId', { postOwnerId })
+          .andWhere('artistPostUser.status = :status', { status: Invite_Status.ACCEPTED })
+          .andWhere('artistPostUser.user_id != :excludeUserId', { excludeUserId: excludeUserId || '' })
+          .getMany();
+
+        this.logger.log(`[FANS] Found ${fans.length} fans with access to generic post ${postId}`);
+        return fans;
+      }
+
+      // For regular posts, use the existing logic
       const whereClause: any = {
         artist_post_id: postId,
         status: In([Invite_Status.ACCEPTED, Invite_Status.GENERIC])
       };
 
-      // If excludeUserId is provided, exclude that user
       if (excludeUserId) {
         whereClause.user_id = Not(excludeUserId);
       } else {
-        // Otherwise, just exclude the post owner
         whereClause.user_id = Not(postOwnerId);
       }
       
-      // Get all fans with access
       const fans = await this.artistPostUserRepository.find({
         relations: ['user'],
         where: whereClause
