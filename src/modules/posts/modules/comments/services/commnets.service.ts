@@ -65,6 +65,8 @@ export class CommentsService {
       
       if (artistPostUserGeneric) {
         this.logger.log(`[COMMENT] Found generic post user for post ${postId}`);
+        this.logger.log(`[COMMENT] Generic post owner ID: ${artistPostUserGeneric.user_id}, Commenter ID: ${userId}`);
+        
         createCommentInput.artistPostUserId = artistPostUserGeneric?.id;
         if (artistPostUserGeneric.user_id !== userId) {
           createCommentInput.commentBy = userId;
@@ -88,41 +90,103 @@ export class CommentsService {
           );
         }
 
-        // For Generic Posts, only notify the post owner if the commenter is not the owner
-        if (artistPostUserGeneric.user_id !== userId) {
-          const playerIds = await this.userDeviceService.getActivePlayerIds(artistPostUserGeneric.user_id);
-          
-          if (playerIds.length > 0) {
-            this.logger.log(`[COMMENT] Creating notification for generic post owner ${artistPostUserGeneric.user_id}`);
-            const notification = new Notifications();
-            notification.to_id = artistPostUserGeneric.user_id;
-            notification.is_read = false;
-            notification.from_id = userId;
-            notification.title = NOTIFICATION_TITLE.COMMENT;
-            notification.data = JSON.stringify({
-              message: createCommentInput?.message,
-              post_id: postId,
-            });
-            notification.message = `${commenter.user.full_name} commented on your post`;
-            notification.type = NOTIFICATION_TYPE.COMMENT;
-            notification.post_id = postId;
+        // Check if the commenter is an artist
+        const isCommenterArtist = commenter?.user?.role?.includes(Roles.ARTIST);
+        this.logger.log(`[COMMENT] User ${userId} is artist: ${isCommenterArtist}`);
 
-            const savedNotification = await this.notificationsRepository.save(notification);
-            this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for generic post owner`);
+        if (isCommenterArtist) {
+          // If commenter is an artist, notify all fans with access
+          const fansWithAccess = await this.artistPostUserService.getFansWithAccessToPost(postId, userId);
+          this.logger.log(`[COMMENT] Found ${fansWithAccess.length} fans to notify for generic post ${postId}`);
 
-            await this.pushNotificationService.sendPushNotification(
-              playerIds,
-              notification.title,
-              notification.message,
-              {
-                type: notification.type,
-                post_id: notification.post_id,
-                notification_id: savedNotification.id
-              }
-            );
-            this.logger.log(`[COMMENT] Successfully sent push notification to generic post owner`);
+          for (const fan of fansWithAccess) {
+            // Skip if the fan has the same device IDs as the commenter
+            const playerIds = await this.userDeviceService.getActivePlayerIds(fan.user_id);
+            const commenterPlayerIds = await this.userDeviceService.getActivePlayerIds(userId);
+            const hasCommonDevice = playerIds.some(id => commenterPlayerIds.includes(id));
+            if (hasCommonDevice) {
+              this.logger.log(`[COMMENT] Skipping notification for fan ${fan.user_id} - same device as commenter`);
+              continue;
+            }
+
+            if (playerIds.length > 0) {
+              this.logger.log(`[COMMENT] Creating notification for fan ${fan.user_id}`);
+              const notification = new Notifications();
+              notification.to_id = fan.user_id;
+              notification.is_read = false;
+              notification.from_id = userId;
+              notification.title = NOTIFICATION_TITLE.COMMENT;
+              notification.data = JSON.stringify({
+                message: createCommentInput?.message,
+                post_id: postId,
+              });
+              notification.message = `${commenter.user.full_name} commented on a post`;
+              notification.type = NOTIFICATION_TYPE.COMMENT;
+              notification.post_id = postId;
+
+              const savedNotification = await this.notificationsRepository.save(notification);
+              this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
+
+              this.logger.log(`[COMMENT] Sending push notification to fan ${fan.user_id} with player IDs: ${playerIds.join(', ')}`);
+              await this.pushNotificationService.sendPushNotification(
+                playerIds,
+                notification.title,
+                notification.message,
+                {
+                  type: notification.type,
+                  post_id: notification.post_id,
+                  notification_id: savedNotification.id
+                }
+              );
+              this.logger.log(`[COMMENT] Successfully sent push notification to fan ${fan.user_id}`);
+            } else {
+              this.logger.warn(`[COMMENT] No active devices found for fan ${fan.user_id}`);
+            }
+          }
+        } else {
+          // If commenter is a fan, only notify the post owner (artist)
+          const postOwnerId = artistPostUserGeneric.user_id;
+          this.logger.log(`[COMMENT] Post owner ID: ${postOwnerId}`);
+
+          // Skip if the post owner is the same as the commenter
+          if (postOwnerId === userId) {
+            this.logger.log(`[COMMENT] Skipping notification for commenter ${userId} (post owner)`);
           } else {
-            this.logger.warn(`[COMMENT] No active devices found for generic post owner`);
+            const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
+            
+            if (playerIds.length > 0) {
+              this.logger.log(`[COMMENT] Creating notification for artist ${postOwnerId}`);
+              const notification = new Notifications();
+              notification.to_id = postOwnerId;
+              notification.is_read = false;
+              notification.from_id = userId;
+              notification.title = NOTIFICATION_TITLE.COMMENT;
+              notification.data = JSON.stringify({
+                message: createCommentInput?.message,
+                post_id: postId,
+              });
+              notification.message = `${commenter.user.full_name} commented on your post`;
+              notification.type = NOTIFICATION_TYPE.COMMENT;
+              notification.post_id = postId;
+
+              const savedNotification = await this.notificationsRepository.save(notification);
+              this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
+
+              this.logger.log(`[COMMENT] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
+              await this.pushNotificationService.sendPushNotification(
+                playerIds,
+                notification.title,
+                notification.message,
+                {
+                  type: notification.type,
+                  post_id: notification.post_id,
+                  notification_id: savedNotification.id
+                }
+              );
+              this.logger.log(`[COMMENT] Successfully sent push notification to artist ${postOwnerId}`);
+            } else {
+              this.logger.warn(`[COMMENT] No active devices found for artist ${postOwnerId}`);
+            }
           }
         }
 
