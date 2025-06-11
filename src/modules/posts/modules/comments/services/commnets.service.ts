@@ -138,6 +138,22 @@ export class CommentsService {
             continue;
           }
 
+          // Check if a notification for this comment already exists for this fan
+          const existingNotification = await this.notificationsRepository.findOne({
+            where: {
+              to_id: fan.user_id,
+              from_id: userId,
+              post_id: postId,
+              type: NOTIFICATION_TYPE.COMMENT,
+              created_at: new Date(Date.now() - 5 * 60 * 1000) // Within last 5 minutes
+            }
+          });
+
+          if (existingNotification) {
+            this.logger.log(`[COMMENT] Skipping notification for fan ${fan.user_id} - notification already exists`);
+            continue;
+          }
+
           this.logger.log(`[COMMENT] Creating notification for fan ${fan.user_id}`);
           const notification = new Notifications();
           notification.to_id = fan.user_id;
