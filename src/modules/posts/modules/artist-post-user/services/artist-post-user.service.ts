@@ -483,36 +483,31 @@ export class ArtistPostUserService {
 
   async verifyUserAccessToPost(userId: string, postId: string): Promise<boolean> {
     try {
-      // Get the post access record
+      // Get the post to check ownership
+      const post = await this.artistPostRepository.findOne({
+        where: { id: postId },
+        select: ['user_id']
+      });
+
+      if (!post) {
+        return false;
+      }
+
+      // If user is the post owner (artist), they always have access
+      if (post.user_id === userId) {
+        return true;
+      }
+
+      // For non-owners (fans), check if they have an accepted invite
       const postAccess = await this.artistPostUserRepository.findOne({
         where: {
           user_id: userId,
           artist_post_id: postId,
           status: Invite_Status.ACCEPTED
-        },
-        relations: ['user', 'artistPost']
+        }
       });
 
-      if (!postAccess) {
-        return false;
-      }
-
-      // If user is the post owner, they have access
-      if (postAccess.artistPost.user_id === userId) {
-        return true;
-      }
-
-      // If user is an artist, check if they have access to the post
-      if (postAccess.user.role.includes(Roles.ARTIST)) {
-        return true;
-      }
-
-      // If user is a fan, check if they have been granted access
-      if (postAccess.user.role.includes(Roles.USER)) {
-        return postAccess.status === Invite_Status.ACCEPTED;
-      }
-
-      return false;
+      return !!postAccess;
     } catch (error) {
       this.logger.error(`Error verifying user access to post: ${error.message}`, error.stack);
       return false;
