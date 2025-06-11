@@ -47,24 +47,33 @@ export class ReactionService {
     try {
       this.logger.log(`[LIKE] Starting like process for post ${postId} by user ${userId}`);
       
-      // Get the liker's information and verify access
-      const liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
-      if (!liker) {
-        this.logger.error(`[LIKE] Post ${postId} not found for user ${userId}`);
-        throw new HttpException(
-          ERROR_MESSAGES.POST_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
+      // First check if this is a generic post
+      const artistPostUserGeneric = await this.artistPostUserService.getGenericArtistPostUserByPostId(postId);
+      let liker: ArtistPostUser;
 
-      // Verify the user has proper access to the post
-      const hasAccess = await this.artistPostUserService.verifyUserAccessToPost(userId, postId);
-      if (!hasAccess) {
-        this.logger.error(`[LIKE] User ${userId} does not have access to post ${postId}`);
-        throw new HttpException(
-          ERROR_MESSAGES.ACCESS_DENIED,
-          HttpStatus.FORBIDDEN,
-        );
+      if (artistPostUserGeneric) {
+        this.logger.log(`[LIKE] Found generic post for post ${postId}`);
+        liker = artistPostUserGeneric;
+      } else {
+        // Get the liker's information and verify access for regular post
+        liker = await this.artistPostUserService.getArtistPostByPostId(userId, postId);
+        if (!liker) {
+          this.logger.error(`[LIKE] Post ${postId} not found for user ${userId}`);
+          throw new HttpException(
+            ERROR_MESSAGES.POST_NOT_FOUND,
+            HttpStatus.NOT_FOUND,
+          );
+        }
+
+        // Verify the user has proper access to the post
+        const hasAccess = await this.artistPostUserService.verifyUserAccessToPost(userId, postId);
+        if (!hasAccess) {
+          this.logger.error(`[LIKE] User ${userId} does not have access to post ${postId}`);
+          throw new HttpException(
+            ERROR_MESSAGES.ACCESS_DENIED,
+            HttpStatus.FORBIDDEN,
+          );
+        }
       }
 
       this.logger.log(`[LIKE] Found liker: ${JSON.stringify({
@@ -103,11 +112,14 @@ export class ReactionService {
         this.logger.log(`[LIKE] Found ${fansWithAccess.length} fans to notify for post ${postId}`);
         
         for (const fan of fansWithAccess) {
-          // Verify fan has proper access to the post
-          const fanHasAccess = await this.artistPostUserService.verifyUserAccessToPost(fan.user_id, postId);
-          if (!fanHasAccess) {
-            this.logger.log(`[LIKE] Skipping notification for fan ${fan.user_id} - no access to post`);
-            continue;
+          // For generic posts, we don't need to verify access
+          if (!artistPostUserGeneric) {
+            // Verify fan has proper access to the post (only for regular posts)
+            const fanHasAccess = await this.artistPostUserService.verifyUserAccessToPost(fan.user_id, postId);
+            if (!fanHasAccess) {
+              this.logger.log(`[LIKE] Skipping notification for fan ${fan.user_id} - no access to post`);
+              continue;
+            }
           }
 
           // Get active OneSignal player IDs for the fan
@@ -164,11 +176,14 @@ export class ReactionService {
         if (postOwnerId === userId) {
           this.logger.log(`[LIKE] Skipping notification for liker ${userId} (post owner)`);
         } else {
-          // Verify artist has proper access to the post
-          const artistHasAccess = await this.artistPostUserService.verifyUserAccessToPost(postOwnerId, postId);
-          if (!artistHasAccess) {
-            this.logger.log(`[LIKE] Skipping notification for artist ${postOwnerId} - no access to post`);
-            return savedReaction;
+          // For generic posts, we don't need to verify access
+          if (!artistPostUserGeneric) {
+            // Verify artist has proper access to the post (only for regular posts)
+            const artistHasAccess = await this.artistPostUserService.verifyUserAccessToPost(postOwnerId, postId);
+            if (!artistHasAccess) {
+              this.logger.log(`[LIKE] Skipping notification for artist ${postOwnerId} - no access to post`);
+              return savedReaction;
+            }
           }
 
           // Get active OneSignal player IDs for the artist
