@@ -17,7 +17,7 @@ import {
   removeImageBackground,
   saveFile,
 } from '@app/shared/utils';
-import mime from 'mime-types';
+import * as mime from 'mime-types';
 
 @Injectable()
 export class SignatureService {
@@ -151,7 +151,7 @@ export class SignatureService {
       }
 
       const s3Key = `${userId}/signatures/${signatureId}`; // Replace HEIC extension with PNG if necessary
-      const fileMimeType = mime.lookup(fileName.replace(/\.heic$/i, '.png'));
+      const fileMimeType = mime.lookup(fileName.replace(/\.heic$/i, '.png')) || 'image/png';
       const uploadUrl = await this.s3Service.uploadFile(
         tempFilePath,
         s3Key,
