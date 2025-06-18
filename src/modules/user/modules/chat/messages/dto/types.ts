@@ -11,6 +11,7 @@ export class SendMessageInput {
   @IsNotEmpty({ message: 'Message content is required when no media is attached' })
   message?: string;
 
+  @IsOptional()
   url?: string;
 
   @IsOptional()
