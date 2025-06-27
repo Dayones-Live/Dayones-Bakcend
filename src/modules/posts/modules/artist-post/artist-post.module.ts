@@ -9,7 +9,6 @@ import { ArtistPostUserModule } from '../artist-post-user/atrist-post-user.modul
 import { CommentsModule } from '../comments/comments.module';
 import { ReactionsModule } from '../reactions/reactions.module';
 import { InvitesController } from './controllers/invites.controller';
-import { ArtistPostUserService } from '../artist-post-user/services/artist-post-user.service';
 
 @Module({
   imports: [
@@ -20,7 +19,7 @@ import { ArtistPostUserService } from '../artist-post-user/services/artist-post-
     ReactionsModule,
   ],
   controllers: [ArtistPostController, InvitesController],
-  providers: [ArtistPostService, ArtistPostMapper, ArtistPostUserService],
+  providers: [ArtistPostService, ArtistPostMapper],
   exports: [ArtistPostService],
 })
 export class ArtistPostModule {}
