@@ -141,11 +141,13 @@ export class ArtistPostMapper {
 
     const { artistPostUser, ...artistPostWithoutUsers } = artistPosts;
     return {
-      post: artistPostWithoutUsers,
+      post: {
+        ...artistPostWithoutUsers,
+        associate_fan_count,
+      },
       comments: userComments,
       artistComments,
       reactions: userReactions,
-      associate_fan_count, // Include fan count in the response
     };
   }
 
