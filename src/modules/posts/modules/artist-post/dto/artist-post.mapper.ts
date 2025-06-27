@@ -71,6 +71,7 @@ export class ArtistPostMapper {
     if (artistPosts.type === 'GENERIC') {
       const artistId = artistPosts.user_id;
       const fanIds = await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(artistId);
+      console.log('GENERIC POST DEBUG:', { artistId, fanIds, count: fanIds.length });
       associate_fan_count = fanIds.length;
     } else {
       artistPosts.artistPostUser?.forEach((userPost: ArtistPostUser) => {
@@ -161,6 +162,7 @@ export class ArtistPostMapper {
       if (artistPost.type === 'GENERIC') {
         const artistId = artistPost.user_id;
         const fanIds = await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(artistId);
+        console.log('GENERIC POST DEBUG:', { artistId, fanIds, count: fanIds.length });
         associate_fan_count = fanIds.length;
       } else {
         artistPost.artistPostUser?.forEach((userPost: ArtistPostUser) => {
