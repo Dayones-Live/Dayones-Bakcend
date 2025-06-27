@@ -15,7 +15,7 @@ import { ArtistPostUserService } from '../artist-post-user/services/artist-post-
   imports: [
     TypeOrmModule.forFeature([ArtistPost]),
     forwardRef(() => UserModule),
-    ArtistPostUserModule,
+    forwardRef(() => ArtistPostUserModule),
     CommentsModule,
     ReactionsModule,
   ],
