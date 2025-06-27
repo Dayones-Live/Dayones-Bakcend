@@ -371,7 +371,7 @@ export class ArtistPostService {
           );
         }
         const formattedPostData =
-          this.artistPostMapper.processArtistPostData(artistPosts);
+          await this.artistPostMapper.processArtistPostData(artistPosts);
         return formattedPostData;
       } else {
         const userPost: ArtistPostResponse =
@@ -415,7 +415,7 @@ async fetchAllUserPostsData(
         skip: paginate.offset,
         take: paginate.limit,
       });
-      const formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
+      const formattedPosts = await this.artistPostMapper.processArtistPostsData(artistPosts);
       const meta = getPaginatedOutput(paginate.pageNo, paginate.pageSize, count);
       return { posts: formattedPosts, meta };
     } else {
@@ -474,7 +474,7 @@ async fetchAllUserPostsData(
           .take(paginate.limit) // Apply pagination limit
           .getManyAndCount();
         
-        formattedPosts = this.artistPostMapper.processArtistPostsData(artistPosts);
+        formattedPosts = await this.artistPostMapper.processArtistPostsData(artistPosts);
         postCount = count;
       }
 

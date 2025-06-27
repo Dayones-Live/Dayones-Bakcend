@@ -14,8 +14,13 @@ import {
 } from '../../artist-post-user/dto/types';
 import { Invite_Status } from '../../artist-post-user/constants/constants';
 import { ArtistPostUser } from '../../artist-post-user/entities/artist-post-user.entity';
+import { Injectable } from '@nestjs/common';
+import { ArtistPostUserService } from '../../artist-post-user/services/artist-post-user.service';
 
+@Injectable()
 export class ArtistPostMapper {
+  constructor(private readonly artistPostUserService: ArtistPostUserService) {}
+
   dtoToEntity(createArtistPostInput: CreateArtistPostInput): ArtistPost {
     const updateRecord: boolean = false;
     return mapInputToEntity(
@@ -44,7 +49,7 @@ export class ArtistPostMapper {
     return mapInputToEntity(existingArtistPost, updateArtistPost, updateRecord);
   }
 
-  processArtistPostData(artistPosts: ArtistPost) {
+  async processArtistPostData(artistPosts: ArtistPost) {
     const userComments: CommentsWithUserResponse[] = [];
     const artistComments: CommentsWithUserResponse[] = [];
     let userReactions: ReactionsWithUserResponse[] = [];
@@ -62,6 +67,19 @@ export class ArtistPostMapper {
       };
     }
 
+    // If generic post, count all fans of the artist
+    if (artistPosts.type === 'GENERIC') {
+      const artistId = artistPosts.user_id;
+      const fanIds = await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(artistId);
+      associate_fan_count = fanIds.length;
+    } else {
+      artistPosts.artistPostUser?.forEach((userPost: ArtistPostUser) => {
+        if (userPost.status === Invite_Status.ACCEPTED) {
+          associate_fan_count += 1;
+        }
+      });
+    }
+
     artistPosts.artistPostUser?.forEach((userPost: ArtistPostUser) => {
       // Count reactions if they exist
       if (userPost.reaction && userPost?.status !== Invite_Status.GENERIC) {
@@ -69,11 +87,6 @@ export class ArtistPostMapper {
       } else {
         totalReactions = userPost?.reaction?.length || 0;
       }
-
-      // Count fans based on accepted status
-    if (userPost.status === Invite_Status.ACCEPTED) {
-      associate_fan_count += 1;
-    }
 
       const { role, ...userWithoutRole } = userPost.user;
 
@@ -136,11 +149,24 @@ export class ArtistPostMapper {
     };
   }
 
-  processArtistPostsData(artistPosts: ArtistPost[]): ArtistPostWithCounts[] {
-    return artistPosts.map((artistPost) => {
+  async processArtistPostsData(artistPosts: ArtistPost[]): Promise<ArtistPostWithCounts[]> {
+    return Promise.all(artistPosts.map(async (artistPost) => {
       let commentsCount = 0;
       let totalReactions = 0;
       let associate_fan_count = 0; // Initialize fan count
+
+      // If generic post, count all fans of the artist
+      if (artistPost.type === 'GENERIC') {
+        const artistId = artistPost.user_id;
+        const fanIds = await this.artistPostUserService.fetchFanOfArtistsGenericPostsIds(artistId);
+        associate_fan_count = fanIds.length;
+      } else {
+        artistPost.artistPostUser?.forEach((userPost: ArtistPostUser) => {
+          if (userPost.status === Invite_Status.ACCEPTED) {
+            associate_fan_count++;
+          }
+        });
+      }
 
       artistPost.artistPostUser?.forEach((userPost: ArtistPostUser) => {
         // Count reactions if they exist
@@ -152,11 +178,6 @@ export class ArtistPostMapper {
         commentsCount +=
           userPost.comment?.filter((item) => !item?.parent_comment_id)
             ?.length || 0;
-
-          // Increment fan count for users who accepted invites
-          if (userPost?.status === Invite_Status.ACCEPTED) {
-            associate_fan_count++;
-          }
       });
       // Destructure artistPost and add commentsCount, reactionCount and fanCount
       const { artistPostUser, ...rest } = artistPost;
@@ -167,6 +188,6 @@ export class ArtistPostMapper {
         reactionCount: totalReactions, // Total reactions count
         associate_fan_count, // Total fan count
       };
-    });
+    }));
   }
 }
