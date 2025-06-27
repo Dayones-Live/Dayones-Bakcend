@@ -9,6 +9,15 @@ import { CognitoGuard } from './modules/auth/guards/aws.cognito.guard';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  // Log DB connection details for debugging
+  logger.log('DB DEBUG:', {
+    host: process.env.DB_HOST,
+    user: process.env.DB_USERNAME,
+    db: process.env.DB_NAME,
+    env: process.env.NODE_ENV,
+  });
+
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
