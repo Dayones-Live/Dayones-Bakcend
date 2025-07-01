@@ -234,15 +234,15 @@ export class ArtistPostUserService {
         .createQueryBuilder('artistPostUser')
         .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost')
         .leftJoinAndSelect('artistPost.user', 'user')
-        .where('artistPostUser.user_id = :userId', { userId })
+        .where('artistPost.user_id = :userId', { userId })
         .andWhere('artistPostUser.status = :status', {
           status: Invite_Status.ACCEPTED,
         })
         .getMany();
 
-      // Return an array of user ids
+      // Return an array of fan user ids (not artist ids)
       return [
-        ...new Set(fanOfArtists.map((artist) => artist.artistPost.user.id)),
+        ...new Set(fanOfArtists.map((artist) => artist.user_id)),
       ];
     } catch (err) {
       console.error(
