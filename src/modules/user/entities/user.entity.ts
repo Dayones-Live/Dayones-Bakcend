@@ -69,6 +69,9 @@ export class User extends BaseEntity {
   @Column({ nullable: false, default: false })
   is_deleted: boolean;
 
+  @Column({ nullable: false, default: false })
+  pending_approval: boolean;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 

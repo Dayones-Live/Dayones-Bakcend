@@ -94,17 +94,24 @@ export class CognitoService {
     try {
       const command = new SignUpCommand(params);
       const result = await this.cognitoClient.send(command);
+      
+      // Set pending_approval if user is signing up as artist
+      const isPendingApproval = role === Roles.ARTIST;
+      
       const newUser = await this.userService.createUser({
         name: userFullName,
         email,
         phoneNumber,
-        role: role, // Assuming role is of type ROLES
-        userSub: result.UserSub || '', // UserSub returned by Cognito
-        isConfirmed: false, // Assuming the user is not confirmed immediately
+        role: role,
+        userSub: result.UserSub || '',
+        isConfirmed: !isPendingApproval, // Only confirm immediately if not artist
+        pendingApproval: isPendingApproval,
       });
       const { user_sub, ...extractedUserData } = newUser;
       return {
-        message: SUCCESS_MESSAGES.USER_SIGNUP_SUCCESS,
+        message: isPendingApproval 
+          ? 'Artist registration submitted successfully. Awaiting admin approval.'
+          : SUCCESS_MESSAGES.USER_SIGNUP_SUCCESS,
         statusCode: 200,
         data: { ...extractedUserData, role: extractedUserData?.role[0] },
       };

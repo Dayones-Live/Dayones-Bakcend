@@ -43,6 +43,9 @@ export class CreateUserInput {
 
   @IsOptional()
   avatarUrl?: string;
+
+  @IsOptional()
+  pendingApproval?: boolean;
 }
 
 export class UserConfirmationInput {

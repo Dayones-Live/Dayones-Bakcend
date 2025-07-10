@@ -32,6 +32,7 @@ export class UserMapper {
     newUser.user_sub = createUserInput.userSub;
     newUser.is_confirmed = createUserInput.isConfirmed;
     newUser.role = [createUserInput.role]; // Wrap the role in an array
+    newUser.pending_approval = createUserInput.pendingApproval || false;
 
     return newUser;
   }

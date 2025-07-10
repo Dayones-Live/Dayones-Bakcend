@@ -39,6 +39,15 @@ export class RolesGuard implements CanActivate {
         HttpStatus.FORBIDDEN,
       );
     }
+
+    // Check if artist has pending approval
+    if (user.role?.includes(Roles.ARTIST) && user.pending_approval) {
+      throw new HttpException(
+        'Artist account is pending approval. Please wait for admin approval.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     return true;
   }
 }

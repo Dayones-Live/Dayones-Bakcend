@@ -338,6 +338,135 @@ export class UserService {
   }
 
   /**
+   * Fetch pending artist approvals
+   *
+   * @returns {User[]}
+   */
+  async fetchPendingArtistApprovals(): Promise<User[]> {
+    try {
+      const users = await this.userRepository
+        .createQueryBuilder('user')
+        .where(':role = ANY(user.role)', { role: Roles.ARTIST })
+        .andWhere('user.pending_approval = :pending', { pending: true })
+        .getMany();
+      return users;
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts ~ UserService ~ fetchPendingArtistApprovals ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Approve artist registration
+   *
+   * @param {string} userId
+   * @param {string} adminId
+   * @returns {GlobalServiceResponse}
+   */
+  async approveArtist(userId: string, adminId: string): Promise<GlobalServiceResponse> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new HttpException(
+          ERROR_MESSAGES.USER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      if (!user.role.includes(Roles.ARTIST)) {
+        throw new HttpException(
+          'User is not an artist',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (!user.pending_approval) {
+        throw new HttpException(
+          'User is already approved',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      user.pending_approval = false;
+      user.is_confirmed = true; // Complete the registration
+      await this.userRepository.save(user);
+
+      const { user_sub, ...rest } = user;
+      return {
+        statusCode: 200,
+        message: 'Artist approved successfully',
+        data: { ...rest, role: rest.role[0] },
+      };
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts ~ UserService ~ approveArtist ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Reject artist registration
+   *
+   * @param {string} userId
+   * @param {string} adminId
+   * @returns {GlobalServiceResponse}
+   */
+  async rejectArtist(userId: string, adminId: string): Promise<GlobalServiceResponse> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new HttpException(
+          ERROR_MESSAGES.USER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      if (!user.role.includes(Roles.ARTIST)) {
+        throw new HttpException(
+          'User is not an artist',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (!user.pending_approval) {
+        throw new HttpException(
+          'User is already approved',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Remove artist role and set as regular user
+      user.role = [Roles.USER];
+      user.pending_approval = false;
+      await this.userRepository.save(user);
+
+      const { user_sub, ...rest } = user;
+      return {
+        statusCode: 200,
+        message: 'Artist rejected successfully',
+        data: { ...rest, role: rest.role[0] },
+      };
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts ~ UserService ~ rejectArtist ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Fetch a user for the given Id
    *
    * @param id

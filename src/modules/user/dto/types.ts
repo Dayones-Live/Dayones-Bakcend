@@ -54,3 +54,19 @@ export class UpdateUserLocationAndNotificationInput {
   @IsNotEmpty({ message: 'Notification enabled is required' })
   notificationsEnabled: boolean;
 }
+
+export class ApproveArtistInput {
+  @IsNotEmpty({ message: 'User ID is required' })
+  userId: string;
+
+  @IsOptional()
+  adminNotes?: string;
+}
+
+export class RejectArtistInput {
+  @IsNotEmpty({ message: 'User ID is required' })
+  userId: string;
+
+  @IsOptional()
+  adminNotes?: string;
+}
