@@ -22,6 +22,7 @@ import {
   GetUserProfileInput,
 } from '../dto/profile.types';
 import { SUCCESS_MESSAGES } from '@app/shared/constants/constants';
+import { Public } from '../../auth/decorators/public.decorator';
 
 @ApiTags('profile')
 @Controller('profile')
@@ -50,6 +51,7 @@ export class ProfileController {
     }
   }
 
+  @Public()
   @Get(':userId')
   async getUserProfile(
     @Param('userId') userId: string,
@@ -135,6 +137,7 @@ export class ProfileController {
     }
   }
 
+  @Public()
   @Get('gallery/:userId')
   async getUserGallery(
     @Param('userId') userId: string,
