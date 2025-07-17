@@ -23,6 +23,8 @@ import { Reactions } from '@app/modules/posts/modules/reactions/entities/reactio
 import { Report } from '@app/modules/report/entities/report.entity';
 import { Feedback } from '../modules/feedback/entitites/feedback.entity';
 import { Blocks } from '../modules/blocks/entities/blocks.entity';
+import { Profile } from './profile.entity';
+import { ProfileGallery } from './profile-gallery.entity';
 
 @Entity('user')
 @Unique(['email'])
@@ -146,4 +148,10 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Blocks, (blocks) => blocks.blockedUser)
   blockedUser?: Blocks[];
+
+  @OneToOne(() => Profile, (profile) => profile.user)
+  profile?: Profile;
+
+  @OneToMany(() => ProfileGallery, (gallery) => gallery.user)
+  profileGallery?: ProfileGallery[];
 }

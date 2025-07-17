@@ -41,6 +41,7 @@ export enum ERROR_MESSAGES {
   USER_ALREADY_BLOCKED = 'This user is already blocked by you.',
   BLOCKED_USER = 'You cannot perform this action because you are blocked by this user',
   ACCESS_DENIED = 'You do not have access to this resource',
+  GALLERY_IMAGE_NOT_FOUND = 'Gallery image not found',
 }
 
 export enum SUCCESS_MESSAGES {
@@ -87,6 +88,12 @@ export enum SUCCESS_MESSAGES {
   FORGOT_PASSWORD_EMAIL_SENT = 'Password reset confirmation code email sent!',
   PASSWORD_RESET_SUCCESS = 'Password reset successfully',
   VERIFICATION_CODE_SENT = 'Verify email code sent',
+  PROFILE_UPDATED_SUCCESS = 'Profile updated successfully',
+  PROFILE_FETCHED_SUCCESS = 'Profile fetched successfully',
+  GALLERY_IMAGE_ADDED_SUCCESS = 'Gallery image added successfully',
+  GALLERY_IMAGE_UPDATED_SUCCESS = 'Gallery image updated successfully',
+  GALLERY_IMAGE_DELETED_SUCCESS = 'Gallery image deleted successfully',
+  GALLERY_FETCHED_SUCCESS = 'Gallery fetched successfully',
 }
 
 export enum BUNDLE_NOTIFICATIONS_UNIQUE_KEYS {
