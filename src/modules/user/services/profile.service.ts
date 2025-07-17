@@ -66,6 +66,7 @@ export class ProfileService {
       await this.profileRepository.save(profile);
 
       return {
+        statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.PROFILE_UPDATED_SUCCESS,
         data: profile,
       };
@@ -102,6 +103,7 @@ export class ProfileService {
       });
 
       return {
+        statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.PROFILE_FETCHED_SUCCESS,
         data: {
           user: {
@@ -137,6 +139,7 @@ export class ProfileService {
       await this.profileGalleryRepository.save(galleryImage);
 
       return {
+        statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.GALLERY_IMAGE_ADDED_SUCCESS,
         data: galleryImage,
       };
@@ -170,6 +173,7 @@ export class ProfileService {
       await this.profileGalleryRepository.save(galleryImage);
 
       return {
+        statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.GALLERY_IMAGE_UPDATED_SUCCESS,
         data: galleryImage,
       };
@@ -201,6 +205,7 @@ export class ProfileService {
       await this.profileGalleryRepository.remove(galleryImage);
 
       return {
+        statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.GALLERY_IMAGE_DELETED_SUCCESS,
         data: null,
       };
@@ -221,6 +226,7 @@ export class ProfileService {
       });
 
       return {
+        statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.GALLERY_FETCHED_SUCCESS,
         data: galleryImages,
       };
