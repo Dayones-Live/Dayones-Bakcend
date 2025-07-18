@@ -137,24 +137,6 @@ export class ProfileController {
     }
   }
 
-  @Public()
-  @Get('gallery/:userId')
-  async getUserGallery(
-    @Param('userId') userId: string,
-    @Res() res: Response,
-  ) {
-    try {
-      const response = await this.profileService.getUserGallery(userId);
-      res.status(HttpStatus.OK).json({
-        message: response.message,
-        data: response.data,
-      });
-    } catch (error) {
-      console.error('🚀 ~ ProfileController ~ getUserGallery ~ error:', error);
-      throw error;
-    }
-  }
-
   @UseGuards(CognitoGuard)
   @Get('me')
   async getMyProfile(
@@ -189,6 +171,24 @@ export class ProfileController {
       });
     } catch (error) {
       console.error('🚀 ~ ProfileController ~ getMyGallery ~ error:', error);
+      throw error;
+    }
+  }
+
+  @Public()
+  @Get('gallery/:userId')
+  async getUserGallery(
+    @Param('userId') userId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const response = await this.profileService.getUserGallery(userId);
+      res.status(HttpStatus.OK).json({
+        message: response.message,
+        data: response.data,
+      });
+    } catch (error) {
+      console.error('🚀 ~ ProfileController ~ getUserGallery ~ error:', error);
       throw error;
     }
   }
