@@ -154,4 +154,42 @@ export class ProfileController {
       throw error;
     }
   }
+
+  @UseGuards(CognitoGuard)
+  @Get('me')
+  async getMyProfile(
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    try {
+      const response = await this.profileService.getUserProfile({ 
+        userId: req?.user?.id || '' 
+      });
+      res.status(HttpStatus.OK).json({
+        message: response.message,
+        data: response.data,
+      });
+    } catch (error) {
+      console.error('🚀 ~ ProfileController ~ getMyProfile ~ error:', error);
+      throw error;
+    }
+  }
+
+  @UseGuards(CognitoGuard)
+  @Get('gallery/me')
+  async getMyGallery(
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    try {
+      const response = await this.profileService.getUserGallery(req?.user?.id || '');
+      res.status(HttpStatus.OK).json({
+        message: response.message,
+        data: response.data,
+      });
+    } catch (error) {
+      console.error('🚀 ~ ProfileController ~ getMyGallery ~ error:', error);
+      throw error;
+    }
+  }
 } 
