@@ -10,6 +10,7 @@ import {
   Req,
   Res,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { UpdateArtistPostUserInput } from '../../artist-post-user/dto/types';
@@ -21,6 +22,8 @@ import { User } from '@app/modules/user/entities/user.entity';
 @Controller('invites')
 @UseGuards(CognitoGuard)
 export class InvitesController {
+  private readonly logger = new Logger(InvitesController.name);
+
   constructor(private artistPostUserService: ArtistPostUserService) {}
 
   @Patch(':id')
@@ -32,16 +35,23 @@ export class InvitesController {
     @Req() req: Request,
   ) {
     try {
+      const userId = req?.user?.id || '';
+      this.logger.log(`🎯 [INVITE_ENDPOINT] User ${userId} updating invite ${inviteId} to status: ${updateArtistPostUserInput.status}`);
+      
       const response = await this.artistPostUserService.updateArtistPostUser({
         ...updateArtistPostUserInput,
-        userId: req?.user?.id || '',
+        userId: userId,
         id: inviteId,
       });
+      
+      this.logger.log(`🎯 [INVITE_ENDPOINT] ✅ User ${userId} successfully updated invite ${inviteId} to status: ${updateArtistPostUserInput.status}`);
+      
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.POST_UPDATED_SUCCESS,
         data: response,
       });
     } catch (error) {
+      this.logger.error(`🎯 [INVITE_ENDPOINT] ❌ Error updating invite ${inviteId}: ${error?.message}`);
       console.error(
         '🚀 ~ ArtistPostUserController ~ updateArtistPostUser ~ error:',
         error,
@@ -53,14 +63,29 @@ export class InvitesController {
   @Get()
   async getAllInvitesOfUser(@Res() res: Response, @Req() req: Request) {
     try {
-      const response = await this.artistPostUserService.fetchValidArtistInvites(
-        req?.user as User,
-      );
+      const user = req?.user as User;
+      this.logger.log(`🎯 [INVITE_ENDPOINT] User ${user.id} (${user.full_name || 'Unknown'}) fetching all invites`);
+      
+      const response = await this.artistPostUserService.fetchValidArtistInvites(user);
+      
+      this.logger.log(`🎯 [INVITE_ENDPOINT] ✅ User ${user.id} fetched ${Array.isArray(response) ? response.length : 'unknown number of'} invites`);
+      
+      // Log details of invites returned
+      if (Array.isArray(response)) {
+        for (const invite of response) {
+          if (invite.artistPost) {
+            this.logger.log(`🎯 [INVITE_ENDPOINT] User ${user.id} has invite to post ${invite.artist_post_id} by artist ${invite.artistPost.user_id} with status ${invite.status}`);
+          }
+        }
+      }
+      
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.INVITES_FETCH_SUCCESS,
         data: response,
       });
     } catch (error) {
+      const user = req?.user as User;
+      this.logger.error(`🎯 [INVITE_ENDPOINT] ❌ Error fetching invites for user ${user?.id}: ${error?.message}`);
       console.error(
         '🚀 ~ ArtistPostUserController ~ getAllInvitesOfArtist ~ error:',
         error,

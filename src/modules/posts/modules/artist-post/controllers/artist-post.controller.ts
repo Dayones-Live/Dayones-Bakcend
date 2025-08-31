@@ -12,6 +12,7 @@ import {
   UseGuards,
   Patch,
   Query,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
@@ -39,6 +40,8 @@ import { User } from '@user/entities/user.entity';
 @Controller('post')
 @UseGuards(CognitoGuard)
 export class ArtistPostController {
+  private readonly logger = new Logger(ArtistPostController.name);
+
   constructor(
     private artistPostService: ArtistPostService,
     private userService: UserService,
@@ -54,15 +57,24 @@ export class ArtistPostController {
     @Req() req: Request,
   ) {
     try {
+      const userId = req?.user?.id || '';
+      this.logger.log(`🎯 [POST_CREATION] Artist ${userId} creating new post`);
+      this.logger.log(`🎯 [POST_CREATION] Post details: type=${createArtistPostInput.type}, range=${createArtistPostInput.range}m, location=(${createArtistPostInput.latitude}, ${createArtistPostInput.longitude})`);
+      
       const artistPost = await this.artistPostService.createArtistPost({
         ...createArtistPostInput,
-        userId: req?.user?.id || '',
+        userId: userId,
       });
+      
+      this.logger.log(`🎯 [POST_CREATION] ✅ Artist ${userId} successfully created post ${artistPost.id}`);
+      
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.POST_CREATED_SUCCESS,
         data: artistPost,
       });
     } catch (error) {
+      const userId = req?.user?.id || '';
+      this.logger.error(`🎯 [POST_CREATION] ❌ Error creating post for artist ${userId}: ${error?.message}`);
       console.error(
         '🚀 ~ ArtistPostController ~ createArtistPost ~ error:',
         error,

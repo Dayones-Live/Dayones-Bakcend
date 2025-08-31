@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -27,12 +28,15 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private userMapper: UserMapper,
     @Inject(forwardRef(() => ArtistPostService))
     private artistPostService: ArtistPostService,
+    @Inject(forwardRef(() => ArtistPostUserService))
     private artistPostUserService: ArtistPostUserService,
   ) {}
 
@@ -505,6 +509,9 @@ export class UserService {
     try {
       const { latitude, longitude, radiusInMeters, currentUserId } =
         fetchNearByUsersInput;
+      
+      this.logger.log(`🎯 [NEARBY_USERS] Searching for users near (${latitude}, ${longitude}) within ${radiusInMeters}m radius. Excluding user: ${currentUserId}`);
+      
       const queryBuilder = this.userRepository.createQueryBuilder('user');
       const query = queryBuilder
         .select([
@@ -538,6 +545,14 @@ export class UserService {
         .orderBy(`distance_in_meters`, 'ASC');
 
       const res = await query.getRawMany();
+      
+      this.logger.log(`🎯 [NEARBY_USERS] Found ${res.length} eligible users within ${radiusInMeters}m radius`);
+      
+      // Log details of each user found
+      for (const user of res) {
+        this.logger.log(`🎯 [NEARBY_USERS] User ${user.id} (${user.full_name || 'Unknown'}) at distance ${user.distance_in_meters?.toFixed(2)}m`);
+      }
+      
       return res;
     } catch (error) {
       console.error('🚀 ~ UserService ~ fetchNearByUsers ~ error:', error);
@@ -566,6 +581,10 @@ export class UserService {
           HttpStatus.NOT_FOUND,
         );
       }
+      
+      this.logger.log(`🎯 [LOCATION_UPDATE] User ${userId} (${existingUser.full_name || 'Unknown'}) updating location to (${updateUserLocationAndNotificationInput.latitude}, ${updateUserLocationAndNotificationInput.longitude})`);
+      this.logger.log(`🎯 [LOCATION_UPDATE] Notifications enabled: ${updateUserLocationAndNotificationInput.notificationsEnabled}`);
+      
       // Update existing user
       const updatedUser = await this.userRepository.save({
         ...existingUser, // Retain existing properties
@@ -577,12 +596,18 @@ export class UserService {
             ? addMinutesToDate(new Date(), 20)
             : new Date(),
       });
+      
       if (updateUserLocationAndNotificationInput?.notificationsEnabled) {
+        this.logger.log(`🎯 [LOCATION_UPDATE] 🔍 Fetching recent artist posts for user ${userId} at new location`);
+        
         // Fetch the posts that are within the range and send the invites.
         const posts = await this.artistPostService.fetchAllRecentArtistPost(
           15,
           updateUserLocationAndNotificationInput,
         );
+        
+        this.logger.log(`🎯 [LOCATION_UPDATE] Found ${posts.length} recent artist posts near user ${userId}`);
+        
         const filteredPosts = posts.filter((post) => {
           // Check if artistPostUser array doesn't contain current user and post status is not null
           const hasCurrentUser = post.artistPostUser?.some(
@@ -590,9 +615,15 @@ export class UserService {
           );
           return !hasCurrentUser;
         });
+        
+        this.logger.log(`🎯 [LOCATION_UPDATE] After filtering duplicates, ${filteredPosts.length} posts available for user ${userId}`);
+        
         // Filter posts on basis of location
         for (const post of filteredPosts) {
           const minutesToAdd = post.type === Post_Type.INVITE_PHOTO ? 15 : 5;
+          
+          this.logger.log(`🎯 [LOCATION_UPDATE] 📨 Creating invite for user ${userId} to post ${post.id} (${post.type}) by artist ${post.user_id} - expires in ${minutesToAdd} minutes`);
+          
           await this.artistPostUserService.createArtistPostUser({
             userId: updatedUser?.id,
             artistPostId: post?.id,
@@ -602,14 +633,22 @@ export class UserService {
               minutesToAdd,
             ),
           });
+          
+          this.logger.log(`🎯 [LOCATION_UPDATE] ✅ Invite created successfully for user ${userId} to post ${post.id}`);
         }
+        
+        this.logger.log(`🎯 [LOCATION_UPDATE] 🎉 Location update complete for user ${userId}. Created ${filteredPosts.length} new invites to nearby posts.`);
+      } else {
+        this.logger.log(`🎯 [LOCATION_UPDATE] Notifications disabled for user ${userId} - no invites created`);
       }
+      
       return {
         statusCode: 200,
         message: 'User Location and invite status update Successful',
         data: '',
       };
     } catch (error) {
+      this.logger.error(`🎯 [LOCATION_UPDATE] ❌ Error updating user location: ${error?.message}`);
       console.error(
         '🚀 ~ file: user.service.ts:96 ~ UserService ~ updateUser ~ error:',
         error,

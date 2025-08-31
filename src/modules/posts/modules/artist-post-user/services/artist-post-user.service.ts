@@ -44,12 +44,17 @@ export class ArtistPostUserService {
     createArtistPostUserInput: CreateArtistPostUserInput,
   ): Promise<ArtistPostUser> {
     try {
+      this.logger.log(`🎯 [INVITE_CREATE] Creating invite: user=${createArtistPostUserInput.userId}, post=${createArtistPostUserInput.artistPostId}, status=${createArtistPostUserInput.status}`);
+      
       const artistPostUserDto = this.artistPostUserMapper.dtoToEntity(
         createArtistPostUserInput,
       );
       // Use the upsert method
       const artistPostUser =
         await this.artistPostUserRepository.save(artistPostUserDto);
+      
+      this.logger.log(`🎯 [INVITE_CREATE] ✅ Invite created successfully with ID: ${artistPostUser.id}`);
+      
       return artistPostUser;
     } catch (error) {
       console.error(
@@ -69,6 +74,8 @@ export class ArtistPostUserService {
     updateArtistPostUserInput: UpdateArtistPostUserInput,
   ): Promise<ArtistPostUser> {
     try {
+      this.logger.log(`🎯 [INVITE_UPDATE] User ${updateArtistPostUserInput.userId} updating invite ${updateArtistPostUserInput.id} to status: ${updateArtistPostUserInput.status}`);
+      
       // Fetch the existing post based on id and user_id
       const existingInvite = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
@@ -82,14 +89,20 @@ export class ArtistPostUserService {
         .getOne();
       // If no post is found, throw an error
       if (!existingInvite) {
+        this.logger.warn(`🎯 [INVITE_UPDATE] ❌ Invite ${updateArtistPostUserInput.id} not found for user ${updateArtistPostUserInput.userId}`);
         throw new HttpException(
           ERROR_MESSAGES.INVITE_NOT_FOUND,
           HttpStatus.NOT_FOUND,
         );
       }
+      
+      this.logger.log(`🎯 [INVITE_UPDATE] Found existing invite: post=${existingInvite.artist_post_id}, current status=${existingInvite.status}, new status=${updateArtistPostUserInput.status}`);
+      
       if (existingInvite.status === Invite_Status.ACCEPTED) {
+        this.logger.warn(`🎯 [INVITE_UPDATE] ❌ Invite ${updateArtistPostUserInput.id} already accepted by user ${updateArtistPostUserInput.userId}`);
         throw new HttpException(`Invite Already Accepted`, HttpStatus.CONFLICT);
       }
+      
       const updateDto = this.artistPostUserMapper.dtoToEntityUpdate(
         existingInvite,
         updateArtistPostUserInput,
@@ -97,6 +110,9 @@ export class ArtistPostUserService {
       // Update the post using save (this will update only the changed fields)
       const artistPostUser =
         await this.artistPostUserRepository.save(updateDto);
+      
+      this.logger.log(`🎯 [INVITE_UPDATE] ✅ Invite ${updateArtistPostUserInput.id} updated successfully for user ${updateArtistPostUserInput.userId} to status: ${updateArtistPostUserInput.status}`);
+      
       // Exclude user_id and cast the result to exclude TypeORM methods
       return artistPostUser;
     } catch (error) {
@@ -147,8 +163,12 @@ export class ArtistPostUserService {
     user: User,
   ): Promise<ArtistPostUser[] | UserInvitesResponse[]> {
     try {
+      this.logger.log(`🎯 [INVITE_FETCH] User ${user.id} (${user.full_name || 'Unknown'}) fetching invites. Role: ${user.role[0]}`);
+      
       const currentDate = new Date();
       if (user.role[0] === Roles.ARTIST) {
+        this.logger.log(`🎯 [INVITE_FETCH] Artist ${user.id} fetching accepted invites for their posts`);
+        
         const artistValidInvites = await this.artistPostUserRepository
           .createQueryBuilder('artistPostUser')
           .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
@@ -167,8 +187,11 @@ export class ArtistPostUserService {
           .andWhere('artistPost.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
           .getMany();
 
+        this.logger.log(`🎯 [INVITE_FETCH] Artist ${user.id} found ${artistValidInvites.length} accepted invites for their posts`);
         return artistValidInvites;
       } else {
+        this.logger.log(`🎯 [INVITE_FETCH] Fan ${user.id} fetching invites to artist posts`);
+        
         const artistValidInvites = await this.artistPostUserRepository
           .createQueryBuilder('artistPostUser')
           .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with artistPost entity
@@ -183,11 +206,20 @@ export class ArtistPostUserService {
           .where('artistPostUser.valid_till > :currentDate', { currentDate })
           .andWhere('artistPostUser.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
           .getMany();
+        
+        this.logger.log(`🎯 [INVITE_FETCH] Fan ${user.id} found ${artistValidInvites.length} invites to artist posts`);
+        
+        // Log details of each invite
+        for (const invite of artistValidInvites) {
+          this.logger.log(`🎯 [INVITE_FETCH] Fan ${user.id} has invite to post ${invite.artist_post_id} by artist ${invite.artistPost?.user_id} with status ${invite.status}`);
+        }
+        
         return this.artistPostUserMapper.processInvitesToAddUser(
           artistValidInvites,
         );
       }
     } catch (err) {
+      this.logger.error(`🎯 [INVITE_FETCH] ❌ Error fetching invites for user ${user.id}: ${err?.message}`);
       console.error(
         '🚀 ~ file:artist.post.user.service.ts:96 ~ deleteArtistPostUserById ~ fetchValidArtistPostUsers ~ error:',
         err,

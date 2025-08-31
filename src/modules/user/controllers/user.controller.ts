@@ -8,6 +8,7 @@ import {
   UseGuards,
   Get,
   Param,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response, Request } from 'express';
@@ -27,6 +28,8 @@ import { GlobalServiceResponse } from '@app/shared/types/types';
 @ApiTags('user')
 @Controller('user')
 export class UserController {
+  private readonly logger = new Logger(UserController.name);
+
   constructor(private userService: UserService) {}
 
   @UseGuards(CognitoGuard)
@@ -61,15 +64,23 @@ export class UserController {
     @Req() req: Request,
   ) {
     try {
+      const userId = req?.user?.id || '';
+      this.logger.log(`🎯 [LOCATION_ENDPOINT] User ${userId} updating location to (${updateUserLocationInput.latitude}, ${updateUserLocationInput.longitude})`);
+      
       const response = await this.userService.updateUserLocation(
         updateUserLocationInput,
-        req?.user?.id || '',
+        userId,
       );
+      
+      this.logger.log(`🎯 [LOCATION_ENDPOINT] ✅ User ${userId} location updated successfully`);
+      
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.USER_LOCATION_UPDATE_SUCCESS,
         data: response,
       });
     } catch (error) {
+      const userId = req?.user?.id || '';
+      this.logger.error(`🎯 [LOCATION_ENDPOINT] ❌ Error updating location for user ${userId}: ${error?.message}`);
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;
     }
@@ -84,15 +95,25 @@ export class UserController {
     @Req() req: Request,
   ) {
     try {
+      const userId = req?.user?.id || '';
+      this.logger.log(`🎯 [LOCATION_ENDPOINT] User ${userId} updating location and notification status`);
+      this.logger.log(`🎯 [LOCATION_ENDPOINT] New location: (${updateUserLocationAndNotificationInput.latitude}, ${updateUserLocationAndNotificationInput.longitude})`);
+      this.logger.log(`🎯 [LOCATION_ENDPOINT] Notifications enabled: ${updateUserLocationAndNotificationInput.notificationsEnabled}`);
+      
       const response = await this.userService.updateNotificationStatusAndLocation(
         updateUserLocationAndNotificationInput,
-        req?.user?.id || '',
+        userId,
       );
+      
+      this.logger.log(`🎯 [LOCATION_ENDPOINT] ✅ User ${userId} location and notification status updated successfully`);
+      
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.USER_LOCATION_UPDATE_SUCCESS,
         data: response,
       });
     } catch (error) {
+      const userId = req?.user?.id || '';
+      this.logger.error(`🎯 [LOCATION_ENDPOINT] ❌ Error updating location and notification for user ${userId}: ${error?.message}`);
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
       throw error;
     }

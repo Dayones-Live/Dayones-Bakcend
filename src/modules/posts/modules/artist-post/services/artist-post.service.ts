@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -34,6 +35,8 @@ import { Comments } from '@comments/entities/comments.entity';
 
 @Injectable()
 export class ArtistPostService {
+  private readonly logger = new Logger(ArtistPostService.name);
+
   constructor(
     @InjectRepository(ArtistPost)
     private artistPostRepository: Repository<ArtistPost>,
@@ -59,15 +62,24 @@ export class ArtistPostService {
       });
       // Use the upsert method
       const artistPost = await this.artistPostRepository.save(artistPostDto);
+      
+      this.logger.log(`🎯 [INVITE_CREATION] Creating invites for artist post ${artistPost.id} by user ${createArtistPostInput?.userId}`);
+      this.logger.log(`🎯 [INVITE_CREATION] Post details: type=${createArtistPostInput.type}, range=${createArtistPostInput.range}m, location=(${createArtistPostInput.latitude}, ${createArtistPostInput.longitude})`);
+      
       const users = await this.userService.fetchNearByUsers({
         radiusInMeters: createArtistPostInput.range,
         longitude: Number(createArtistPostInput.longitude),
         latitude: Number(createArtistPostInput.latitude),
         currentUserId: createArtistPostInput?.userId,
       });
+      
+      this.logger.log(`🎯 [INVITE_CREATION] Found ${users.length} nearby users within ${createArtistPostInput.range}m radius`);
+      
       const minutesToAdd = 30; // Changed to 30 minutes for all post types
       // Loop on users and add it in artist post user
       for (const user of users) {
+        this.logger.log(`🎯 [INVITE_CREATION] Creating invite for user ${user.id} (${user.full_name || 'Unknown'}) at distance ${user.distance_in_meters?.toFixed(2)}m`);
+        
         await this.artistPostUserService.createArtistPostUser({
           userId: user?.id,
           artistPostId: artistPost?.id,
@@ -77,7 +89,10 @@ export class ArtistPostService {
             minutesToAdd,
           ),
         });
+        
+        this.logger.log(`🎯 [INVITE_CREATION] ✅ Invite created successfully for user ${user.id} - expires in ${minutesToAdd} minutes`);
       }
+      
       await this.artistPostUserService.createArtistPostUser({
         userId: createArtistPostInput?.userId,
         artistPostId: artistPost?.id,
@@ -87,9 +102,13 @@ export class ArtistPostService {
           minutesToAdd,
         ),
       });
+      
+      this.logger.log(`🎯 [INVITE_CREATION] ✅ Artist post ${artistPost.id} created with ${users.length} invites sent to nearby users`);
+      
       const { user_id, ...rest } = artistPost;
       return rest;
     } catch (error) {
+      this.logger.error(`🎯 [INVITE_CREATION] ❌ Error creating artist post: ${error?.message}`);
       console.error(
         '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ createArtistPost ~ error:',
         error,
@@ -502,6 +521,9 @@ async fetchAllUserPostsData(
   ): Promise<ArtistPost[]> {
     try {
       const { longitude, latitude } = updateUserLocationAndNotificationInput;
+      
+      this.logger.log(`🎯 [RECENT_POSTS] Searching for recent posts within ${interval} minutes near (${longitude}, ${latitude})`);
+      
       const artistPosts = await this.artistPostRepository
         .createQueryBuilder('artistPost')
         .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
@@ -518,8 +540,17 @@ async fetchAllUserPostsData(
           ) <= artistPost.range`, // This checks if users are within the radius
         )
         .getMany();
+      
+      this.logger.log(`🎯 [RECENT_POSTS] Found ${artistPosts.length} recent posts within range of (${longitude}, ${latitude})`);
+      
+      // Log details of each post found
+      for (const post of artistPosts) {
+        this.logger.log(`🎯 [RECENT_POSTS] Post ${post.id} by artist ${post.user_id} at (${post.latitude}, ${post.longitude}) with range ${post.range}m`);
+      }
+      
       return artistPosts;
     } catch (error) {
+      this.logger.error(`🎯 [RECENT_POSTS] ❌ Error fetching recent posts: ${error?.message}`);
       console.error(
         '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllArtistPost ~ error:',
         error,
