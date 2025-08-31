@@ -66,6 +66,9 @@ export class ArtistPostService {
       this.logger.log(`🎯 [INVITE_CREATION] Creating invites for artist post ${artistPost.id} by user ${createArtistPostInput?.userId}`);
       this.logger.log(`🎯 [INVITE_CREATION] Post details: type=${createArtistPostInput.type}, range=${createArtistPostInput.range}m, location=(${createArtistPostInput.latitude}, ${createArtistPostInput.longitude})`);
       
+      // Log the exact parameters being sent to fetchNearByUsers
+      this.logger.log(`🎯 [INVITE_CREATION] 🔍 Calling fetchNearByUsers with: radius=${createArtistPostInput.range}m, lat=${createArtistPostInput.latitude}, lng=${createArtistPostInput.longitude}, excludeUser=${createArtistPostInput?.userId}`);
+      
       const users = await this.userService.fetchNearByUsers({
         radiusInMeters: createArtistPostInput.range,
         longitude: Number(createArtistPostInput.longitude),
@@ -74,6 +77,17 @@ export class ArtistPostService {
       });
       
       this.logger.log(`🎯 [INVITE_CREATION] Found ${users.length} nearby users within ${createArtistPostInput.range}m radius`);
+      
+      // Log detailed information about each user found
+      if (users.length > 0) {
+        this.logger.log(`🎯 [INVITE_CREATION] 📍 Users found within range:`);
+        users.forEach((user, index) => {
+          this.logger.log(`🎯 [INVITE_CREATION]   ${index + 1}. User ${user.id} (${user.full_name || 'Unknown'}) at distance ${user.distance_in_meters?.toFixed(2)}m`);
+        });
+      } else {
+        this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ NO USERS FOUND within ${createArtistPostInput.range}m radius! This might indicate a distance conversion issue.`);
+        this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ Check if range ${createArtistPostInput.range} is in the correct unit (meters vs feet)`);
+      }
       
       const minutesToAdd = 30; // Changed to 30 minutes for all post types
       // Loop on users and add it in artist post user
@@ -104,6 +118,22 @@ export class ArtistPostService {
       });
       
       this.logger.log(`🎯 [INVITE_CREATION] ✅ Artist post ${artistPost.id} created with ${users.length} invites sent to nearby users`);
+      
+      // Final summary log
+      this.logger.log(`🎯 [INVITE_CREATION] 🎉 INVITE CREATION SUMMARY:`);
+      this.logger.log(`🎯 [INVITE_CREATION]   - Post ID: ${artistPost.id}`);
+      this.logger.log(`🎯 [INVITE_CREATION]   - Artist: ${createArtistPostInput?.userId}`);
+      this.logger.log(`🎯 [INVITE_CREATION]   - Range: ${createArtistPostInput.range}m`);
+      this.logger.log(`🎯 [INVITE_CREATION]   - Location: (${createArtistPostInput.latitude}, ${createArtistPostInput.longitude})`);
+      this.logger.log(`🎯 [INVITE_CREATION]   - Users found: ${users.length}`);
+      this.logger.log(`🎯 [INVITE_CREATION]   - Invites created: ${users.length}`);
+      this.logger.log(`🎯 [INVITE_CREATION]   - Invite expiry: ${minutesToAdd} minutes`);
+      
+      if (users.length === 0) {
+        this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ CRITICAL: No invites were created!`);
+        this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ This means no users were found within ${createArtistPostInput.range}m radius`);
+        this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ Check the logs above for detailed debugging information`);
+      }
       
       const { user_id, ...rest } = artistPost;
       return rest;

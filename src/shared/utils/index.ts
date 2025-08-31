@@ -104,6 +104,37 @@ export async function convertHeicToPng(
 }
 
 /**
+ * Converts feet to meters
+ * @param feet - Distance in feet
+ * @returns Distance in meters
+ */
+export const feetToMeters = (feet: number): number => {
+  return feet * 0.3048;
+};
+
+/**
+ * Converts meters to feet
+ * @param meters - Distance in meters
+ * @returns Distance in feet
+ */
+export const metersToFeet = (meters: number): number => {
+  return meters * 3.28084;
+};
+
+/**
+ * Detects if a distance value might be in feet and converts to meters if needed
+ * @param distance - The distance value from client
+ * @param expectedUnit - Expected unit ('m' for meters, 'ft' for feet)
+ * @returns Distance in meters
+ */
+export const normalizeDistanceToMeters = (distance: number, expectedUnit: 'm' | 'ft' = 'm'): number => {
+  if (expectedUnit === 'ft') {
+    return feetToMeters(distance);
+  }
+  return distance;
+};
+
+/**
  * Removes background from an image using remove.bg API.
  * @param inputImagePath - Path of the image to process
  * @returns {Promise<string>} - Path to the processed image

@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, In } from 'typeorm';
 import { CreateUserInput } from '@cognito/dto/types';
 import {
   FetchNearByUsersInput,
@@ -511,8 +511,18 @@ export class UserService {
         fetchNearByUsersInput;
       
       this.logger.log(`🎯 [NEARBY_USERS] Searching for users near (${latitude}, ${longitude}) within ${radiusInMeters}m radius. Excluding user: ${currentUserId}`);
+      this.logger.log(`🎯 [NEARBY_USERS] 🔍 Query parameters: lat=${latitude}, lng=${longitude}, radius=${radiusInMeters}m`);
       
       const queryBuilder = this.userRepository.createQueryBuilder('user');
+      
+      // Log the filtering criteria
+      this.logger.log(`🎯 [NEARBY_USERS] 🔍 Filtering criteria:`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Users must have USER role (not ARTIST)`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Users must have notifications enabled`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Users must have valid coordinates (lat/lng not empty)`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Users must be within ${radiusInMeters}m radius`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Users must not be blocked by ${currentUserId}`);
+      
       const query = queryBuilder
         .select([
           '"user".*',
@@ -544,9 +554,45 @@ export class UserService {
         .andWhere('block.id IS NULL') // Exclude blocked users
         .orderBy(`distance_in_meters`, 'ASC');
 
+      // Log the SQL query for debugging
+      const sqlQuery = query.getSql();
+      this.logger.log(`🎯 [NEARBY_USERS] 🔍 SQL Query: ${sqlQuery}`);
+      
+      // First, let's check if there are any users in the database at all
+      const totalUsers = await this.userRepository.count();
+      const usersWithCoords = await this.userRepository.count({
+        where: [
+          { latitude: Not('') },
+          { latitude: Not(null) },
+          { longitude: Not('') },
+          { longitude: Not(null) }
+        ]
+      });
+      const usersWithUserRole = await this.userRepository.count({
+        where: { role: In([Roles.USER]) }
+      });
+      const usersWithNotifications = await this.userRepository.count({
+        where: { notifications_enabled: true }
+      });
+      
+      this.logger.log(`🎯 [NEARBY_USERS] 📊 Database statistics:`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Total users: ${totalUsers}`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Users with coordinates: ${usersWithCoords}`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Users with USER role: ${usersWithUserRole}`);
+      this.logger.log(`🎯 [NEARBY_USERS]   - Users with notifications enabled: ${usersWithNotifications}`);
+      
       const res = await query.getRawMany();
       
       this.logger.log(`🎯 [NEARBY_USERS] Found ${res.length} eligible users within ${radiusInMeters}m radius`);
+      
+      if (res.length === 0) {
+        this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ NO USERS FOUND! Possible issues:`);
+        this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ 1. Radius too small (${radiusInMeters}m might be too restrictive)`);
+        this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ 2. No users with USER role in the area`);
+        this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ 3. No users with notifications enabled`);
+        this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ 4. All nearby users are blocked`);
+        this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ 5. Distance unit mismatch (meters vs feet)`);
+      }
       
       // Log details of each user found
       for (const user of res) {

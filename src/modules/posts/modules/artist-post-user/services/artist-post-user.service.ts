@@ -46,14 +46,39 @@ export class ArtistPostUserService {
     try {
       this.logger.log(`🎯 [INVITE_CREATE] Creating invite: user=${createArtistPostUserInput.userId}, post=${createArtistPostUserInput.artistPostId}, status=${createArtistPostUserInput.status}`);
       
+      // Log the DTO being created
+      this.logger.log(`🎯 [INVITE_CREATE] 🔍 DTO details:`, {
+        userId: createArtistPostUserInput.userId,
+        artistPostId: createArtistPostUserInput.artistPostId,
+        status: createArtistPostUserInput.status,
+        validTill: createArtistPostUserInput.validTill
+      });
+      
       const artistPostUserDto = this.artistPostUserMapper.dtoToEntity(
         createArtistPostUserInput,
       );
+      
+      this.logger.log(`🎯 [INVITE_CREATE] 🔍 Entity to save:`, {
+        id: artistPostUserDto.id,
+        user_id: artistPostUserDto.user_id,
+        artist_post_id: artistPostUserDto.artist_post_id,
+        status: artistPostUserDto.status,
+        valid_till: artistPostUserDto.valid_till
+      });
+      
       // Use the upsert method
       const artistPostUser =
         await this.artistPostUserRepository.save(artistPostUserDto);
       
       this.logger.log(`🎯 [INVITE_CREATE] ✅ Invite created successfully with ID: ${artistPostUser.id}`);
+      this.logger.log(`🎯 [INVITE_CREATE] ✅ Saved invite details:`, {
+        id: artistPostUser.id,
+        user_id: artistPostUser.user_id,
+        artist_post_id: artistPostUser.artist_post_id,
+        status: artistPostUser.status,
+        valid_till: artistPostUser.valid_till,
+        created_at: artistPostUser.created_at
+      });
       
       return artistPostUser;
     } catch (error) {

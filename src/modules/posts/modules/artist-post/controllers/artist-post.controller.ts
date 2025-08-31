@@ -61,6 +61,21 @@ export class ArtistPostController {
       this.logger.log(`🎯 [POST_CREATION] Artist ${userId} creating new post`);
       this.logger.log(`🎯 [POST_CREATION] Post details: type=${createArtistPostInput.type}, range=${createArtistPostInput.range}m, location=(${createArtistPostInput.latitude}, ${createArtistPostInput.longitude})`);
       
+      // Check for potential distance unit issues
+      if (createArtistPostInput.range <= 100) {
+        this.logger.warn(`🎯 [POST_CREATION] ⚠️ WARNING: Range ${createArtistPostInput.range} seems very small!`);
+        this.logger.warn(`🎯 [POST_CREATION] ⚠️ If this is meant to be 100 feet, it should be converted to ${(createArtistPostInput.range * 0.3048).toFixed(2)}m`);
+        this.logger.warn(`🎯 [POST_CREATION] ⚠️ If this is meant to be 100 meters, it's correct but very restrictive`);
+      } else if (createArtistPostInput.range >= 1000) {
+        this.logger.log(`🎯 [POST_CREATION] ℹ️ Range ${createArtistPostInput.range}m is quite large - this should find many users`);
+      }
+      
+      // Log the raw input for debugging
+      this.logger.log(`🎯 [POST_CREATION] 🔍 Raw input validation:`);
+      this.logger.log(`🎯 [POST_CREATION]   - Range: ${createArtistPostInput.range} (type: ${typeof createArtistPostInput.range})`);
+      this.logger.log(`🎯 [POST_CREATION]   - Latitude: ${createArtistPostInput.latitude} (type: ${typeof createArtistPostInput.latitude})`);
+      this.logger.log(`🎯 [POST_CREATION]   - Longitude: ${createArtistPostInput.longitude} (type: ${typeof createArtistPostInput.longitude})`);
+      
       const artistPost = await this.artistPostService.createArtistPost({
         ...createArtistPostInput,
         userId: userId,
