@@ -568,9 +568,13 @@ export class UserService {
           { longitude: Not(null) }
         ]
       });
-      const usersWithUserRole = await this.userRepository.count({
-        where: { role: In([Roles.USER]) }
-      });
+      
+      // Fix the role query - use the correct array syntax for PostgreSQL
+      const usersWithUserRole = await this.userRepository
+        .createQueryBuilder('user')
+        .where(':role = ANY(user.role)', { role: Roles.USER })
+        .getCount();
+      
       const usersWithNotifications = await this.userRepository.count({
         where: { notifications_enabled: true }
       });
