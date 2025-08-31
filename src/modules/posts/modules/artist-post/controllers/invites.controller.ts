@@ -73,8 +73,12 @@ export class InvitesController {
       // Log details of invites returned
       if (Array.isArray(response)) {
         for (const invite of response) {
-          if (invite.artistPost) {
+          // Check if this is an ArtistPostUser (has artistPost property) or UserInvitesResponse
+          if ('artistPost' in invite && invite.artistPost) {
             this.logger.log(`🎯 [INVITE_ENDPOINT] User ${user.id} has invite to post ${invite.artist_post_id} by artist ${invite.artistPost.user_id} with status ${invite.status}`);
+          } else if ('artist_post_id' in invite) {
+            // This is a UserInvitesResponse
+            this.logger.log(`🎯 [INVITE_ENDPOINT] User ${user.id} has invite to post ${invite.artist_post_id} with status ${invite.status}`);
           }
         }
       }
