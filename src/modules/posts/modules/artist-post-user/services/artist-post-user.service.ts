@@ -32,6 +32,8 @@ export class ArtistPostUserService {
     private artistPostUserRepository: Repository<ArtistPostUser>,
     @InjectRepository(ArtistPost)
     private artistPostRepository: Repository<ArtistPost>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private artistPostUserMapper: ArtistPostUserMapper,
   ) {}
 
@@ -108,7 +110,7 @@ export class ArtistPostUserService {
       // Fetch the existing post based on id and user_id
       const existingInvite = await this.artistPostUserRepository
         .createQueryBuilder('artistPostUser')
-        .leftJoin('artistPostUser.artistPost', 'artistPost') // Join with user entity
+        .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with artistPost entity
         .andWhere('artistPostUser.id = :id', {
           id: updateArtistPostUserInput?.id,
         })
@@ -130,6 +132,46 @@ export class ArtistPostUserService {
       if (existingInvite.status === Invite_Status.ACCEPTED) {
         this.logger.warn(`🎯 [INVITE_UPDATE] ❌ Invite ${updateArtistPostUserInput.id} already accepted by user ${updateArtistPostUserInput.userId}`);
         throw new HttpException(`Invite Already Accepted`, HttpStatus.CONFLICT);
+      }
+
+      // LOCATION VALIDATION: Check if user is within post radius when accepting
+      if (updateArtistPostUserInput.status === Invite_Status.ACCEPTED) {
+        const currentUser = await this.userRepository.findOne({
+          where: { id: updateArtistPostUserInput.userId },
+          select: ['latitude', 'longitude']
+        });
+
+        if (!currentUser?.latitude || !currentUser?.longitude) {
+          this.logger.warn(`🎯 [INVITE_UPDATE] ❌ User ${updateArtistPostUserInput.userId} has no location data - cannot accept invite`);
+          throw new HttpException(`Location data required to accept invite`, HttpStatus.BAD_REQUEST);
+        }
+
+        // Calculate distance between user and post
+        const distance = await this.artistPostUserRepository
+          .createQueryBuilder()
+          .select(`ST_DistanceSphere(
+            ST_MakePoint(CAST(:userLng AS DOUBLE PRECISION), CAST(:userLat AS DOUBLE PRECISION)),
+            ST_MakePoint(CAST(:postLng AS DOUBLE PRECISION), CAST(:postLat AS DOUBLE PRECISION))
+          )`, 'distance')
+          .setParameters({
+            userLat: currentUser.latitude,
+            userLng: currentUser.longitude,
+            postLat: existingInvite.artistPost.latitude,
+            postLng: existingInvite.artistPost.longitude
+          })
+          .getRawOne();
+
+        const distanceInMeters = parseFloat(distance.distance);
+        const postRange = existingInvite.artistPost.range;
+
+        this.logger.log(`🎯 [INVITE_UPDATE] 🔍 Location check: User at (${currentUser.latitude}, ${currentUser.longitude}), Post at (${existingInvite.artistPost.latitude}, ${existingInvite.artistPost.longitude}), Distance: ${distanceInMeters.toFixed(2)}m, Post range: ${postRange}m`);
+
+        if (distanceInMeters > postRange) {
+          this.logger.warn(`🎯 [INVITE_UPDATE] ❌ User ${updateArtistPostUserInput.userId} is ${distanceInMeters.toFixed(2)}m away from post (range: ${postRange}m) - cannot accept invite`);
+          throw new HttpException(`You must be within ${postRange}m of the event to accept this invite`, HttpStatus.FORBIDDEN);
+        }
+
+        this.logger.log(`🎯 [INVITE_UPDATE] ✅ User ${updateArtistPostUserInput.userId} is within range (${distanceInMeters.toFixed(2)}m <= ${postRange}m) - allowing accept`);
       }
       
       const updateDto = this.artistPostUserMapper.dtoToEntityUpdate(
@@ -225,6 +267,19 @@ export class ArtistPostUserService {
         this.logger.log(`🎯 [INVITE_FETCH] 🔍 Debug: Current time: ${currentDate.toISOString()}`);
         this.logger.log(`🎯 [INVITE_FETCH] 🔍 Debug: Looking for invites for user: ${user?.id}`);
         
+        // Get user's current location for distance filtering
+        const currentUser = await this.userRepository.findOne({
+          where: { id: user.id },
+          select: ['latitude', 'longitude']
+        });
+
+        if (!currentUser?.latitude || !currentUser?.longitude) {
+          this.logger.warn(`🎯 [INVITE_FETCH] ⚠️ User ${user.id} has no location data - cannot filter invites by distance`);
+          return [];
+        }
+
+        this.logger.log(`🎯 [INVITE_FETCH] 🔍 User location: (${currentUser.latitude}, ${currentUser.longitude})`);
+
         const artistValidInvites = await this.artistPostUserRepository
           .createQueryBuilder('artistPostUser')
           .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with artistPost entity
@@ -238,6 +293,14 @@ export class ArtistPostUserService {
           ]) // Select specific fields from the user
           .where('artistPostUser.valid_till > :currentDate', { currentDate })
           .andWhere('artistPostUser.user_id = :user_id', { user_id: user?.id }) // Filter by the user receiving the invite
+          .andWhere('artistPostUser.status = :status', { status: 'PENDING' }) // Only show PENDING invites
+          .andWhere(`ST_DistanceSphere(
+            ST_MakePoint(CAST(:userLng AS DOUBLE PRECISION), CAST(:userLat AS DOUBLE PRECISION)),
+            ST_MakePoint(CAST(artistPost.longitude AS DOUBLE PRECISION), CAST(artistPost.latitude AS DOUBLE PRECISION))
+          ) <= artistPost.range`, { 
+            userLat: currentUser.latitude, 
+            userLng: currentUser.longitude 
+          }) // Only show invites within post radius
           .getMany();
         
         // Add debug logging for the query results

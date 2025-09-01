@@ -5,10 +5,11 @@ import { ArtistPostUserService } from './services/artist-post-user.service';
 import { UserModule } from '@user/user.module';
 import { ArtistPostUserMapper } from './dto/atrist-post-user.mapper';
 import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
+import { User } from '@app/modules/user/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ArtistPostUser, ArtistPost]),
+    TypeOrmModule.forFeature([ArtistPostUser, ArtistPost, User]),
     forwardRef(() => UserModule),
   ],
   controllers: [],
