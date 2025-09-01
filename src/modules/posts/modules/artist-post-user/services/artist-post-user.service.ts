@@ -67,8 +67,12 @@ export class ArtistPostUserService {
       });
       
       // Use the upsert method
+      this.logger.log(`🎯 [INVITE_CREATE] 🔍 About to save entity with status: ${artistPostUserDto.status} (type: ${typeof artistPostUserDto.status})`);
+      
       const artistPostUser =
         await this.artistPostUserRepository.save(artistPostUserDto);
+      
+      this.logger.log(`🎯 [INVITE_CREATE] 🔍 After save, entity status: ${artistPostUser.status} (type: ${typeof artistPostUser.status})`);
       
       this.logger.log(`🎯 [INVITE_CREATE] ✅ Invite created successfully with ID: ${artistPostUser.id}`);
       this.logger.log(`🎯 [INVITE_CREATE] ✅ Saved invite details:`, {
@@ -217,6 +221,10 @@ export class ArtistPostUserService {
       } else {
         this.logger.log(`🎯 [INVITE_FETCH] Fan ${user.id} fetching invites to artist posts`);
         
+        // Add debug logging for the query
+        this.logger.log(`🎯 [INVITE_FETCH] 🔍 Debug: Current time: ${currentDate.toISOString()}`);
+        this.logger.log(`🎯 [INVITE_FETCH] 🔍 Debug: Looking for invites for user: ${user?.id}`);
+        
         const artistValidInvites = await this.artistPostUserRepository
           .createQueryBuilder('artistPostUser')
           .leftJoinAndSelect('artistPostUser.artistPost', 'artistPost') // Join with artistPost entity
@@ -229,8 +237,34 @@ export class ArtistPostUserService {
             'user.avatar_url',
           ]) // Select specific fields from the user
           .where('artistPostUser.valid_till > :currentDate', { currentDate })
-          .andWhere('artistPostUser.user_id = :user_id', { user_id: user?.id }) // Filter by user_id
+          .andWhere('artistPostUser.user_id = :user_id', { user_id: user?.id }) // Filter by the user receiving the invite
           .getMany();
+        
+        // Add debug logging for the query results
+        this.logger.log(`🎯 [INVITE_FETCH] 🔍 Debug: Raw query results: ${JSON.stringify(artistValidInvites.map(invite => ({
+          id: invite.id,
+          user_id: invite.user_id,
+          artist_post_id: invite.artist_post_id,
+          status: invite.status,
+          valid_till: invite.valid_till
+        })))}`);
+        
+        // Debug: Check if there are any invites at all for this user (without time constraint)
+        const allInvitesForUser = await this.artistPostUserRepository
+          .createQueryBuilder('artistPostUser')
+          .where('artistPostUser.user_id = :user_id', { user_id: user?.id })
+          .getMany();
+        
+        this.logger.log(`🎯 [INVITE_FETCH] 🔍 Debug: Total invites for user ${user?.id} (any status/time): ${allInvitesForUser.length}`);
+        if (allInvitesForUser.length > 0) {
+          this.logger.log(`🎯 [INVITE_FETCH] 🔍 Debug: All invites for user: ${JSON.stringify(allInvitesForUser.map(invite => ({
+            id: invite.id,
+            user_id: invite.user_id,
+            artist_post_id: invite.artist_post_id,
+            status: invite.status,
+            valid_till: invite.valid_till
+          })))}`);
+        }
         
         this.logger.log(`🎯 [INVITE_FETCH] Fan ${user.id} found ${artistValidInvites.length} invites to artist posts`);
         
@@ -359,9 +393,8 @@ export class ArtistPostUserService {
         .andWhere('artistPostUser.status IN (:...statuses)', {
           statuses: [
             Invite_Status.ACCEPTED,
-            Invite_Status.NULL,
             Invite_Status.GENERIC,
-          ], // Filter for both ACCEPTED and NULL statuses
+          ], // Filter for both ACCEPTED and GENERIC statuses
         })
         .andWhere('artistPost.id = :postId', { postId: postId })
         .andWhere(
@@ -433,9 +466,9 @@ export class ArtistPostUserService {
         .where(
           '(artistPostUser.status = :rejected OR artistPostUser.valid_till < :now) AND artistPostUser.status NOT IN (:...excludedStatuses)',
           {
-            rejected: Invite_Status.REJECT,
+            rejected: Invite_Status.REJECTED,
             now,
-            excludedStatuses: [Invite_Status.ACCEPTED, Invite_Status.NULL],
+            excludedStatuses: [Invite_Status.ACCEPTED, Invite_Status.GENERIC],
           },
         )
         .getMany();

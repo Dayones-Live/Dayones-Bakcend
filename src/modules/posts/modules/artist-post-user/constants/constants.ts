@@ -1,7 +1,6 @@
 export enum Invite_Status {
   ACCEPTED = 'ACCEPTED',
-  REJECT = 'REJECTED',
+  REJECTED = 'REJECTED',
   PENDING = 'PENDING',
   GENERIC = 'GENERIC',
-  NULL = 'NULL',
 }

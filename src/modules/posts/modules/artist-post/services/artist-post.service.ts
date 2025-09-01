@@ -94,23 +94,35 @@ export class ArtistPostService {
       for (const user of users) {
         this.logger.log(`🎯 [INVITE_CREATION] Creating invite for user ${user.id} (${user.full_name || 'Unknown'}) at distance ${user.distance_in_meters?.toFixed(2)}m`);
         
-        await this.artistPostUserService.createArtistPostUser({
-          userId: user?.id,
-          artistPostId: artistPost?.id,
-          status: Invite_Status.PENDING,
-          validTill: addMinutesToDate(
-            new Date(artistPost.created_at),
-            minutesToAdd,
-          ),
-        });
-        
-        this.logger.log(`🎯 [INVITE_CREATION] ✅ Invite created successfully for user ${user.id} - expires in ${minutesToAdd} minutes`);
+        try {
+          const invite = await this.artistPostUserService.createArtistPostUser({
+            userId: user?.id,
+            artistPostId: artistPost?.id,
+            status: Invite_Status.PENDING,
+            validTill: addMinutesToDate(
+              new Date(artistPost.created_at),
+              minutesToAdd,
+            ),
+          });
+          
+          this.logger.log(`🎯 [INVITE_CREATION] ✅ Invite created successfully for user ${user.id} - expires in ${minutesToAdd} minutes`);
+          this.logger.log(`🎯 [INVITE_CREATION] 🔍 Created invite details: ${JSON.stringify({
+            id: invite.id,
+            user_id: invite.user_id,
+            artist_post_id: invite.artist_post_id,
+            status: invite.status,
+            valid_till: invite.valid_till
+          })}`);
+        } catch (error) {
+          this.logger.error(`🎯 [INVITE_CREATION] ❌ Failed to create invite for user ${user.id}: ${error?.message}`);
+          throw error;
+        }
       }
       
       await this.artistPostUserService.createArtistPostUser({
         userId: createArtistPostInput?.userId,
         artistPostId: artistPost?.id,
-        status: Invite_Status.NULL,
+        status: Invite_Status.GENERIC,
         validTill: addMinutesToDate(
           new Date(artistPost.created_at),
           minutesToAdd,
@@ -399,7 +411,6 @@ export class ArtistPostService {
           .andWhere('artistPostUser.status IN (:...statuses)', {
             statuses: [
               Invite_Status.ACCEPTED,
-              Invite_Status.NULL,
               Invite_Status.GENERIC,
             ],
           })
