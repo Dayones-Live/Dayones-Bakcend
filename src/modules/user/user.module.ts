@@ -18,10 +18,11 @@ import { UserDeviceService } from './services/user-device.service';
 import { UserDeviceController } from './controllers/user-device.controller';
 import { PushNotificationTestController } from './controllers/push-notification-test.controller';
 import { SharedModule } from '@app/shared/shared.module';
+import { ArtistPost } from '../posts/modules/artist-post/entities/artist-post.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserDevice, Profile, ProfileGallery]),
+    TypeOrmModule.forFeature([User, UserDevice, Profile, ProfileGallery, ArtistPost]),
     forwardRef(() => CognitoModule),
     forwardRef(() => NotificationModule),
     ChatModule,

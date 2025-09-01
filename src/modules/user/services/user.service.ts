@@ -22,6 +22,7 @@ import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
 import { addMinutesToDate } from '@app/modules/posts/modules/artist-post/utils';
 import { ArtistPostService } from '@app/modules/posts/modules/artist-post/services/artist-post.service';
 import { Post_Type } from '@app/modules/posts/modules/artist-post/constants';
+import { ArtistPost } from '@app/modules/posts/modules/artist-post/entities/artist-post.entity';
 import { ArtistPostUserService } from '@app/modules/posts/modules/artist-post-user/services/artist-post-user.service';
 import { Invite_Status } from '@app/modules/posts/modules/artist-post-user/constants/constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -33,6 +34,8 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(ArtistPost)
+    private artistPostRepository: Repository<ArtistPost>,
     private userMapper: UserMapper,
     @Inject(forwardRef(() => ArtistPostService))
     private artistPostService: ArtistPostService,
@@ -295,11 +298,17 @@ export class UserService {
         );
       }
 
+      this.logger.log(`🎯 [LOCATION_UPDATE] User ${userId} (${existingUser.full_name || 'Unknown'}) updating location to (${updateUserLocationInput.latitude}, ${updateUserLocationInput.longitude})`);
+
       // Update existing user
       const updatedUser = await this.userRepository.save({
         ...existingUser, // Retain existing properties
         ...updateUserLocationInput, // Overwrite with new values from body
       });
+
+      // BIDIRECTIONAL INVITE DISCOVERY: Find nearby posts and create invites
+      await this.discoverAndCreateInvitesForUser(userId, updateUserLocationInput);
+
       const { user_sub, ...rest } = updatedUser;
 
       return {
@@ -842,6 +851,130 @@ export class UserService {
         error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * BIDIRECTIONAL INVITE DISCOVERY: Find nearby posts and create invites for late-arriving users
+   * This solves the concert scenario where users arrive after the post is created
+   */
+  private async discoverAndCreateInvitesForUser(
+    userId: string,
+    locationInput: UpdateUserLocationInput,
+  ): Promise<void> {
+    try {
+      this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] Starting invite discovery for user ${userId} at location (${locationInput.latitude}, ${locationInput.longitude})`);
+
+      // Get user details to check role and notifications
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'role', 'notifications_enabled', 'full_name']
+      });
+
+      if (!user) {
+        this.logger.warn(`🎯 [BIDIRECTIONAL_DISCOVERY] ❌ User ${userId} not found`);
+        return;
+      }
+
+      // Only create invites for users with USER role and notifications enabled
+      if (!user.role.includes(Roles.USER) || !user.notifications_enabled) {
+        this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] ⚠️ User ${userId} (${user.full_name}) has role ${user.role} and notifications ${user.notifications_enabled} - skipping invite discovery`);
+        return;
+      }
+
+      // Find all active posts within a reasonable radius (using a larger radius for discovery)
+      const discoveryRadius = 5000; // 5km radius for discovery (larger than typical post radius)
+      const currentTime = new Date();
+
+      this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 🔍 Searching for posts within ${discoveryRadius}m radius of (${locationInput.latitude}, ${locationInput.longitude})`);
+
+      const nearbyPosts = await this.artistPostRepository
+        .createQueryBuilder('post')
+        .leftJoin('post.user', 'artist')
+        .addSelect(['artist.id', 'artist.full_name'])
+        .where('post.type = :type', { type: Post_Type.INVITE_ONLY })
+        .andWhere('post.created_at > :recentTime', { 
+          recentTime: new Date(currentTime.getTime() - 24 * 60 * 60 * 1000) // Only posts from last 24 hours
+        })
+        .andWhere(`ST_DistanceSphere(
+          ST_MakePoint(CAST(:userLng AS DOUBLE PRECISION), CAST(:userLat AS DOUBLE PRECISION)),
+          ST_MakePoint(CAST(post.longitude AS DOUBLE PRECISION), CAST(post.latitude AS DOUBLE PRECISION))
+        ) <= :discoveryRadius`, { 
+          userLat: locationInput.latitude, 
+          userLng: locationInput.longitude,
+          discoveryRadius 
+        })
+        .getMany();
+
+      this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 📍 Found ${nearbyPosts.length} nearby posts`);
+
+      if (nearbyPosts.length === 0) {
+        this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] ℹ️ No nearby posts found for user ${userId}`);
+        return;
+      }
+
+      // Check each post to see if user is within the post's specific radius
+      let invitesCreated = 0;
+      for (const post of nearbyPosts) {
+        try {
+          // Calculate exact distance to post
+          const distanceResult = await this.artistPostRepository
+            .createQueryBuilder()
+            .select(`ST_DistanceSphere(
+              ST_MakePoint(CAST(:userLng AS DOUBLE PRECISION), CAST(:userLat AS DOUBLE PRECISION)),
+              ST_MakePoint(CAST(:postLng AS DOUBLE PRECISION), CAST(:postLat AS DOUBLE PRECISION))
+            )`, 'distance')
+            .setParameters({
+              userLat: locationInput.latitude,
+              userLng: locationInput.longitude,
+              postLat: post.latitude,
+              postLng: post.longitude
+            })
+            .getRawOne();
+
+          const distanceInMeters = parseFloat(distanceResult.distance);
+          const postRange = post.range;
+
+          this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 🔍 Post ${post.id} by ${post.user?.full_name || 'Unknown'}: distance=${distanceInMeters.toFixed(2)}m, range=${postRange}m`);
+
+          // Check if user is within the post's radius
+          if (distanceInMeters <= postRange) {
+            // Check if invite already exists
+            const existingInvite = await this.artistPostUserService.getArtistPostByPostId(
+              userId,
+              post.id
+            );
+
+            if (existingInvite) {
+              this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] ⚠️ Invite already exists for user ${userId} to post ${post.id} with status ${existingInvite.status}`);
+              continue;
+            }
+
+            // Create invite for this post
+            const inviteExpiry = new Date(currentTime.getTime() + 30 * 60 * 1000); // 30 minutes from now
+
+            await this.artistPostUserService.createArtistPostUser({
+              userId: userId,
+              artistPostId: post.id,
+              status: Invite_Status.PENDING,
+              validTill: inviteExpiry,
+            });
+
+            this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] ✅ Created invite for user ${userId} to post ${post.id} by ${post.user?.full_name || 'Unknown'} (distance: ${distanceInMeters.toFixed(2)}m <= ${postRange}m)`);
+            invitesCreated++;
+          } else {
+            this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] ⚠️ User ${userId} is ${distanceInMeters.toFixed(2)}m away from post ${post.id} (range: ${postRange}m) - too far`);
+          }
+        } catch (error) {
+          this.logger.error(`🎯 [BIDIRECTIONAL_DISCOVERY] ❌ Error processing post ${post.id}: ${error?.message}`);
+        }
+      }
+
+      this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 🎉 Completed invite discovery for user ${userId}: ${invitesCreated} invites created from ${nearbyPosts.length} nearby posts`);
+
+    } catch (error) {
+      this.logger.error(`🎯 [BIDIRECTIONAL_DISCOVERY] ❌ Error in invite discovery for user ${userId}: ${error?.message}`);
+      // Don't throw error - location update should still succeed even if invite discovery fails
     }
   }
 }
