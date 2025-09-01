@@ -90,10 +90,6 @@ export class ArtistPostController {
     } catch (error) {
       const userId = req?.user?.id || '';
       this.logger.error(`🎯 [POST_CREATION] ❌ Error creating post for artist ${userId}: ${error?.message}`);
-      console.error(
-        '🚀 ~ ArtistPostController ~ createArtistPost ~ error:',
-        error,
-      );
       throw error;
     }
   }
@@ -124,10 +120,6 @@ export class ArtistPostController {
         data: artistPost,
       });
     } catch (error) {
-      console.error(
-        '🚀 ~ ArtistPostController ~ sendGenericMessage ~ error:',
-        error,
-      );
       throw error;
     }
   }
@@ -151,10 +143,6 @@ export class ArtistPostController {
         data: response,
       });
     } catch (error) {
-      console.error(
-        '🚀 ~ ArtistPostController ~ updateArtistPost ~ error:',
-        error,
-      );
       throw error;
     }
   }
@@ -225,7 +213,6 @@ export class ArtistPostController {
         data: response,
       });
     } catch (error) {
-      console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;
     }
   }
@@ -248,7 +235,6 @@ export class ArtistPostController {
         data: comment,
       });
     } catch (error) {
-      console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;
     }
   }
@@ -271,7 +257,6 @@ export class ArtistPostController {
         .status(HttpStatus.OK)
         .json({ message: SUCCESS_MESSAGES.LIKE_ADDED_SUCCESS, data: like });
     } catch (error) {
-      console.error('🚀 ~ ArtistPostController ~ getPostData ~ error:', error);
       throw error;
     }
   }
@@ -294,7 +279,6 @@ export class ArtistPostController {
         data: response,
       });
     } catch (error) {
-      console.error('🚀 ~ CommentsController ~ updateComment ~ error:', error);
       throw error;
     }
   }
@@ -316,10 +300,6 @@ export class ArtistPostController {
         data: response,
       });
     } catch (error) {
-      console.error(
-        '🚀 ~ CommentsController ~ deletePostReaction ~ error:',
-        error,
-      );
       throw error;
     }
   }

@@ -151,10 +151,6 @@ export class ArtistPostService {
       return rest;
     } catch (error) {
       this.logger.error(`🎯 [INVITE_CREATION] ❌ Error creating artist post: ${error?.message}`);
-      console.error(
-        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ createArtistPost ~ error:',
-        error,
-      );
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }
   }
@@ -542,10 +538,6 @@ async fetchAllUserPostsData(
       return { posts: formattedPosts, meta };
     }
   } catch (error) {
-    console.error(
-      '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllUserPostsData ~ error:',
-      error,
-    );
     throw error;
   }
 }
@@ -592,10 +584,6 @@ async fetchAllUserPostsData(
       return artistPosts;
     } catch (error) {
       this.logger.error(`🎯 [RECENT_POSTS] ❌ Error fetching recent posts: ${error?.message}`);
-      console.error(
-        '🚀 ~ file:artist.post.service.ts:96 ~ ArtistPostService ~ fetchAllArtistPost ~ error:',
-        error,
-      );
       throw error;
     }
   }

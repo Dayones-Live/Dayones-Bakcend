@@ -52,10 +52,6 @@ export class InvitesController {
       });
     } catch (error) {
       this.logger.error(`🎯 [INVITE_ENDPOINT] ❌ Error updating invite ${inviteId}: ${error?.message}`);
-      console.error(
-        '🚀 ~ ArtistPostUserController ~ updateArtistPostUser ~ error:',
-        error,
-      );
       throw error;
     }
   }
@@ -90,10 +86,6 @@ export class InvitesController {
     } catch (error) {
       const user = req?.user as User;
       this.logger.error(`🎯 [INVITE_ENDPOINT] ❌ Error fetching invites for user ${user?.id}: ${error?.message}`);
-      console.error(
-        '🚀 ~ ArtistPostUserController ~ getAllInvitesOfArtist ~ error:',
-        error,
-      );
       throw error;
     }
   }
