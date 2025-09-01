@@ -603,6 +603,44 @@ export class UserService {
         this.logger.log(`🎯 [NEARBY_USERS] User ${user.id} (${user.full_name || 'Unknown'}) at distance ${user.distance_in_meters?.toFixed(2)}m`);
       }
       
+      // Additional debugging: Check if the current user is in the results
+      const currentUserInResults = res.find(user => user.id === currentUserId);
+      if (currentUserInResults) {
+        this.logger.log(`🎯 [NEARBY_USERS] ✅ Current user ${currentUserId} IS in the nearby users list`);
+      } else {
+        this.logger.log(`🎯 [NEARBY_USERS] ❌ Current user ${currentUserId} is NOT in the nearby users list`);
+        
+        // Let's check why the current user isn't included
+        const currentUser = await this.userRepository.findOne({
+          where: { id: currentUserId },
+          select: ['id', 'full_name', 'role', 'latitude', 'longitude', 'notifications_enabled']
+        });
+        
+        if (currentUser) {
+          this.logger.log(`🎯 [NEARBY_USERS] 🔍 Current user details:`, {
+            id: currentUser.id,
+            full_name: currentUser.full_name,
+            role: currentUser.role,
+            latitude: currentUser.latitude,
+            longitude: currentUser.longitude,
+            notifications_enabled: currentUser.notifications_enabled
+          });
+          
+          // Check each criteria
+          if (!currentUser.latitude || !currentUser.longitude) {
+            this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ Current user has no coordinates: lat=${currentUser.latitude}, lng=${currentUser.longitude}`);
+          }
+          if (!currentUser.role.includes(Roles.USER)) {
+            this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ Current user role is not USER: ${currentUser.role}`);
+          }
+          if (!currentUser.notifications_enabled) {
+            this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ Current user notifications disabled: ${currentUser.notifications_enabled}`);
+          }
+        } else {
+          this.logger.warn(`🎯 [NEARBY_USERS] ⚠️ Current user ${currentUserId} not found in database`);
+        }
+      }
+      
       return res;
     } catch (error) {
       console.error('🚀 ~ UserService ~ fetchNearByUsers ~ error:', error);
