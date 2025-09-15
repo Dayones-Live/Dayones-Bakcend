@@ -886,13 +886,13 @@ export class UserService {
       const discoveryRadius = 5000; // 5km radius for discovery (larger than typical post radius)
       const currentTime = new Date();
 
-      this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 🔍 Searching for posts within ${discoveryRadius}m radius of (${locationInput.latitude}, ${locationInput.longitude})`);
+      this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 🔍 Searching for INVITE_ONLY and INVITE_PHOTO posts within ${discoveryRadius}m radius of (${locationInput.latitude}, ${locationInput.longitude})`);
 
       const nearbyPosts = await this.artistPostRepository
         .createQueryBuilder('post')
         .leftJoin('post.user', 'artist')
         .addSelect(['artist.id', 'artist.full_name'])
-        .where('post.type = :type', { type: Post_Type.INVITE_ONLY })
+        .where('post.type IN (:...types)', { types: [Post_Type.INVITE_ONLY, Post_Type.INVITE_PHOTO] })
         .andWhere('post.created_at > :recentTime', { 
           recentTime: new Date(currentTime.getTime() - 24 * 60 * 60 * 1000) // Only posts from last 24 hours
         })
