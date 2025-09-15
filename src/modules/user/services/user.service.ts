@@ -307,14 +307,20 @@ export class UserService {
       });
 
       // BIDIRECTIONAL INVITE DISCOVERY: Find nearby posts and create invites
-      await this.discoverAndCreateInvitesForUser(userId, updateUserLocationInput);
+      const discoveryResult = await this.discoverAndCreateInvitesForUser(userId, updateUserLocationInput);
 
       const { user_sub, ...rest } = updatedUser;
 
       return {
         statusCode: 200,
         message: 'User Update Successful',
-        data: { ...rest, role: rest.role[0] },
+        data: { 
+          ...rest, 
+          role: rest.role[0],
+          locationUpdated: true,
+          invitesCreated: discoveryResult.invitesCreated,
+          nearbyPostsFound: discoveryResult.nearbyPostsFound
+        },
       };
     } catch (error) {
       console.error(
@@ -694,55 +700,18 @@ export class UserService {
             : new Date(),
       });
       
-      if (updateUserLocationAndNotificationInput?.notificationsEnabled) {
-        this.logger.log(`🎯 [LOCATION_UPDATE] 🔍 Fetching recent artist posts for user ${userId} at new location`);
-        
-        // Fetch the posts that are within the range and send the invites.
-        const posts = await this.artistPostService.fetchAllRecentArtistPost(
-          15,
-          updateUserLocationAndNotificationInput,
-        );
-        
-        this.logger.log(`🎯 [LOCATION_UPDATE] Found ${posts.length} recent artist posts near user ${userId}`);
-        
-        const filteredPosts = posts.filter((post) => {
-          // Check if artistPostUser array doesn't contain current user and post status is not null
-          const hasCurrentUser = post.artistPostUser?.some(
-            (apu) => apu.user_id === updatedUser?.id,
-          );
-          return !hasCurrentUser;
-        });
-        
-        this.logger.log(`🎯 [LOCATION_UPDATE] After filtering duplicates, ${filteredPosts.length} posts available for user ${userId}`);
-        
-        // Filter posts on basis of location
-        for (const post of filteredPosts) {
-          const minutesToAdd = post.type === Post_Type.INVITE_PHOTO ? 15 : 5;
-          
-          this.logger.log(`🎯 [LOCATION_UPDATE] 📨 Creating invite for user ${userId} to post ${post.id} (${post.type}) by artist ${post.user_id} - expires in ${minutesToAdd} minutes`);
-          
-          await this.artistPostUserService.createArtistPostUser({
-            userId: updatedUser?.id,
-            artistPostId: post?.id,
-            status: Invite_Status.PENDING,
-            validTill: addMinutesToDate(
-              new Date(post.created_at),
-              minutesToAdd,
-            ),
-          });
-          
-          this.logger.log(`🎯 [LOCATION_UPDATE] ✅ Invite created successfully for user ${userId} to post ${post.id}`);
-        }
-        
-        this.logger.log(`🎯 [LOCATION_UPDATE] 🎉 Location update complete for user ${userId}. Created ${filteredPosts.length} new invites to nearby posts.`);
-      } else {
-        this.logger.log(`🎯 [LOCATION_UPDATE] Notifications disabled for user ${userId} - no invites created`);
-      }
+      // BIDIRECTIONAL INVITE DISCOVERY: Find nearby posts and create invites
+      // This works regardless of notification status - we check notifications in the discovery method
+      const discoveryResult = await this.discoverAndCreateInvitesForUser(userId, updateUserLocationAndNotificationInput);
       
       return {
         statusCode: 200,
         message: 'User Location and invite status update Successful',
-        data: '',
+        data: {
+          locationUpdated: true,
+          invitesCreated: discoveryResult.invitesCreated,
+          nearbyPostsFound: discoveryResult.nearbyPostsFound
+        },
       };
     } catch (error) {
       this.logger.error(`🎯 [LOCATION_UPDATE] ❌ Error updating user location: ${error?.message}`);
@@ -861,7 +830,7 @@ export class UserService {
   private async discoverAndCreateInvitesForUser(
     userId: string,
     locationInput: UpdateUserLocationInput,
-  ): Promise<void> {
+  ): Promise<{ invitesCreated: number; nearbyPostsFound: number }> {
     try {
       this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] Starting invite discovery for user ${userId} at location (${locationInput.latitude}, ${locationInput.longitude})`);
 
@@ -972,9 +941,12 @@ export class UserService {
 
       this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 🎉 Completed invite discovery for user ${userId}: ${invitesCreated} invites created from ${nearbyPosts.length} nearby posts`);
 
+      return { invitesCreated, nearbyPostsFound: nearbyPosts.length };
+
     } catch (error) {
       this.logger.error(`🎯 [BIDIRECTIONAL_DISCOVERY] ❌ Error in invite discovery for user ${userId}: ${error?.message}`);
       // Don't throw error - location update should still succeed even if invite discovery fails
+      return { invitesCreated: 0, nearbyPostsFound: 0 };
     }
   }
 }
