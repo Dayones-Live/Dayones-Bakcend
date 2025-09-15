@@ -301,10 +301,14 @@ export class UserService {
       this.logger.log(`🎯 [LOCATION_UPDATE] User ${userId} (${existingUser.full_name || 'Unknown'}) updating location to (${updateUserLocationInput.latitude}, ${updateUserLocationInput.longitude})`);
 
       // Update existing user
+      this.logger.log(`🎯 [LOCATION_UPDATE] 🔍 Before update - User location: (${existingUser.latitude}, ${existingUser.longitude})`);
+      
       const updatedUser = await this.userRepository.save({
         ...existingUser, // Retain existing properties
         ...updateUserLocationInput, // Overwrite with new values from body
       });
+      
+      this.logger.log(`🎯 [LOCATION_UPDATE] 🔍 After update - User location: (${updatedUser.latitude}, ${updatedUser.longitude})`);
 
       // BIDIRECTIONAL INVITE DISCOVERY: Find nearby posts and create invites
       this.logger.log(`🎯 [LOCATION_UPDATE] 🔍 Starting invite discovery for user ${userId} at location (${updateUserLocationInput.latitude}, ${updateUserLocationInput.longitude})`);
