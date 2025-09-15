@@ -307,7 +307,9 @@ export class UserService {
       });
 
       // BIDIRECTIONAL INVITE DISCOVERY: Find nearby posts and create invites
+      this.logger.log(`🎯 [LOCATION_UPDATE] 🔍 Starting invite discovery for user ${userId} at location (${updateUserLocationInput.latitude}, ${updateUserLocationInput.longitude})`);
       const discoveryResult = await this.discoverAndCreateInvitesForUser(userId, updateUserLocationInput);
+      this.logger.log(`🎯 [LOCATION_UPDATE] 🎉 Invite discovery completed: ${discoveryResult.invitesCreated} invites created from ${discoveryResult.nearbyPostsFound} nearby posts`);
 
       const { user_sub, ...rest } = updatedUser;
 
@@ -874,6 +876,11 @@ export class UserService {
           discoveryRadius 
         })
         .getMany();
+
+      this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 🔍 Query executed - found ${nearbyPosts.length} posts`);
+      if (nearbyPosts.length > 0) {
+        this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 📍 Posts found: ${JSON.stringify(nearbyPosts.map(p => ({ id: p.id, type: p.type, latitude: p.latitude, longitude: p.longitude, range: p.range })))}`);
+      }
 
       this.logger.log(`🎯 [BIDIRECTIONAL_DISCOVERY] 📍 Found ${nearbyPosts.length} nearby posts`);
 
