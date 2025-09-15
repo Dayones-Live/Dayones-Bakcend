@@ -491,12 +491,7 @@ export class ArtistPostUserService {
     postId: string,
   ): Promise<ArtistPostUser> {
     try {
-      const artistGenericPost =
-        await this.getGenericArtistPostUserByPostId(postId);
-      if (artistGenericPost) {
-        return artistGenericPost;
-      }
-
+      // Only check for user-specific invites, not generic ones
       const artistPostUser = await this.artistPostUserRepository.findOne({
         relations: ['user', 'artistPost', 'artistPost.user'],
         where: {
