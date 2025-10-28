@@ -32,19 +32,26 @@ export class NotificationService {
     notification: Notifications,
     playerIds: string[],
   ): Promise<void> {
+    const startTime = Date.now();
+    this.logger.log(`[ONESIGNAL_NOTIFICATION] Starting notification send`);
+    this.logger.log(`[ONESIGNAL_NOTIFICATION] Notification ID: ${notification.id}`);
+    this.logger.log(`[ONESIGNAL_NOTIFICATION] Notification Type: ${notification.type}`);
+    this.logger.log(`[ONESIGNAL_NOTIFICATION] Title: ${notification.title}`);
+    this.logger.log(`[ONESIGNAL_NOTIFICATION] Message: ${notification.message}`);
+    this.logger.log(`[ONESIGNAL_NOTIFICATION] Target devices: ${playerIds.length}`);
+    
     try {
       if (!this.appId || !this.restApiKey) {
-        this.logger.error('OneSignal credentials not configured');
-        this.logger.error('ONESIGNAL_APP_ID:', this.appId ? '***' : 'undefined');
-        this.logger.error('ONESIGNAL_REST_API_KEY:', this.restApiKey ? '***' : 'undefined');
+        this.logger.error('[ONESIGNAL_NOTIFICATION] OneSignal credentials not configured');
+        this.logger.error('[ONESIGNAL_NOTIFICATION] ONESIGNAL_APP_ID:', this.appId ? '***' : 'undefined');
+        this.logger.error('[ONESIGNAL_NOTIFICATION] ONESIGNAL_REST_API_KEY:', this.restApiKey ? '***' : 'undefined');
         throw new Error('OneSignal credentials not configured');
       }
 
-      this.logger.log(`Sending notification to ${playerIds.length} devices`);
-      this.logger.log('Player IDs:', playerIds);
+      this.logger.debug(`[ONESIGNAL_NOTIFICATION] Player IDs: ${JSON.stringify(playerIds)}`);
 
       if (playerIds.length === 0) {
-        this.logger.warn('No active devices found for user. Skipping OneSignal notification.');
+        this.logger.warn('[ONESIGNAL_NOTIFICATION] No active devices found for user. Skipping OneSignal notification.');
         return;
       }
 
@@ -90,9 +97,10 @@ export class NotificationService {
         }
       });
 
-      this.logger.log('OneSignal API payload:', JSON.stringify(payload, null, 2));
-      this.logger.log('Sending request to OneSignal API...');
+      this.logger.log('[ONESIGNAL_NOTIFICATION] Sending request to OneSignal API...');
+      this.logger.debug('[ONESIGNAL_NOTIFICATION] Request payload:', JSON.stringify(payload, null, 2));
 
+      const apiStartTime = Date.now();
       const response = await axios.post(
         'https://onesignal.com/api/v1/notifications',
         payload,
@@ -104,14 +112,22 @@ export class NotificationService {
         },
       );
 
-      this.logger.log('OneSignal API response:', JSON.stringify(response.data, null, 2));
-      this.logger.log('Notification sent successfully to OneSignal');
+      const apiDuration = Date.now() - apiStartTime;
+      this.logger.log(`[ONESIGNAL_NOTIFICATION] OneSignal API responded in ${apiDuration}ms`);
+      this.logger.log('[ONESIGNAL_NOTIFICATION] Notification sent successfully to OneSignal');
+      this.logger.debug('[ONESIGNAL_NOTIFICATION] OneSignal API response:', JSON.stringify(response.data, null, 2));
+      
+      const totalDuration = Date.now() - startTime;
+      this.logger.log(`[ONESIGNAL_NOTIFICATION] Notification send completed in ${totalDuration}ms`);
     } catch (error) {
-      this.logger.error('Error sending notification to OneSignal:', error.message);
+      const totalDuration = Date.now() - startTime;
+      this.logger.error(`[ONESIGNAL_NOTIFICATION] Error sending notification to OneSignal after ${totalDuration}ms: ${error.message}`);
+      this.logger.error(`[ONESIGNAL_NOTIFICATION] Stack trace: ${error.stack}`);
+      
       if (error.response) {
-        this.logger.error('OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
-        this.logger.error('OneSignal API error status:', error.response.status);
-        this.logger.error('OneSignal API error headers:', JSON.stringify(error.response.headers, null, 2));
+        this.logger.error('[ONESIGNAL_NOTIFICATION] OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+        this.logger.error(`[ONESIGNAL_NOTIFICATION] HTTP status code: ${error.response.status}`);
+        this.logger.error('[ONESIGNAL_NOTIFICATION] HTTP response headers:', JSON.stringify(error.response.headers, null, 2));
       }
       throw error;
     }
@@ -120,8 +136,16 @@ export class NotificationService {
   async sendNotificationToAll(
     notification: Notifications,
   ): Promise<void> {
+    const startTime = Date.now();
+    this.logger.log('[ONESIGNAL_BROADCAST] Starting broadcast notification to all users');
+    this.logger.log(`[ONESIGNAL_BROADCAST] Notification ID: ${notification.id}`);
+    this.logger.log(`[ONESIGNAL_BROADCAST] Notification Type: ${notification.type}`);
+    this.logger.log(`[ONESIGNAL_BROADCAST] Title: ${notification.title}`);
+    this.logger.log(`[ONESIGNAL_BROADCAST] Message: ${notification.message}`);
+    
     try {
       if (!this.appId || !this.restApiKey) {
+        this.logger.error('[ONESIGNAL_BROADCAST] OneSignal credentials not configured');
         throw new Error('OneSignal credentials not configured');
       }
 
@@ -141,9 +165,9 @@ export class NotificationService {
         },
       };
 
-      this.logger.log('Sending notification to all users');
-      this.logger.log('OneSignal API payload:', JSON.stringify(payload, null, 2));
+      this.logger.debug('[ONESIGNAL_BROADCAST] Request payload:', JSON.stringify(payload, null, 2));
 
+      const apiStartTime = Date.now();
       const response = await axios.post(
         'https://onesignal.com/api/v1/notifications',
         payload,
@@ -155,11 +179,21 @@ export class NotificationService {
         },
       );
 
-      this.logger.log('OneSignal API response:', JSON.stringify(response.data, null, 2));
+      const apiDuration = Date.now() - apiStartTime;
+      const totalDuration = Date.now() - startTime;
+      this.logger.log(`[ONESIGNAL_BROADCAST] OneSignal API responded in ${apiDuration}ms`);
+      this.logger.log('[ONESIGNAL_BROADCAST] Broadcast notification sent successfully');
+      this.logger.debug('[ONESIGNAL_BROADCAST] OneSignal API response:', JSON.stringify(response.data, null, 2));
+      this.logger.log(`[ONESIGNAL_BROADCAST] Broadcast completed in ${totalDuration}ms`);
     } catch (error) {
-      this.logger.error('Error sending notification to all users:', error.message);
+      const totalDuration = Date.now() - startTime;
+      this.logger.error(`[ONESIGNAL_BROADCAST] Error sending broadcast notification after ${totalDuration}ms: ${error.message}`);
+      this.logger.error(`[ONESIGNAL_BROADCAST] Stack trace: ${error.stack}`);
+      
       if (error.response) {
-        this.logger.error('OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+        this.logger.error('[ONESIGNAL_BROADCAST] OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+        this.logger.error(`[ONESIGNAL_BROADCAST] HTTP status code: ${error.response.status}`);
+        this.logger.error('[ONESIGNAL_BROADCAST] HTTP response headers:', JSON.stringify(error.response.headers, null, 2));
       }
       throw error;
     }
@@ -243,20 +277,29 @@ export class NotificationService {
   }
 
   async updateBadgeCount(playerIds: string[], count: number): Promise<void> {
+    const startTime = Date.now();
+    this.logger.log(`[BADGE_UPDATE] Starting badge count update for ${playerIds.length} players`);
+    this.logger.log(`[BADGE_UPDATE] Badge count: ${count}`);
+    
     try {
       if (!this.appId || !this.restApiKey) {
+        this.logger.error('[BADGE_UPDATE] OneSignal credentials not configured');
         throw new Error('OneSignal credentials not configured');
       }
 
       // Update each player's badge count individually
       for (const playerId of playerIds) {
+        const playerStartTime = Date.now();
+        this.logger.log(`[BADGE_UPDATE] Updating badge for player ${playerId}`);
+        
         const payload = {
           app_id: this.appId,
           badge: count
         };
 
-        this.logger.log(`[BADGE_UPDATE] Updating badge for player ${playerId}:`, JSON.stringify(payload, null, 2));
+        this.logger.debug(`[BADGE_UPDATE] Request payload for player ${playerId}:`, JSON.stringify(payload, null, 2));
 
+        const apiStartTime = Date.now();
         const response = await axios.put(
           `https://onesignal.com/api/v1/players/${playerId}`,
           payload,
@@ -268,32 +311,51 @@ export class NotificationService {
           },
         );
 
-        this.logger.log(`[BADGE_UPDATE] OneSignal API response for player ${playerId}:`, JSON.stringify(response.data, null, 2));
+        const apiDuration = Date.now() - apiStartTime;
+        const playerDuration = Date.now() - playerStartTime;
+        this.logger.log(`[BADGE_UPDATE] Badge updated for player ${playerId} in ${playerDuration}ms (API: ${apiDuration}ms)`);
+        this.logger.debug(`[BADGE_UPDATE] OneSignal API response for player ${playerId}:`, JSON.stringify(response.data, null, 2));
       }
+      
+      const totalDuration = Date.now() - startTime;
+      this.logger.log(`[BADGE_UPDATE] Badge count update completed for all ${playerIds.length} players in ${totalDuration}ms`);
     } catch (error) {
-      this.logger.error('[BADGE_UPDATE] Error updating badge count:', error.message);
+      const totalDuration = Date.now() - startTime;
+      this.logger.error(`[BADGE_UPDATE] Error updating badge count after ${totalDuration}ms: ${error.message}`);
+      this.logger.error(`[BADGE_UPDATE] Stack trace: ${error.stack}`);
+      
       if (error.response) {
         this.logger.error('[BADGE_UPDATE] OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+        this.logger.error(`[BADGE_UPDATE] HTTP status code: ${error.response.status}`);
+        this.logger.error('[BADGE_UPDATE] HTTP response headers:', JSON.stringify(error.response.headers, null, 2));
       }
       throw error;
     }
   }
 
   private async resetBadgeCount(playerIds: string[]): Promise<void> {
+    const startTime = Date.now();
+    this.logger.log(`[BADGE_RESET] Starting badge reset for ${playerIds.length} players`);
+    
     try {
       if (!this.appId || !this.restApiKey) {
+        this.logger.error('[BADGE_RESET] OneSignal credentials not configured');
         throw new Error('OneSignal credentials not configured');
       }
 
       // Reset badge count for each player individually
       for (const playerId of playerIds) {
+        const playerStartTime = Date.now();
+        this.logger.log(`[BADGE_RESET] Resetting badge for player ${playerId}`);
+        
         const payload = {
           app_id: this.appId,
           badge: 0
         };
 
-        this.logger.log(`[BADGE_RESET] Resetting badge for player ${playerId}:`, JSON.stringify(payload, null, 2));
+        this.logger.debug(`[BADGE_RESET] Request payload for player ${playerId}:`, JSON.stringify(payload, null, 2));
 
+        const apiStartTime = Date.now();
         const response = await axios.put(
           `https://onesignal.com/api/v1/players/${playerId}`,
           payload,
@@ -305,12 +367,23 @@ export class NotificationService {
           },
         );
 
-        this.logger.log(`[BADGE_RESET] OneSignal API response for player ${playerId}:`, JSON.stringify(response.data, null, 2));
+        const apiDuration = Date.now() - apiStartTime;
+        const playerDuration = Date.now() - playerStartTime;
+        this.logger.log(`[BADGE_RESET] Badge reset for player ${playerId} in ${playerDuration}ms (API: ${apiDuration}ms)`);
+        this.logger.debug(`[BADGE_RESET] OneSignal API response for player ${playerId}:`, JSON.stringify(response.data, null, 2));
       }
+      
+      const totalDuration = Date.now() - startTime;
+      this.logger.log(`[BADGE_RESET] Badge reset completed for all ${playerIds.length} players in ${totalDuration}ms`);
     } catch (error) {
-      this.logger.error('[BADGE_RESET] Error resetting badge count:', error.message);
+      const totalDuration = Date.now() - startTime;
+      this.logger.error(`[BADGE_RESET] Error resetting badge count after ${totalDuration}ms: ${error.message}`);
+      this.logger.error(`[BADGE_RESET] Stack trace: ${error.stack}`);
+      
       if (error.response) {
         this.logger.error('[BADGE_RESET] OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+        this.logger.error(`[BADGE_RESET] HTTP status code: ${error.response.status}`);
+        this.logger.error('[BADGE_RESET] HTTP response headers:', JSON.stringify(error.response.headers, null, 2));
       }
       // Don't throw the error - we want to continue even if badge reset fails
       this.logger.warn('[BADGE_RESET] Continuing despite badge reset failure');

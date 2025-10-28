@@ -34,13 +34,22 @@ export class PushNotificationService {
     message: string,
     data?: Record<string, any>,
   ): Promise<void> {
+    const startTime = Date.now();
+    this.logger.log(`[ONESIGNAL_PUSH] Starting push notification`);
+    this.logger.log(`[ONESIGNAL_PUSH] Title: ${title}`);
+    this.logger.log(`[ONESIGNAL_PUSH] Message: ${message}`);
+    this.logger.log(`[ONESIGNAL_PUSH] Target devices: ${playerIds.length}`);
+    this.logger.debug(`[ONESIGNAL_PUSH] Player IDs: ${JSON.stringify(playerIds)}`);
+    this.logger.debug(`[ONESIGNAL_PUSH] Custom data: ${JSON.stringify(data || {})}`);
+    
     try {
       if (!this.appId || !this.restApiKey) {
+        this.logger.error('[ONESIGNAL_PUSH] OneSignal credentials not configured');
         throw new Error('OneSignal credentials not configured');
       }
 
       if (playerIds.length === 0) {
-        this.logger.warn('No active devices found. Skipping push notification.');
+        this.logger.warn('[ONESIGNAL_PUSH] No active devices found. Skipping push notification.');
         return;
       }
 
@@ -82,8 +91,10 @@ export class PushNotificationService {
         }
       });
 
-      this.logger.log('Sending push notification with payload:', JSON.stringify(payload, null, 2));
+      this.logger.log('[ONESIGNAL_PUSH] Sending request to OneSignal API...');
+      this.logger.debug('[ONESIGNAL_PUSH] Request payload:', JSON.stringify(payload, null, 2));
 
+      const apiStartTime = Date.now();
       const response = await axios.post(
         'https://onesignal.com/api/v1/notifications',
         payload,
@@ -95,38 +106,54 @@ export class PushNotificationService {
         },
       );
 
-      this.logger.log('Push notification sent successfully');
-      this.logger.debug('OneSignal response:', response.data);
+      const apiDuration = Date.now() - apiStartTime;
+      this.logger.log(`[ONESIGNAL_PUSH] OneSignal API responded in ${apiDuration}ms`);
+      this.logger.log('[ONESIGNAL_PUSH] Push notification sent successfully');
+      this.logger.debug('[ONESIGNAL_PUSH] OneSignal API response:', JSON.stringify(response.data, null, 2));
 
       // Handle invalid player IDs
       if (response.data?.errors?.invalid_player_ids?.length > 0) {
         const invalidPlayerIds = response.data.errors.invalid_player_ids;
-        this.logger.warn(`Found ${invalidPlayerIds.length} invalid player IDs:`, invalidPlayerIds);
+        this.logger.warn(`[ONESIGNAL_PUSH] Found ${invalidPlayerIds.length} invalid player IDs`);
+        this.logger.debug(`[ONESIGNAL_PUSH] Invalid player IDs: ${JSON.stringify(invalidPlayerIds)}`);
         
         // Deactivate invalid devices
         for (const invalidPlayerId of invalidPlayerIds) {
           try {
+            this.logger.log(`[ONESIGNAL_PUSH] Processing invalid player ID: ${invalidPlayerId}`);
+            
             // Find the device first to get the user ID
             const device = await this.userDeviceRepository.findOne({
               where: { oneSignalPlayerId: invalidPlayerId }
             });
 
             if (device) {
+              this.logger.log(`[ONESIGNAL_PUSH] Found device for invalid player ID, deactivating...`);
               await this.userDeviceService.unregisterDevice(device.userId, invalidPlayerId);
-              this.logger.log(`Deactivated invalid device with player ID: ${invalidPlayerId} for user: ${device.userId}`);
+              this.logger.log(`[ONESIGNAL_PUSH] Successfully deactivated invalid device with player ID: ${invalidPlayerId} for user: ${device.userId}`);
             } else {
-              this.logger.warn(`Could not find device with player ID: ${invalidPlayerId}`);
+              this.logger.warn(`[ONESIGNAL_PUSH] Could not find device with player ID: ${invalidPlayerId}`);
             }
           } catch (error) {
-            this.logger.error(`Failed to deactivate invalid device ${invalidPlayerId}:`, error);
+            this.logger.error(`[ONESIGNAL_PUSH] Failed to deactivate invalid device ${invalidPlayerId}:`, error.message);
+            this.logger.error(`[ONESIGNAL_PUSH] Stack trace: ${error.stack}`);
           }
         }
       }
+      
+      const totalDuration = Date.now() - startTime;
+      this.logger.log(`[ONESIGNAL_PUSH] Push notification completed in ${totalDuration}ms`);
     } catch (error) {
-      this.logger.error('Error sending push notification:', error.message);
+      const totalDuration = Date.now() - startTime;
+      this.logger.error(`[ONESIGNAL_PUSH] Error sending push notification after ${totalDuration}ms: ${error.message}`);
+      this.logger.error(`[ONESIGNAL_PUSH] Stack trace: ${error.stack}`);
+      
       if (error.response) {
-        this.logger.error('OneSignal API error:', error.response.data);
+        this.logger.error('[ONESIGNAL_PUSH] OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
+        this.logger.error(`[ONESIGNAL_PUSH] HTTP status code: ${error.response.status}`);
+        this.logger.error('[ONESIGNAL_PUSH] HTTP response headers:', JSON.stringify(error.response.headers, null, 2));
       }
+      
       throw error;
     }
   }
