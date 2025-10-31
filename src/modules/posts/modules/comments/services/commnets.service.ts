@@ -544,7 +544,7 @@ export class CommentsService {
   async getCommentOwner(commentId: string): Promise<User> {
     const comment = await this.commentsRepository.findOne({
       where: { id: commentId },
-      relations: ['artistPostUser', 'artistPostUser.user']
+      relations: ['artistPostUser', 'artistPostUser.user', 'user']
     });
 
     if (!comment) {
@@ -554,6 +554,18 @@ export class CommentsService {
       );
     }
 
+    this.logger.log(`[COMMENT_OWNER] Finding owner for comment ${commentId}`);
+    this.logger.log(`[COMMENT_OWNER] Comment has comment_by: ${comment.comment_by}, user: ${comment.user?.id || 'null'}, artistPostUser.user: ${comment.artistPostUser?.user?.id || 'null'}`);
+
+    // If comment_by is set, it means a fan commented (for generic posts)
+    // Return the fan (comment.user), otherwise return the artist (artistPostUser.user)
+    if (comment.comment_by && comment.user) {
+      this.logger.log(`[COMMENT_OWNER] Returning fan user: ${comment.user.id} (role: ${comment.user.role})`);
+      return comment.user;
+    }
+
+    // Otherwise, return the artist who owns the post
+    this.logger.log(`[COMMENT_OWNER] Returning artist user: ${comment.artistPostUser?.user?.id} (role: ${comment.artistPostUser?.user?.role})`);
     return comment.artistPostUser?.user;
   }
 }
