@@ -190,7 +190,7 @@ export class AuthController {
    *
    * @throws Error if email sent failed with confirmation code
    */
-  @UseGuards(CognitoGuard)
+  @Public()
   @Post('forgot-password')
   async forgotPassword(
     @Body() forgotPasswordInput: ForgotPasswordInput,
@@ -205,7 +205,7 @@ export class AuthController {
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });
     } catch (error) {
-      console.error('🚀 ~ CognitoController ~ getCognitoUser ~ error:', error);
+      console.error('🚀 ~ AuthController ~ forgotPassword ~ error:', error);
       throw error; // Handle the error appropriately
     }
   }
@@ -220,7 +220,7 @@ export class AuthController {
    *
    * @throws Error if confirmation code is incorrect and password policy don't satisfy
    */
-  @UseGuards(CognitoGuard)
+  @Public()
   @Post('confirm-forgot-password')
   async confirmForgotPassword(
     @Body() confirmForgotPasswordInput: ConfirmForgotPasswordInput,
@@ -235,7 +235,7 @@ export class AuthController {
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });
     } catch (error) {
-      console.error('🚀 ~ CognitoController ~ getCognitoUser ~ error:', error);
+      console.error('🚀 ~ AuthController ~ confirmForgotPassword ~ error:', error);
       throw error; // Handle the error appropriately
     }
   }

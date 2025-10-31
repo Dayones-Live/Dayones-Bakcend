@@ -1,12 +1,13 @@
 import { Media_Type } from '@app/types';
-import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsUUID, ValidateIf } from 'class-validator';
 
 export class CreateCommentInput {
   @IsOptional()
   artistPostUserId?: string;
 
-  @IsNotEmpty({ message: 'Message is required' })
-  message: string;
+  @ValidateIf((o) => !o.url)
+  @IsNotEmpty({ message: 'Message is required when no photo is provided' })
+  message?: string;
 
   @IsOptional()
   commentBy?: string;
@@ -14,7 +15,8 @@ export class CreateCommentInput {
   @IsOptional()
   parentCommentId?: string;
 
-  @IsOptional()
+  @ValidateIf((o) => !o.message || o.message === '')
+  @IsNotEmpty({ message: 'Photo is required when no message is provided' })
   url?: string;
 
   @IsOptional()
