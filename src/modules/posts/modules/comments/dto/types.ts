@@ -1,12 +1,35 @@
 import { Media_Type } from '@app/types';
-import { IsNotEmpty, IsOptional, IsUUID, ValidateIf } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsUUID, ValidateIf, registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
+
+// Custom validator to ensure at least one of message or url is provided
+function HasMessageOrUrl(validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    registerDecorator({
+      name: 'hasMessageOrUrl',
+      target: object.constructor,
+      propertyName: propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: any, args: ValidationArguments) {
+          const obj = args.object as CreateCommentInput;
+          const hasMessage = obj.message !== undefined && obj.message !== null && String(obj.message).trim() !== '';
+          const hasUrl = obj.url !== undefined && obj.url !== null && String(obj.url).trim() !== '';
+          return hasMessage || hasUrl;
+        },
+        defaultMessage(args: ValidationArguments) {
+          return 'Either message or photo (url) must be provided';
+        },
+      },
+    });
+  };
+}
 
 export class CreateCommentInput {
   @IsOptional()
   artistPostUserId?: string;
 
-  @ValidateIf((o) => !o.url)
-  @IsNotEmpty({ message: 'Message is required when no photo is provided' })
+  @IsOptional()
+  @HasMessageOrUrl({ message: 'Either message or photo (url) must be provided' })
   message?: string;
 
   @IsOptional()
@@ -15,8 +38,7 @@ export class CreateCommentInput {
   @IsOptional()
   parentCommentId?: string;
 
-  @ValidateIf((o) => !o.message || o.message === '')
-  @IsNotEmpty({ message: 'Photo is required when no message is provided' })
+  @IsOptional()
   url?: string;
 
   @IsOptional()

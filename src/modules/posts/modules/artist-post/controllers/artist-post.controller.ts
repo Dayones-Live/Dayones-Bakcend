@@ -225,16 +225,32 @@ export class ArtistPostController {
     @Req() req: Request,
   ) {
     try {
+      const userId = req?.user?.id || '';
+      this.logger.log(`💬 [COMMENT_CONTROLLER] Received comment request for post ${id} by user ${userId}`);
+      this.logger.log(`💬 [COMMENT_CONTROLLER] Input data: ${JSON.stringify({
+        message: createCommentInput?.message || null,
+        url: createCommentInput?.url || null,
+        mediaType: createCommentInput?.mediaType || null,
+        parentCommentId: createCommentInput?.parentCommentId || null,
+        artistPostUserId: createCommentInput?.artistPostUserId || null,
+      })}`);
+      this.logger.log(`💬 [COMMENT_CONTROLLER] Message present: ${!!createCommentInput?.message}, URL present: ${!!createCommentInput?.url}`);
+      
       const comment = await this.commentService.commentAPost(
         createCommentInput,
         id,
-        req?.user?.id || '',
+        userId,
       );
+      
+      this.logger.log(`💬 [COMMENT_CONTROLLER] ✅ Comment created successfully with ID: ${comment.id}`);
       res.status(HttpStatus.OK).json({
         message: SUCCESS_MESSAGES.COMMENT_CREATED_SUCCESS,
         data: comment,
       });
     } catch (error) {
+      const userId = req?.user?.id || '';
+      this.logger.error(`💬 [COMMENT_CONTROLLER] ❌ Error creating comment for post ${id} by user ${userId}: ${error?.message}`);
+      this.logger.error(`💬 [COMMENT_CONTROLLER] Error stack: ${error?.stack}`);
       throw error;
     }
   }

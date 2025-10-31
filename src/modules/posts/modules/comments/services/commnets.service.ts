@@ -55,7 +55,20 @@ export class CommentsService {
     userId: string,
   ): Promise<Comments> {
     try {
-      this.logger.log(`[COMMENT] Starting comment process for post ${postId} by user ${userId}`);
+      this.logger.log(`[COMMENT] ===== Starting comment process =====`);
+      this.logger.log(`[COMMENT] Post ID: ${postId}`);
+      this.logger.log(`[COMMENT] User ID: ${userId}`);
+      this.logger.log(`[COMMENT] Input received: ${JSON.stringify({
+        message: createCommentInput?.message || null,
+        url: createCommentInput?.url || null,
+        mediaType: createCommentInput?.mediaType || null,
+        parentCommentId: createCommentInput?.parentCommentId || null,
+        artistPostUserId: createCommentInput?.artistPostUserId || null,
+        commentBy: createCommentInput?.commentBy || null,
+      })}`);
+      this.logger.log(`[COMMENT] Validation check - Message: ${createCommentInput?.message ? 'present' : 'missing'}, URL: ${createCommentInput?.url ? 'present' : 'missing'}`);
+      this.logger.log(`[COMMENT] Message value: "${createCommentInput?.message || 'undefined'}"`);
+      this.logger.log(`[COMMENT] URL value: "${createCommentInput?.url || 'undefined'}"`);
       
       let artistPostUser: ArtistPostUser = {} as ArtistPostUser;
       const artistPostUserGeneric =
@@ -72,10 +85,15 @@ export class CommentsService {
         if (artistPostUserGeneric.user_id !== userId) {
           createCommentInput.commentBy = userId;
         }
+        this.logger.log(`[COMMENT] Creating comment DTO from input`);
+        this.logger.log(`[COMMENT] DTO input - message: "${createCommentInput?.message || 'undefined'}", url: "${createCommentInput?.url || 'undefined'}"`);
         const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
+        this.logger.log(`[COMMENT] Comment DTO created successfully`);
+        this.logger.log(`[COMMENT] Saving comment to database...`);
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
-        this.logger.log(`[COMMENT] Saved comment with ID: ${comment.id} for generic post`);
+        this.logger.log(`[COMMENT] ✅ Saved comment with ID: ${comment.id} for generic post`);
+        this.logger.log(`[COMMENT] Saved comment details - message: "${comment.message || 'null'}", url: "${comment.url || 'null'}"`);
 
         // Get the commenter's information
         const commenter = await this.artistPostUserRepository.findOne({
@@ -217,10 +235,15 @@ export class CommentsService {
           );
         }
         createCommentInput.artistPostUserId = artistPostUser?.id;
+        this.logger.log(`[COMMENT] Creating comment DTO from input for regular post`);
+        this.logger.log(`[COMMENT] DTO input - message: "${createCommentInput?.message || 'undefined'}", url: "${createCommentInput?.url || 'undefined'}"`);
         const commentDto = this.commentsMapper.dtoToEntity(createCommentInput);
+        this.logger.log(`[COMMENT] Comment DTO created successfully`);
+        this.logger.log(`[COMMENT] Saving comment to database...`);
         // Use the upsert method
         comment = await this.commentsRepository.save(commentDto);
-        this.logger.log(`[COMMENT] Saved comment with ID: ${comment.id} for regular post`);
+        this.logger.log(`[COMMENT] ✅ Saved comment with ID: ${comment.id} for regular post`);
+        this.logger.log(`[COMMENT] Saved comment details - message: "${comment.message || 'null'}", url: "${comment.url || 'null'}"`);
       }
 
       // Get the commenter's information
