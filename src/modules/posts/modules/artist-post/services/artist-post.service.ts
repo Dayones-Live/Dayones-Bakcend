@@ -89,7 +89,7 @@ export class ArtistPostService {
         this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ Check if range ${createArtistPostInput.range} is in the correct unit (meters vs feet)`);
       }
       
-      const minutesToAdd = 30; // Changed to 30 minutes for all post types
+      const minutesToAdd = 6 * 60; // 6 hours for all post types
       // Loop on users and add it in artist post user
       for (const user of users) {
         this.logger.log(`🎯 [INVITE_CREATION] Creating invite for user ${user.id} (${user.full_name || 'Unknown'}) at distance ${user.distance_in_meters?.toFixed(2)}m`);
@@ -105,7 +105,7 @@ export class ArtistPostService {
             ),
           });
           
-          this.logger.log(`🎯 [INVITE_CREATION] ✅ Invite created successfully for user ${user.id} - expires in ${minutesToAdd} minutes`);
+          this.logger.log(`🎯 [INVITE_CREATION] ✅ Invite created successfully for user ${user.id} - expires in ${minutesToAdd} minutes (~6 hours)`);
           this.logger.log(`🎯 [INVITE_CREATION] 🔍 Created invite details: ${JSON.stringify({
             id: invite.id,
             user_id: invite.user_id,
@@ -139,7 +139,7 @@ export class ArtistPostService {
       this.logger.log(`🎯 [INVITE_CREATION]   - Location: (${createArtistPostInput.latitude}, ${createArtistPostInput.longitude})`);
       this.logger.log(`🎯 [INVITE_CREATION]   - Users found: ${users.length}`);
       this.logger.log(`🎯 [INVITE_CREATION]   - Invites created: ${users.length}`);
-      this.logger.log(`🎯 [INVITE_CREATION]   - Invite expiry: ${minutesToAdd} minutes`);
+      this.logger.log(`🎯 [INVITE_CREATION]   - Invite expiry: ${minutesToAdd} minutes (~6 hours)`);
       
       if (users.length === 0) {
         this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ CRITICAL: No invites were created!`);
