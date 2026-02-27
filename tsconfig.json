@@ -29,7 +29,10 @@
       "@notifications/*": ["src/modules/user/modules/notifications/*"],
       "@artist-post/*": ["src/modules/posts/modules/artist-post/*"],
       "@artist-post-user/*": ["src/modules/posts/modules/artist-post-user/*"],
-      "@comments/*": ["src/modules/posts/modules/comments/*"]
+      "@comments/*": ["src/modules/posts/modules/comments/*"],
+      "@stripe/*": ["src/modules/stripe/*"],
+      "@printful/*": ["src/modules/printful/*"],
+      "@merch/*": ["src/modules/merch/*"]
     }
   },
   "include": ["src/**/*"],
