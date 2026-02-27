@@ -5,6 +5,7 @@ import { Role } from '@app/modules/auth/decorators/roles.decorator';
 import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import { MerchService } from './merch.service';
 import { MerchOrderService } from './merch-order.service';
+import { MerchPayoutService } from './merch-payout.service';
 import { CreateMerchDropDto, CreateMerchOrderDto } from './dto';
 
 @ApiTags('Merch')
@@ -15,6 +16,7 @@ export class MerchController {
   constructor(
     private merchService: MerchService,
     private merchOrderService: MerchOrderService,
+    private merchPayoutService: MerchPayoutService,
   ) {}
 
   @Post('drops')
@@ -96,6 +98,30 @@ export class MerchController {
       const userId = req?.user?.id || '';
       const userRole = req?.user?.role || [];
       const result = await this.merchOrderService.listOrders(userId, userRole);
+      res.status(HttpStatus.OK).json({ data: result });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Get('payouts')
+  @Role(Roles.ARTIST)
+  async listPayouts(@Req() req: Request, @Res() res: Response) {
+    try {
+      const userId = req?.user?.id || '';
+      const result = await this.merchPayoutService.getPayoutHistory(userId);
+      res.status(HttpStatus.OK).json({ data: result });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Get('payouts/balance')
+  @Role(Roles.ARTIST)
+  async getBalance(@Req() req: Request, @Res() res: Response) {
+    try {
+      const userId = req?.user?.id || '';
+      const result = await this.merchPayoutService.getUnpaidBalance(userId);
       res.status(HttpStatus.OK).json({ data: result });
     } catch (error) {
       throw error;

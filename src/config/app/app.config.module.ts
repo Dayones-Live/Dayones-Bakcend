@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 
 import databaseConfig from '../database/postgres/orm.config';
 import { NestConfigModule } from '../nest/nest.config.module';
@@ -19,6 +20,9 @@ import { CommentReactionsModule } from '@app/modules/posts/modules/comment-react
 import { ReportModule } from '@app/modules/report/report.module';
 import { FeedbackModule } from '@app/modules/user/modules/feedback/feedback.module';
 import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
+import { StripeModule } from '@app/modules/stripe/stripe.module';
+import { PrintfulModule } from '@app/modules/printful/printful.module';
+import { MerchModule } from '@app/modules/merch/merch.module';
 
 @Module({
   imports: [
@@ -39,6 +43,15 @@ import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
     ReportModule,
     FeedbackModule,
     BlocksModule,
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+      },
+    }),
+    StripeModule,
+    PrintfulModule,
+    MerchModule,
   ],
 })
 export class AppConfigModule {}
