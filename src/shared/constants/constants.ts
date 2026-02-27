@@ -42,6 +42,17 @@ export enum ERROR_MESSAGES {
   BLOCKED_USER = 'You cannot perform this action because you are blocked by this user',
   ACCESS_DENIED = 'You do not have access to this resource',
   GALLERY_IMAGE_NOT_FOUND = 'Gallery image not found',
+  STRIPE_ACCOUNT_NOT_FOUND = 'Stripe account not found',
+  STRIPE_ONBOARDING_INCOMPLETE = 'Complete Stripe payout setup before creating merch',
+  MERCH_DROP_NOT_FOUND = 'Merch drop not found',
+  MERCH_DROP_EXISTS = 'Merch drop already exists for this post',
+  MERCH_DROP_EXPIRED = 'This merch drop has ended',
+  MERCH_DROP_NOT_ACTIVE = 'Merch drop is not active',
+  MERCH_ORDER_NOT_FOUND = 'Merch order not found',
+  MERCH_PRODUCT_NOT_FOUND = 'Merch product not found',
+  PRINTFUL_API_ERROR = 'Printful API error',
+  STRIPE_WEBHOOK_INVALID = 'Invalid Stripe webhook signature',
+  PRINTFUL_WEBHOOK_INVALID = 'Invalid Printful webhook signature',
 }
 
 export enum SUCCESS_MESSAGES {
@@ -94,6 +105,10 @@ export enum SUCCESS_MESSAGES {
   GALLERY_IMAGE_UPDATED_SUCCESS = 'Gallery image updated successfully',
   GALLERY_IMAGE_DELETED_SUCCESS = 'Gallery image deleted successfully',
   GALLERY_FETCHED_SUCCESS = 'Gallery fetched successfully',
+  STRIPE_ONBOARD_SUCCESS = 'Stripe onboarding link created successfully',
+  MERCH_DROP_CREATED = 'Merch drop creation started',
+  MERCH_DROP_CANCELLED = 'Merch drop cancelled successfully',
+  MERCH_ORDER_CREATED = 'Merch order created successfully',
 }
 
 export enum BUNDLE_NOTIFICATIONS_UNIQUE_KEYS {
