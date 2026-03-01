@@ -79,7 +79,7 @@ export const PRODUCT_CATALOG: SkuConfig[] = [
     blankName: 'Enhanced Matte Paper Poster (in)',
     printfulCatalogProductId: 1,
     priceTiers: [
-      { sizes: ['18x24'], price: 35 },
+      { sizes: ['18″×24″'], price: 35 },
     ],
     colors: [],
     printCanvasWidth: 5400,
