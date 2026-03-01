@@ -10,7 +10,6 @@ export enum ProductType {
   HOODIE = 'HOODIE',
   TANK = 'TANK',
   POSTER = 'POSTER',
-  HAT = 'HAT',
 }
 
 export enum MerchOrderStatus {
@@ -21,6 +20,9 @@ export enum MerchOrderStatus {
   DELIVERED = 'DELIVERED',
   REFUNDED = 'REFUNDED',
   CANCELLED = 'CANCELLED',
+  RETURN_REQUESTED = 'RETURN_REQUESTED',
+  RETURN_APPROVED = 'RETURN_APPROVED',
+  RETURN_DENIED = 'RETURN_DENIED',
 }
 
 export enum LedgerStatus {
