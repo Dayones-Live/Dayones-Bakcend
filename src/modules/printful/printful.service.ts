@@ -134,4 +134,14 @@ export class PrintfulService {
       return null;
     }
   }
+
+  async getCatalogVariants(catalogProductId: number): Promise<any> {
+    try {
+      const response = await this.client.get(`/v2/catalog-products/${catalogProductId}/catalog-variants`);
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Get catalog variants failed for product ${catalogProductId}: ${error.message}`);
+      throw new HttpException('Printful catalog lookup failed', HttpStatus.BAD_GATEWAY);
+    }
+  }
 }
