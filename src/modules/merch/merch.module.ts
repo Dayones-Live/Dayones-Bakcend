@@ -19,6 +19,7 @@ import { StripeModule } from '../stripe/stripe.module';
 import { PrintfulModule } from '../printful/printful.module';
 import { StripeWebhookService } from '../stripe/stripe-webhook.service';
 import { PrintfulWebhookService } from '../printful/printful-webhook.service';
+import { ImageNormalizationService } from './services/image-normalization.service';
 import { ArtistPost } from '@artist-post/entities/artist-post.entity';
 
 @Module({
@@ -48,6 +49,7 @@ import { ArtistPost } from '@artist-post/entities/artist-post.entity';
     MerchCreationProcessor,
     OrderFulfillmentProcessor,
     PayoutBatchProcessor,
+    ImageNormalizationService,
   ],
   exports: [MerchService, MerchOrderService, MerchPayoutService],
 })
