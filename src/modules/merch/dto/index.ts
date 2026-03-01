@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsUUID, IsArray, ValidateNested, IsOptional, IsString, IsInt, Min } from 'class-validator';
+import { IsNotEmpty, IsUUID, IsArray, ValidateNested, IsOptional, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateMerchDropDto {
@@ -15,14 +15,6 @@ export class OrderItemDto {
   @IsInt()
   @Min(1)
   quantity: number;
-
-  @IsOptional()
-  @IsString()
-  size?: string;
-
-  @IsOptional()
-  @IsString()
-  color?: string;
 }
 
 export class ShippingAddressDto {

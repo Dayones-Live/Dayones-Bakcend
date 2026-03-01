@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Param, Body, Req, Res, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Patch, Param, Body, Req, Res, HttpStatus, Logger } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Role } from '@app/modules/auth/decorators/roles.decorator';
@@ -98,6 +98,17 @@ export class MerchController {
       const userId = req?.user?.id || '';
       const userRole = req?.user?.role || [];
       const result = await this.merchOrderService.listOrders(userId, userRole);
+      res.status(HttpStatus.OK).json({ data: result });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Patch('orders/:id/return')
+  async requestReturn(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
+    try {
+      const userId = req?.user?.id || '';
+      const result = await this.merchOrderService.requestReturn(id, userId);
       res.status(HttpStatus.OK).json({ data: result });
     } catch (error) {
       throw error;

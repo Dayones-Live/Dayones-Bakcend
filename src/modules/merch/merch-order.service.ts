@@ -75,29 +75,31 @@ export class MerchOrderService {
           merch_product_id: item.merchProductId,
           quantity: item.quantity,
           unit_price: Number(product.retail_price),
-          size: item.size,
-          color: item.color,
         });
       }
 
+      const freeShippingThreshold = parseFloat(process.env.MERCH_FREE_SHIPPING_THRESHOLD || '95');
       let shippingCost = 0;
-      try {
-        const shippingRates = await this.printfulService.getShippingRates(
-          {
-            address1: dto.shippingAddress.address1,
-            city: dto.shippingAddress.city,
-            state_code: dto.shippingAddress.state_code,
-            country_code: dto.shippingAddress.country_code,
-            zip: dto.shippingAddress.zip,
-          },
-          dto.items.map((item) => {
-            const product = drop.products.find((p) => p.id === item.merchProductId);
-            return { variant_id: Number(product.printful_variant_id), quantity: item.quantity };
-          }),
-        );
-        shippingCost = parseFloat(shippingRates?.result?.[0]?.rate || '0');
-      } catch (error) {
-        this.logger.warn(`Shipping estimate failed, using 0: ${error.message}`);
+
+      if (subtotal < freeShippingThreshold) {
+        try {
+          const shippingRates = await this.printfulService.getShippingRates(
+            {
+              address1: dto.shippingAddress.address1,
+              city: dto.shippingAddress.city,
+              state_code: dto.shippingAddress.state_code,
+              country_code: dto.shippingAddress.country_code,
+              zip: dto.shippingAddress.zip,
+            },
+            dto.items.map((item) => {
+              const product = drop.products.find((p) => p.id === item.merchProductId);
+              return { variant_id: Number(product.printful_variant_id), quantity: item.quantity };
+            }),
+          );
+          shippingCost = parseFloat(shippingRates?.result?.[0]?.rate || '0');
+        } catch (error) {
+          this.logger.warn(`Shipping estimate failed, using 0: ${error.message}`);
+        }
       }
 
       const total = subtotal + shippingCost;
@@ -121,8 +123,6 @@ export class MerchOrderService {
         orderItem.merch_product_id = item.merch_product_id;
         orderItem.quantity = item.quantity;
         orderItem.unit_price = item.unit_price;
-        orderItem.size = item.size;
-        orderItem.color = item.color;
         await this.merchOrderItemRepo.save(orderItem);
       }
 
@@ -286,5 +286,20 @@ export class MerchOrderService {
     } catch (error) {
       this.logger.error(`Handle order shipped failed: ${error.message}`);
     }
+  }
+
+  async requestReturn(orderId: string, userId: string): Promise<MerchOrder> {
+    const order = await this.merchOrderRepo.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new HttpException(ERROR_MESSAGES.MERCH_ORDER_NOT_FOUND, HttpStatus.NOT_FOUND);
+    }
+    if (order.fan_id !== userId) {
+      throw new HttpException(ERROR_MESSAGES.NOT_AUTHORIZED_ACTION, HttpStatus.FORBIDDEN);
+    }
+    if (order.status !== MerchOrderStatus.SHIPPED && order.status !== MerchOrderStatus.DELIVERED) {
+      throw new HttpException('Order must be shipped or delivered to request return', HttpStatus.BAD_REQUEST);
+    }
+    order.status = MerchOrderStatus.RETURN_REQUESTED;
+    return this.merchOrderRepo.save(order);
   }
 }
