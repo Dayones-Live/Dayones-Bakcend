@@ -31,11 +31,23 @@ export class MerchProduct extends BaseEntity {
   @Column({ type: 'bigint', nullable: true })
   printful_variant_id: number;
 
+  @Column({ type: 'int', nullable: true })
+  printful_catalog_product_id: number;
+
   @Column({ type: 'enum', enum: ProductType })
   product_type: ProductType;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   retail_price: number;
+
+  @Column({ nullable: true })
+  size: string;
+
+  @Column({ nullable: true })
+  color: string;
+
+  @Column({ nullable: true })
+  color_code: string;
 
   @Column({ nullable: true })
   image_url: string;
