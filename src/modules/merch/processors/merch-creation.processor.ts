@@ -88,14 +88,13 @@ export class MerchCreationProcessor extends WorkerHost {
 
           if (printfulVariants.length > 0) {
             try {
-              const storeId = process.env.PRINTFUL_STORE_ID || '';
-              const syncProduct = await this.printfulService.createSyncProduct(storeId, {
+              const syncProduct = await this.printfulService.createSyncProduct({
                 name: `${sku.name} - Drop ${merchDropId.slice(0, 8)}`,
                 thumbnail: printFileUrl,
                 variants: printfulVariants,
               });
 
-              const printfulProductId = syncProduct?.result?.id;
+              const printfulProductId = syncProduct?.data?.id || syncProduct?.result?.id;
               if (printfulProductId) {
                 await this.merchProductRepo
                   .createQueryBuilder()

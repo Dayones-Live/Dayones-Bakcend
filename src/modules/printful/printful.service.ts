@@ -12,6 +12,7 @@ export class PrintfulService {
       headers: {
         Authorization: `Bearer ${process.env.PRINTFUL_API_TOKEN}`,
         'Content-Type': 'application/json',
+        'X-PF-Store-Id': process.env.PRINTFUL_STORE_ID,
       },
     });
   }
@@ -29,7 +30,7 @@ export class PrintfulService {
     }
   }
 
-  async createSyncProduct(storeId: string, productData: {
+  async createSyncProduct(productData: {
     name: string;
     thumbnail: string;
     variants: Array<{
@@ -39,7 +40,7 @@ export class PrintfulService {
     }>;
   }): Promise<any> {
     try {
-      const response = await this.client.post(`/v2/stores/${storeId}/sync-products`, {
+      const response = await this.client.post('/v2/sync-products', {
         sync_product: { name: productData.name, thumbnail: productData.thumbnail },
         sync_variants: productData.variants.map((v) => ({
           variant_id: v.variant_id,
