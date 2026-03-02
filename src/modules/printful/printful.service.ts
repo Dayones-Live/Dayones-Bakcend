@@ -82,7 +82,7 @@ export class PrintfulService {
 
   async confirmOrder(orderId: number): Promise<any> {
     try {
-      const response = await this.client.post(`/v2/orders/${orderId}/confirm`);
+      const response = await this.client.post(`/v2/orders/${orderId}/confirmation`);
       return response.data;
     } catch (error) {
       this.logger.error(`Confirm order failed: ${error.message}`);

@@ -35,6 +35,11 @@ export class OrderFulfillmentProcessor extends WorkerHost {
         return;
       }
 
+      if (order.printful_order_id) {
+        this.logger.log(`Order ${merchOrderId} already has Printful order ${order.printful_order_id}, skipping`);
+        return;
+      }
+
       const address = order.shipping_address as any;
       const printfulOrder = await this.printfulService.createOrder({
         recipient: {
