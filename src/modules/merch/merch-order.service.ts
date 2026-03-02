@@ -273,6 +273,18 @@ export class MerchOrderService {
         where: { merch_order_id: order.id },
       });
       if (ledger) {
+        if (Number(ledger.stripe_fee) === 0 && order.stripe_payment_intent_id) {
+          try {
+            const pi = await this.stripeService.retrievePaymentIntent(order.stripe_payment_intent_id);
+            const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
+            if (chargeId) {
+              ledger.stripe_fee = await this.stripeService.getBalanceTransaction(chargeId);
+            }
+          } catch (e) {
+            this.logger.warn(`Could not re-fetch stripe fee: ${e.message}`);
+          }
+        }
+
         const artistSplitRate = parseFloat(process.env.MERCH_ARTIST_SPLIT || '0.70');
         const platformSplitRate = parseFloat(process.env.MERCH_PLATFORM_SPLIT || '0.30');
 
