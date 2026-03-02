@@ -76,7 +76,6 @@ export class OrderFulfillmentProcessor extends WorkerHost {
 
       const printfulOrderId = printfulOrder?.data?.id || printfulOrder?.result?.id;
       if (printfulOrderId) {
-        await this.printfulService.confirmOrder(printfulOrderId);
         await this.merchOrderService.updateOrderWithPrintful(merchOrderId, printfulOrderId);
         this.logger.log(`Order ${merchOrderId} submitted to Printful as ${printfulOrderId}`);
       }
