@@ -17,7 +17,7 @@ export class PrintfulWebhookService {
       case 'order_updated':
         await this.handleOrderUpdated(data);
         break;
-      case 'order_shipped':
+      case 'package_shipped':
         await this.handleOrderShipped(data);
         break;
       case 'order_canceled':

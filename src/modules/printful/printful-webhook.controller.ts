@@ -22,12 +22,15 @@ export class PrintfulWebhookController {
   @Public()
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
     try {
-      const webhookSecret = req.headers['x-printful-webhook-secret'];
-      if (webhookSecret !== process.env.PRINTFUL_WEBHOOK_SECRET) {
-        this.logger.warn('Invalid Printful webhook secret');
-        return res
-          .status(HttpStatus.UNAUTHORIZED)
-          .json({ error: 'Invalid webhook secret' });
+      const envSecret = process.env.PRINTFUL_WEBHOOK_SECRET;
+      if (envSecret) {
+        const webhookSecret = req.headers['x-printful-webhook-secret'];
+        if (webhookSecret !== envSecret) {
+          this.logger.warn('Invalid Printful webhook secret');
+          return res
+            .status(HttpStatus.UNAUTHORIZED)
+            .json({ error: 'Invalid webhook secret' });
+        }
       }
 
       const { type, data } = req.body;
