@@ -167,7 +167,12 @@ export class MerchOrderService {
       order.status = MerchOrderStatus.PAID;
       await this.merchOrderRepo.save(order);
 
-      const stripeFee = await this.stripeService.getBalanceTransaction(chargeId);
+      let resolvedChargeId = chargeId;
+      if (!resolvedChargeId) {
+        const pi = await this.stripeService.retrievePaymentIntent(paymentIntentId);
+        resolvedChargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
+      }
+      const stripeFee = resolvedChargeId ? await this.stripeService.getBalanceTransaction(resolvedChargeId) : 0;
 
       const ledger = new OrderLedger();
       ledger.merch_order_id = order.id;

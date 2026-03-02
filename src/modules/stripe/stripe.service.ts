@@ -117,6 +117,10 @@ export class StripeService {
     });
   }
 
+  async retrievePaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
+    return this.stripe.paymentIntents.retrieve(paymentIntentId);
+  }
+
   async refundPaymentIntent(paymentIntentId: string): Promise<Stripe.Refund> {
     return this.stripe.refunds.create({ payment_intent: paymentIntentId });
   }
