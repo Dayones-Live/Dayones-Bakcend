@@ -57,7 +57,16 @@ export class PrintfulService {
 
   async createOrder(orderData: {
     recipient: { name: string; address1: string; city: string; state_code: string; country_code: string; zip: string };
-    items: Array<{ sync_variant_id: number; quantity: number }>;
+    items: Array<{
+      source: string;
+      catalog_variant_id: number;
+      quantity: number;
+      placements: Array<{
+        placement: string;
+        technique: string;
+        layers: Array<{ type: string; url: string }>;
+      }>;
+    }>;
   }): Promise<any> {
     try {
       const response = await this.client.post('/v2/orders', {

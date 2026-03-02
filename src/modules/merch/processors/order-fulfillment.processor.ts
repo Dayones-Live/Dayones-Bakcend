@@ -47,13 +47,29 @@ export class OrderFulfillmentProcessor extends WorkerHost {
         },
         items: order.items
           .filter((item) => item.merchProduct?.printful_variant_id)
-          .map((item) => ({
-            sync_variant_id: Number(item.merchProduct.printful_variant_id),
-            quantity: item.quantity,
-          })),
+          .map((item) => {
+            const isGarment = item.merchProduct.product_type !== 'POSTER';
+            return {
+              source: 'catalog',
+              catalog_variant_id: Number(item.merchProduct.printful_variant_id),
+              quantity: item.quantity,
+              placements: [
+                {
+                  placement: isGarment ? 'front' : 'default',
+                  technique: isGarment ? 'dtg' : 'uv',
+                  layers: [
+                    {
+                      type: 'file',
+                      url: item.merchProduct.image_url,
+                    },
+                  ],
+                },
+              ],
+            };
+          }),
       });
 
-      const printfulOrderId = printfulOrder?.result?.id;
+      const printfulOrderId = printfulOrder?.data?.id || printfulOrder?.result?.id;
       if (printfulOrderId) {
         await this.printfulService.confirmOrder(printfulOrderId);
         await this.merchOrderService.updateOrderWithPrintful(merchOrderId, printfulOrderId);
