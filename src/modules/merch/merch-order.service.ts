@@ -93,10 +93,10 @@ export class MerchOrderService {
             },
             dto.items.map((item) => {
               const product = drop.products.find((p) => p.id === item.merchProductId);
-              return { variant_id: Number(product.printful_variant_id), quantity: item.quantity };
+              return { catalog_variant_id: Number(product.printful_variant_id), quantity: item.quantity };
             }),
           );
-          shippingCost = parseFloat(shippingRates?.result?.[0]?.rate || '0');
+          shippingCost = parseFloat(shippingRates?.[0]?.price || '0');
         } catch (error) {
           this.logger.warn(`Shipping estimate failed, using 0: ${error.message}`);
         }

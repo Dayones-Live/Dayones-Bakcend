@@ -101,15 +101,16 @@ export class StripeService {
   }
 
   async getBalanceTransaction(chargeId: string): Promise<number> {
-    const charge = await this.stripe.charges.retrieve(chargeId);
+    const charge = await this.stripe.charges.retrieve(chargeId, {
+      expand: ['balance_transaction'],
+    });
     if (!charge.balance_transaction) {
       return 0;
     }
-    const balanceTransactionId = typeof charge.balance_transaction === 'string'
-      ? charge.balance_transaction
-      : charge.balance_transaction.id;
-    const balanceTransaction = await this.stripe.balanceTransactions.retrieve(balanceTransactionId);
-    return balanceTransaction.fee / 100;
+    const bt = typeof charge.balance_transaction === 'string'
+      ? await this.stripe.balanceTransactions.retrieve(charge.balance_transaction)
+      : charge.balance_transaction;
+    return bt.fee / 100;
   }
 
   async createTransfer(amount: number, stripeAccountId: string, metadata: Record<string, string>): Promise<Stripe.Transfer> {

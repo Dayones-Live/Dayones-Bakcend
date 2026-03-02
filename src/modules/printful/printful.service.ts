@@ -112,11 +112,16 @@ export class PrintfulService {
 
   async getShippingRates(recipient: {
     address1: string; city: string; state_code: string; country_code: string; zip: string;
-  }, items: Array<{ variant_id: number; quantity: number }>): Promise<any> {
+  }, items: Array<{ catalog_variant_id: number; quantity: number }>): Promise<any> {
     try {
-      const response = await this.client.post('/v2/shipping/rates', {
+      const response = await this.client.post('/v2/shipping-rates', {
         recipient,
-        items,
+        order_items: items.map((item) => ({
+          source: 'catalog',
+          catalog_variant_id: item.catalog_variant_id,
+          quantity: item.quantity,
+        })),
+        currency: 'USD',
       });
       return response.data;
     } catch (error) {
