@@ -96,7 +96,8 @@ export class MerchOrderService {
               return { catalog_variant_id: Number(product.printful_variant_id), quantity: item.quantity };
             }),
           );
-          shippingCost = parseFloat(shippingRates?.[0]?.price || '0');
+          const rates = shippingRates?.data || shippingRates;
+          shippingCost = parseFloat(rates?.[0]?.rate || '0');
         } catch (error) {
           this.logger.warn(`Shipping estimate failed, using 0: ${error.message}`);
         }
