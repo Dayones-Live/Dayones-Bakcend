@@ -135,10 +135,25 @@ export class PrintfulService {
     }
   }
 
-  async getCatalogVariants(catalogProductId: number): Promise<any> {
+  async getCatalogVariants(catalogProductId: number): Promise<any[]> {
     try {
-      const response = await this.client.get(`/v2/catalog-products/${catalogProductId}/catalog-variants`);
-      return response.data;
+      const allVariants: any[] = [];
+      let offset = 0;
+      const limit = 100;
+
+      while (true) {
+        const response = await this.client.get(
+          `/v2/catalog-products/${catalogProductId}/catalog-variants`,
+          { params: { limit, offset } },
+        );
+        const variants = response.data?.data || [];
+        allVariants.push(...variants);
+
+        if (variants.length < limit) break;
+        offset += limit;
+      }
+
+      return allVariants;
     } catch (error) {
       this.logger.error(`Get catalog variants failed for product ${catalogProductId}: ${error.message}`);
       throw new HttpException('Printful catalog lookup failed', HttpStatus.BAD_GATEWAY);

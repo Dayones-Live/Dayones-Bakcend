@@ -51,8 +51,8 @@ export class PrintfulCatalogService {
     }
 
     try {
-      const response = await this.printfulService.getCatalogVariants(catalogProductId);
-      const variants: CatalogVariant[] = (response?.result || []).map((v: any) => ({
+      const rawVariants = await this.printfulService.getCatalogVariants(catalogProductId);
+      const variants: CatalogVariant[] = rawVariants.map((v: any) => ({
         id: v.id,
         size: v.size || '',
         color: v.color || '',
