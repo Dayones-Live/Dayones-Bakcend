@@ -21,6 +21,7 @@ import { StripeWebhookService } from '../stripe/stripe-webhook.service';
 import { PrintfulWebhookService } from '../printful/printful-webhook.service';
 import { ImageNormalizationService } from './services/image-normalization.service';
 import { ArtistPost } from '@artist-post/entities/artist-post.entity';
+import { SharedModule } from '@app/shared/shared.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ArtistPost } from '@artist-post/entities/artist-post.entity';
     ),
     forwardRef(() => StripeModule),
     PrintfulModule,
+    SharedModule,
   ],
   controllers: [MerchController],
   providers: [

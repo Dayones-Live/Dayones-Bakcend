@@ -10,6 +10,8 @@ import { PrintfulCatalogService } from '../../printful/printful-catalog.service'
 import { ImageNormalizationService } from '../services/image-normalization.service';
 import { ArtistPost } from '@artist-post/entities/artist-post.entity';
 import { PRODUCT_CATALOG, getAllVariants } from '../constants/product-catalog';
+import { PushNotificationService } from '@app/shared/services/push-notification.service';
+import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 
 @Processor('merch-creation', { concurrency: 2 })
 export class MerchCreationProcessor extends WorkerHost {
@@ -24,6 +26,8 @@ export class MerchCreationProcessor extends WorkerHost {
     private printfulService: PrintfulService,
     private printfulCatalogService: PrintfulCatalogService,
     private imageNormalizationService: ImageNormalizationService,
+    private pushNotificationService: PushNotificationService,
+    private userDeviceService: UserDeviceService,
   ) {
     super();
   }
@@ -119,6 +123,18 @@ export class MerchCreationProcessor extends WorkerHost {
 
       await this.merchService.activateMerchDrop(merchDropId);
       this.logger.log(`Drop ${merchDropId} activated with ${createdCount} product variants`);
+
+      try {
+        const playerIds = await this.userDeviceService.getActivePlayerIds(artistId);
+        if (playerIds.length > 0) {
+          await this.pushNotificationService.sendPushNotification(
+            playerIds, 'DayOnes', 'Your merch drop is now live!',
+            { type: 'merch_drop_live', merch_drop_id: merchDropId },
+          );
+        }
+      } catch (notifErr) {
+        this.logger.warn(`Drop activation notification failed: ${notifErr.message}`);
+      }
     } catch (error) {
       this.logger.error(`Merch creation job failed: ${error.message}`);
       throw error;

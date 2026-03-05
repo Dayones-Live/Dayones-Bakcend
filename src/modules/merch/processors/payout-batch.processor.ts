@@ -7,6 +7,8 @@ import { PayoutBatch } from '../entities/payout-batch.entity';
 import { PayoutBatchStatus } from '../constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { PushNotificationService } from '@app/shared/services/push-notification.service';
+import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 
 @Processor('payout-batch', { concurrency: 1 })
 export class PayoutBatchProcessor extends WorkerHost {
@@ -17,6 +19,8 @@ export class PayoutBatchProcessor extends WorkerHost {
     private payoutBatchRepo: Repository<PayoutBatch>,
     private merchPayoutService: MerchPayoutService,
     private stripeService: StripeService,
+    private pushNotificationService: PushNotificationService,
+    private userDeviceService: UserDeviceService,
   ) {
     super();
   }
@@ -67,6 +71,18 @@ export class PayoutBatchProcessor extends WorkerHost {
 
           await this.merchPayoutService.markLedgerEntriesPaidOut(group.ledgerIds, savedBatch.id);
           this.logger.log(`Paid artist ${group.artistId}: $${group.totalShare.toFixed(2)} (${group.orderCount} orders)`);
+
+          try {
+            const playerIds = await this.userDeviceService.getActivePlayerIds(group.artistId);
+            if (playerIds.length > 0) {
+              await this.pushNotificationService.sendPushNotification(
+                playerIds, 'DayOnes', `Payout of $${group.totalShare.toFixed(2)} sent!`,
+                { type: 'payout_sent', payout_batch_id: savedBatch.id },
+              );
+            }
+          } catch (notifErr) {
+            this.logger.warn(`Payout notification failed for artist ${group.artistId}: ${notifErr.message}`);
+          }
         } catch (error) {
           savedBatch.status = PayoutBatchStatus.FAILED;
           await this.payoutBatchRepo.save(savedBatch);

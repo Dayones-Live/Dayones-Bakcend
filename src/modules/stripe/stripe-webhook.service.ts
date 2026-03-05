@@ -86,9 +86,7 @@ export class StripeWebhookService {
         typeof dispute.charge === 'string'
           ? dispute.charge
           : dispute.charge?.id;
-      this.logger.warn(
-        `Dispute handling for charge ${chargeId} - needs manual review`,
-      );
+      await this.merchOrderService.handleDispute(chargeId);
     }
   }
 

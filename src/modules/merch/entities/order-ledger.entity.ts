@@ -5,7 +5,6 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { MerchOrder } from './merch-order.entity';
@@ -17,15 +16,18 @@ export class OrderLedger extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ nullable: false, unique: true })
+  @Column({ nullable: false })
   @Index()
   merch_order_id: string;
 
-  @OneToOne(() => MerchOrder, (order) => order.ledger, {
+  @ManyToOne(() => MerchOrder, (order) => order.ledgerEntries, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'merch_order_id' })
   merchOrder: MerchOrder;
+
+  @Column({ nullable: true })
+  description: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   gross_revenue: number;

@@ -54,9 +54,15 @@ export class PrintfulWebhookService {
 
   private async handleOrderCanceled(data: any): Promise<void> {
     this.logger.log(`Printful order canceled: ${data.order?.id}`);
+    if (this.merchOrderService) {
+      await this.merchOrderService.handleOrderCanceled(data.order?.id);
+    }
   }
 
   private async handleOrderFailed(data: any): Promise<void> {
     this.logger.log(`Printful order failed: ${data.order?.id}`);
+    if (this.merchOrderService) {
+      await this.merchOrderService.handleOrderFailed(data.order?.id);
+    }
   }
 }

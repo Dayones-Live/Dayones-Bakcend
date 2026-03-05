@@ -13,6 +13,8 @@ import { StripeService } from '../stripe/stripe.service';
 import { PrintfulService } from '../printful/printful.service';
 import { CreateMerchOrderDto } from './dto';
 import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
+import { PushNotificationService } from '@app/shared/services/push-notification.service';
+import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 
 @Injectable()
 export class MerchOrderService {
@@ -35,6 +37,8 @@ export class MerchOrderService {
     private printfulService: PrintfulService,
     @InjectQueue('order-fulfillment')
     private orderFulfillmentQueue: Queue,
+    private pushNotificationService: PushNotificationService,
+    private userDeviceService: UserDeviceService,
   ) {}
 
   private generateOrderNumber(): string {
@@ -223,10 +227,140 @@ export class MerchOrderService {
     }
   }
 
+  async handleDispute(chargeId: string): Promise<void> {
+    try {
+      const charge = await this.stripeService.retrieveCharge(chargeId);
+      const paymentIntentId = typeof charge.payment_intent === 'string'
+        ? charge.payment_intent : charge.payment_intent?.id;
+      if (!paymentIntentId) {
+        this.logger.warn(`No PaymentIntent found for disputed charge: ${chargeId}`);
+        return;
+      }
+
+      const order = await this.merchOrderRepo.findOne({
+        where: { stripe_payment_intent_id: paymentIntentId },
+      });
+      if (!order) {
+        this.logger.warn(`No order found for disputed charge: ${chargeId}`);
+        return;
+      }
+
+      const ledger = await this.orderLedgerRepo.findOne({
+        where: { merch_order_id: order.id },
+        order: { created_at: 'DESC' },
+      });
+      if (!ledger) return;
+
+      if (ledger.status === LedgerStatus.PENDING || ledger.status === LedgerStatus.CALCULATED) {
+        ledger.status = LedgerStatus.REVERSED;
+        await this.orderLedgerRepo.save(ledger);
+      } else if (ledger.status === LedgerStatus.PAID_OUT) {
+        const clawback = new OrderLedger();
+        clawback.merch_order_id = order.id;
+        clawback.gross_revenue = 0;
+        clawback.stripe_fee = 0;
+        clawback.printful_cost = 0;
+        clawback.net_profit = -Number(ledger.net_profit);
+        clawback.artist_share = -Number(ledger.artist_share);
+        clawback.platform_share = -Number(ledger.platform_share);
+        clawback.status = LedgerStatus.CALCULATED;
+        clawback.description = `Dispute clawback for charge ${chargeId}`;
+        await this.orderLedgerRepo.save(clawback);
+      }
+
+      this.logger.warn(`Dispute processed for order ${order.id}, charge ${chargeId}, ledger was ${ledger.status}`);
+    } catch (error) {
+      this.logger.error(`Handle dispute failed: ${error.message}`);
+    }
+  }
+
+  async handleOrderFailed(printfulOrderId: number): Promise<void> {
+    try {
+      const order = await this.merchOrderRepo.findOne({
+        where: { printful_order_id: printfulOrderId },
+      });
+      if (!order) {
+        this.logger.warn(`No order found for failed Printful order: ${printfulOrderId}`);
+        return;
+      }
+
+      order.status = MerchOrderStatus.CANCELLED;
+      await this.merchOrderRepo.save(order);
+
+      const ledger = await this.orderLedgerRepo.findOne({
+        where: { merch_order_id: order.id },
+      });
+      if (ledger && ledger.status !== LedgerStatus.REVERSED) {
+        ledger.status = LedgerStatus.REVERSED;
+        await this.orderLedgerRepo.save(ledger);
+      }
+
+      if (order.stripe_payment_intent_id) {
+        try {
+          await this.stripeService.refundPaymentIntent(order.stripe_payment_intent_id);
+        } catch (refundErr) {
+          this.logger.error(`Auto-refund failed for failed order ${order.id}: ${refundErr.message}`);
+        }
+      }
+
+      this.logger.error(`Order ${order.id} FAILED in production (Printful ${printfulOrderId}) - auto-refund initiated`);
+
+      try {
+        const playerIds = await this.userDeviceService.getActivePlayerIds(order.artist_id);
+        if (playerIds.length > 0) {
+          await this.pushNotificationService.sendPushNotification(
+            playerIds, 'DayOnes',
+            `Order ${order.order_number} failed in production. Customer has been refunded.`,
+            { type: 'order_failed', merch_order_id: order.id },
+          );
+        }
+      } catch (notifErr) {
+        this.logger.warn(`Failed order notification error: ${notifErr.message}`);
+      }
+    } catch (error) {
+      this.logger.error(`Handle order failed error: ${error.message}`);
+    }
+  }
+
+  async handleOrderCanceled(printfulOrderId: number): Promise<void> {
+    try {
+      const order = await this.merchOrderRepo.findOne({
+        where: { printful_order_id: printfulOrderId },
+      });
+      if (!order) {
+        this.logger.warn(`No order found for canceled Printful order: ${printfulOrderId}`);
+        return;
+      }
+
+      order.status = MerchOrderStatus.CANCELLED;
+      await this.merchOrderRepo.save(order);
+
+      const ledger = await this.orderLedgerRepo.findOne({
+        where: { merch_order_id: order.id },
+      });
+      if (ledger && ledger.status !== LedgerStatus.REVERSED) {
+        ledger.status = LedgerStatus.REVERSED;
+        await this.orderLedgerRepo.save(ledger);
+      }
+
+      if (order.stripe_payment_intent_id) {
+        try {
+          await this.stripeService.refundPaymentIntent(order.stripe_payment_intent_id);
+        } catch (refundErr) {
+          this.logger.error(`Auto-refund failed for canceled order ${order.id}: ${refundErr.message}`);
+        }
+      }
+
+      this.logger.log(`Order ${order.id} canceled (Printful ${printfulOrderId}) - refund initiated`);
+    } catch (error) {
+      this.logger.error(`Handle order canceled error: ${error.message}`);
+    }
+  }
+
   async getOrder(id: string, userId: string): Promise<MerchOrder> {
     const order = await this.merchOrderRepo.findOne({
       where: { id },
-      relations: ['items', 'items.merchProduct', 'ledger'],
+      relations: ['items', 'items.merchProduct', 'ledgerEntries'],
     });
     if (!order) {
       throw new HttpException(ERROR_MESSAGES.MERCH_ORDER_NOT_FOUND, HttpStatus.NOT_FOUND);
@@ -300,6 +434,21 @@ export class MerchOrderService {
         }
         ledger.status = LedgerStatus.CALCULATED;
         await this.orderLedgerRepo.save(ledger);
+      }
+
+      try {
+        const playerIds = await this.userDeviceService.getActivePlayerIds(order.fan_id);
+        if (playerIds.length > 0) {
+          const msg = trackingNumber
+            ? `Your order ${order.order_number} has shipped! Tracking: ${trackingNumber}`
+            : `Your order ${order.order_number} has shipped!`;
+          await this.pushNotificationService.sendPushNotification(
+            playerIds, 'DayOnes', msg,
+            { type: 'order_shipped', merch_order_id: order.id, tracking_url: trackingUrl || '' },
+          );
+        }
+      } catch (notifErr) {
+        this.logger.warn(`Shipped notification failed for order ${order.id}: ${notifErr.message}`);
       }
     } catch (error) {
       this.logger.error(`Handle order shipped failed: ${error.message}`);

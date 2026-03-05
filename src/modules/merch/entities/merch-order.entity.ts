@@ -6,7 +6,6 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
-  OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from '@user/entities/user.entity';
@@ -83,8 +82,8 @@ export class MerchOrder extends BaseEntity {
   @OneToMany(() => MerchOrderItem, (item) => item.merchOrder)
   items: MerchOrderItem[];
 
-  @OneToOne(() => OrderLedger, (ledger) => ledger.merchOrder)
-  ledger: OrderLedger;
+  @OneToMany(() => OrderLedger, (ledger) => ledger.merchOrder)
+  ledgerEntries: OrderLedger[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
