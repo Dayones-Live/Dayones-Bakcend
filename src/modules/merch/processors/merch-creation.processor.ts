@@ -129,7 +129,7 @@ export class MerchCreationProcessor extends WorkerHost {
         if (playerIds.length > 0) {
           await this.pushNotificationService.sendPushNotification(
             playerIds, 'DayOnes', 'Your merch drop is now live!',
-            { type: 'merch_drop_live', merch_drop_id: merchDropId },
+            { type: 'merch_drop', drop_id: merchDropId },
           );
         }
       } catch (notifErr) {
