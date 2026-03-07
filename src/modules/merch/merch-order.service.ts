@@ -444,7 +444,7 @@ export class MerchOrderService {
             : `Your order ${order.order_number} has shipped!`;
           await this.pushNotificationService.sendPushNotification(
             playerIds, 'DayOnes', msg,
-            { type: 'order_shipped', merch_order_id: order.id, tracking_url: trackingUrl || '' },
+            { type: 'merch_order_shipped', order_id: order.id, tracking_url: trackingUrl || '' },
           );
         }
       } catch (notifErr) {
