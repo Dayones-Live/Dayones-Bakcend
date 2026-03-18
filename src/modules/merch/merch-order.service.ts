@@ -123,11 +123,14 @@ export class MerchOrderService {
       const savedOrder = await this.merchOrderRepo.save(order);
 
       for (const item of orderItems) {
+        const product = drop.products.find((p) => p.id === item.merch_product_id);
         const orderItem = new MerchOrderItem();
         orderItem.merch_order_id = savedOrder.id;
         orderItem.merch_product_id = item.merch_product_id;
         orderItem.quantity = item.quantity;
         orderItem.unit_price = item.unit_price;
+        orderItem.size = product?.size || null;
+        orderItem.color = product?.color || null;
         await this.merchOrderItemRepo.save(orderItem);
       }
 
