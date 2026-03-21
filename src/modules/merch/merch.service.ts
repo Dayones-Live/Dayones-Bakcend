@@ -66,6 +66,14 @@ export class MerchService {
     }
   }
 
+  async listDropsByArtist(artistId: string): Promise<MerchDrop[]> {
+    return this.merchDropRepo.find({
+      where: { artist_id: artistId },
+      relations: ['products', 'orders'],
+      order: { created_at: 'DESC' },
+    });
+  }
+
   async getMerchDrop(id: string): Promise<MerchDrop> {
     try {
       const drop = await this.merchDropRepo.findOne({
