@@ -35,6 +35,18 @@ export class MerchController {
     }
   }
 
+  @Get('drops')
+  @Role(Roles.ARTIST)
+  async listDrops(@Req() req: Request, @Res() res: Response) {
+    try {
+      const userId = req?.user?.id || '';
+      const result = await this.merchService.listDropsByArtist(userId);
+      res.status(HttpStatus.OK).json({ data: result });
+    } catch (error) {
+      throw error;
+    }
+  }
+
   @Get('drops/:id')
   async getMerchDrop(@Param('id') id: string, @Res() res: Response) {
     try {
