@@ -23,6 +23,7 @@ import { BlocksModule } from '@app/modules/user/modules/blocks/blocks.module';
 import { StripeModule } from '@app/modules/stripe/stripe.module';
 import { PrintfulModule } from '@app/modules/printful/printful.module';
 import { MerchModule } from '@app/modules/merch/merch.module';
+import { ArtistDashboardModule } from '@app/modules/artist-dashboard/artist-dashboard.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { MerchModule } from '@app/modules/merch/merch.module';
     StripeModule,
     PrintfulModule,
     MerchModule,
+    ArtistDashboardModule,
   ],
 })
 export class AppConfigModule {}
