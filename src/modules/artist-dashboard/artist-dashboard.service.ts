@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { ArtistPost } from '../posts/modules/artist-post/entities/artist-post.entity';
 import { ArtistPostUser } from '../posts/modules/artist-post-user/entities/artist-post-user.entity';
 import { MerchDrop } from '../merch/entities/merch-drop.entity';
@@ -31,60 +31,104 @@ export class ArtistDashboardService {
       order: { created_at: 'ASC' },
     });
 
+    if (posts.length === 0) {
+      return { totalRevenue: 0, totalFans: 0, totalEvents: 0, avgConversionRate: 0, events: [] };
+    }
+
+    const postIds = posts.map((p) => p.id);
+
+    const fanCounts = await this.artistPostUserRepo
+      .createQueryBuilder('apu')
+      .select('apu.artist_post_id', 'postId')
+      .addSelect('apu.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('apu.artist_post_id IN (:...postIds)', { postIds })
+      .andWhere('apu.status IN (:...statuses)', {
+        statuses: [Invite_Status.ACCEPTED, Invite_Status.PENDING, Invite_Status.REJECTED],
+      })
+      .groupBy('apu.artist_post_id')
+      .addGroupBy('apu.status')
+      .getRawMany();
+
+    const fanMap: Record<string, { accepted: number; total: number }> = {};
+    for (const row of fanCounts) {
+      if (!fanMap[row.postId]) fanMap[row.postId] = { accepted: 0, total: 0 };
+      const count = parseInt(row.count, 10);
+      fanMap[row.postId].total += count;
+      if (row.status === Invite_Status.ACCEPTED) {
+        fanMap[row.postId].accepted = count;
+      }
+    }
+
+    const drops = await this.merchDropRepo.find({
+      where: { artist_post_id: In(postIds) },
+    });
+    const dropByPostId: Record<string, string> = {};
+    const dropIds: string[] = [];
+    for (const drop of drops) {
+      dropByPostId[drop.artist_post_id] = drop.id;
+      dropIds.push(drop.id);
+    }
+
+    const revenueByDrop: Record<string, { revenue: number; orderCount: number }> = {};
+    if (dropIds.length > 0) {
+      const orders = await this.merchOrderRepo.find({
+        where: { merch_drop_id: In(dropIds) },
+      });
+
+      const ordersByDrop: Record<string, MerchOrder[]> = {};
+      const orderIds: string[] = [];
+      for (const order of orders) {
+        if (!ordersByDrop[order.merch_drop_id]) ordersByDrop[order.merch_drop_id] = [];
+        ordersByDrop[order.merch_drop_id].push(order);
+        orderIds.push(order.id);
+      }
+
+      let ledgerByOrder: Record<string, number> = {};
+      if (orderIds.length > 0) {
+        const ledgers = await this.orderLedgerRepo.find({
+          where: { merch_order_id: In(orderIds) },
+        });
+        for (const ledger of ledgers) {
+          const share = Number(ledger.artist_share || 0);
+          if (share > 0) {
+            if (!ledgerByOrder[ledger.merch_order_id]) ledgerByOrder[ledger.merch_order_id] = 0;
+            ledgerByOrder[ledger.merch_order_id] += share;
+          }
+        }
+      }
+
+      for (const dropId of dropIds) {
+        const dropOrders = ordersByDrop[dropId] || [];
+        let revenue = 0;
+        for (const order of dropOrders) {
+          revenue += ledgerByOrder[order.id] || 0;
+        }
+        const activeOrders = dropOrders.filter(
+          (o) => !['CANCELLED', 'REFUNDED'].includes(o.status),
+        ).length;
+        revenueByDrop[dropId] = { revenue, orderCount: activeOrders };
+      }
+    }
+
     let totalFans = 0;
     let totalInvited = 0;
     let totalRevenue = 0;
     const events = [];
 
     for (const post of posts) {
-      const acceptedCount = await this.artistPostUserRepo.count({
-        where: { artist_post_id: post.id, status: Invite_Status.ACCEPTED },
-      });
-
-      const invitedCount = await this.artistPostUserRepo.count({
-        where: [
-          { artist_post_id: post.id, status: Invite_Status.PENDING },
-          { artist_post_id: post.id, status: Invite_Status.ACCEPTED },
-          { artist_post_id: post.id, status: Invite_Status.REJECTED },
-        ],
-      });
-
-      let eventRevenue = 0;
-      let orderCount = 0;
-
-      const drop = await this.merchDropRepo.findOne({
-        where: { artist_post_id: post.id },
-      });
-
-      if (drop) {
-        const orders = await this.merchOrderRepo.find({
-          where: { merch_drop_id: drop.id },
-        });
-
-        for (const order of orders) {
-          const ledger = await this.orderLedgerRepo.findOne({
-            where: { merch_order_id: order.id },
-            order: { created_at: 'DESC' },
-          });
-
-          if (ledger && Number(ledger.artist_share) > 0) {
-            eventRevenue += Number(ledger.artist_share);
-          }
-        }
-
-        orderCount = orders.filter(
-          (o) => !['CANCELLED', 'REFUNDED'].includes(o.status),
-        ).length;
-      }
+      const fans = fanMap[post.id] || { accepted: 0, total: 0 };
+      const dropId = dropByPostId[post.id];
+      const dropData = dropId ? revenueByDrop[dropId] : null;
 
       const conversionRate =
-        invitedCount > 0
-          ? Math.round((acceptedCount / invitedCount) * 1000) / 10
+        fans.total > 0
+          ? Math.round((fans.accepted / fans.total) * 1000) / 10
           : 0;
 
-      totalFans += acceptedCount;
-      totalInvited += invitedCount;
-      totalRevenue += eventRevenue;
+      totalFans += fans.accepted;
+      totalInvited += fans.total;
+      totalRevenue += dropData?.revenue || 0;
 
       events.push({
         postId: post.id,
@@ -92,11 +136,11 @@ export class ArtistDashboardService {
         message: post.message,
         locale: post.locale,
         date: post.created_at,
-        fansCaptured: acceptedCount,
-        fansInvited: invitedCount,
+        fansCaptured: fans.accepted,
+        fansInvited: fans.total,
         conversionRate,
-        revenue: Math.round(eventRevenue * 100) / 100,
-        orderCount,
+        revenue: Math.round((dropData?.revenue || 0) * 100) / 100,
+        orderCount: dropData?.orderCount || 0,
       });
     }
 
