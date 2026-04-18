@@ -46,6 +46,9 @@ export class CreateUserInput {
 
   @IsOptional()
   pendingApproval?: boolean;
+
+  @IsOptional()
+  password_hash?: string;
 }
 
 export class UserConfirmationInput {

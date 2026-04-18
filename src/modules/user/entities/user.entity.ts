@@ -54,6 +54,9 @@ export class User extends BaseEntity {
   @IsNotEmpty({ message: 'Role is required' })
   role: Roles[];
 
+  @Column({ nullable: true })
+  password_hash?: string;
+
   @Column({ nullable: false })
   @IsNotEmpty({ message: 'User Sub is required' })
   @Index()

@@ -12,16 +12,21 @@ import { ERROR_MESSAGES } from '@app/shared/constants/constants';
 import { UserService } from '@app/modules/user/services/user.service';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import * as jwt from 'jsonwebtoken';
+import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class CognitoGuard implements CanActivate {
   private readonly verifier;
+  private readonly isDemoMode;
 
   constructor(
     private reflector: Reflector,
     @Inject(forwardRef(() => UserService))
     private userService: UserService,
+    private configService: ConfigService,
   ) {
     this.verifier = cognitoJwtVerify;
+    this.isDemoMode = process.env.DEMO_MODE === 'true';
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -42,6 +47,16 @@ export class CognitoGuard implements CanActivate {
     }
 
     try {
+      if (this.isDemoMode) {
+        const payload = jwt.verify(token, this.configService.get<string>('JWT_SECRET') || 'DEMO_MODE_SECRET_KEY_DO_NOT_USE_IN_PRODUCTION') as any;
+        const user = await this.userService.findUserByUserSub(payload?.sub);
+        if (user) {
+          request.userSub = payload?.sub;
+          request.user = user;
+        }
+        return true;
+      }
+
       const payload = await this.verifier.verify(token, {
         tokenUse: 'access',
         clientId: process.env.COGNITO_CLIENT_ID || '',

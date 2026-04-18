@@ -108,6 +108,29 @@ export class AuthController {
     const { username, password } = signInUserInput;
     try {
       const result = await this.cognitoService.signIn({ username, password });
+      if (result?.data?.demo_mode) {
+        const user = result.data.user;
+        const payload = {
+          sub: user.user_sub,
+          email: user.email,
+          role: user.role,
+        };
+        const jwtSecret = this.configService.get<string>('JWT_SECRET') || 'DEMO_MODE_SECRET_KEY_DO_NOT_USE_IN_PRODUCTION';
+        const accessToken = this.jwtService.sign(payload, {
+          secret: jwtSecret,
+          expiresIn: '1h',
+        });
+        res.status(result.statusCode).json({
+          message: result.message,
+          data: {
+            access_token: accessToken,
+            expires_in: 3600,
+            token_type: 'Bearer',
+            user: user,
+          },
+        });
+        return;
+      }
       res
         .status(result?.statusCode)
         .json({ message: result?.message, data: result?.data || '' });

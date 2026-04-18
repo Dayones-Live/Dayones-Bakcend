@@ -51,6 +51,7 @@ export class CognitoService {
   private clientId = process.env.COGNITO_CLIENT_ID; // Replace with your App Client ID
   private cognitoClient;
   private jwksClient;
+  private readonly isDemoMode = process.env.DEMO_MODE === 'true';
 
   constructor(
     private userService: UserService,
@@ -67,6 +68,14 @@ export class CognitoService {
     });
   }
 
+  private hashPassword(password: string): string {
+    return crypto.createHash('sha256').update(password).digest('hex');
+  }
+
+  private verifyPassword(password: string, hash: string): boolean {
+    return this.hashPassword(password) === hash;
+  }
+
   /**
    * Service for user signup on the basis of user data
    * @param email
@@ -78,6 +87,32 @@ export class CognitoService {
    */
   async signUp(userData: UserSignUpInput): Promise<GlobalServiceResponse> {
     const { email, password, role, name: userFullName, phoneNumber } = userData;
+
+    if (this.isDemoMode) {
+      const { v4: uuidv4 } = require('uuid');
+      const userSub = uuidv4();
+      const passwordHash = this.hashPassword(password);
+      const isPendingApproval = role === Roles.ARTIST;
+
+      const newUser = await this.userService.createUser({
+        name: userFullName,
+        email,
+        phoneNumber,
+        role: role,
+        userSub,
+        password_hash: passwordHash,
+        isConfirmed: !isPendingApproval,
+        pendingApproval: isPendingApproval,
+      });
+      const { user_sub, password_hash, ...extractedUserData } = newUser;
+      return {
+        message: isPendingApproval
+          ? 'Artist registration submitted successfully. Awaiting admin approval.'
+          : SUCCESS_MESSAGES.USER_SIGNUP_SUCCESS,
+        statusCode: 200,
+        data: { ...extractedUserData, role: extractedUserData?.role[0], demo_confirmed: true },
+      };
+    }
 
     const params = {
       ClientId: this.clientId || '',
@@ -94,10 +129,10 @@ export class CognitoService {
     try {
       const command = new SignUpCommand(params);
       const result = await this.cognitoClient.send(command);
-      
+
       // Set pending_approval if user is signing up as artist
       const isPendingApproval = role === Roles.ARTIST;
-      
+
       const newUser = await this.userService.createUser({
         name: userFullName,
         email,
@@ -109,7 +144,7 @@ export class CognitoService {
       });
       const { user_sub, ...extractedUserData } = newUser;
       return {
-        message: isPendingApproval 
+        message: isPendingApproval
           ? 'Artist registration submitted successfully. Awaiting admin approval.'
           : SUCCESS_MESSAGES.USER_SIGNUP_SUCCESS,
         statusCode: 200,
@@ -136,6 +171,14 @@ export class CognitoService {
     username: string,
     confirmationCode: string,
   ): Promise<GlobalServiceResponse> {
+    if (this.isDemoMode) {
+      return {
+        message: SUCCESS_MESSAGES.USER_CONFIRMATION_CODE_SUCCESS,
+        statusCode: HttpStatus.OK,
+        data: { demo_confirmed: true },
+      };
+    }
+
     const params = {
       ClientId: this.clientId || '',
       Username: username,
@@ -190,6 +233,18 @@ export class CognitoService {
    * @returns {}
    */
   async resendSignUpCode(username: string): Promise<GlobalServiceResponse> {
+    if (this.isDemoMode) {
+      return {
+        message: SUCCESS_MESSAGES.USER_CONFIRMATION_EMAIL_SUCCESS,
+        statusCode: HttpStatus.OK,
+        data: {
+          attribute_name: 'email',
+          delivery_medium: 'EMAIL',
+          destination: username,
+        },
+      };
+    }
+
     try {
       const params = {
         ClientId: this.clientId || '',
@@ -232,6 +287,30 @@ export class CognitoService {
    * @returns {AccessToken}
    */
   async signIn(signInData: SignInUserInput): Promise<GlobalServiceResponse> {
+    if (this.isDemoMode) {
+      const user = await this.userService.findUserByEmail(signInData.username);
+      if (!user) {
+        throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+      }
+      if (!user.password_hash) {
+        throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+      }
+      if (!this.verifyPassword(signInData.password, user.password_hash)) {
+        throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+      }
+      return {
+        statusCode: HttpStatus.OK,
+        message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
+        data: {
+          demo_mode: true,
+          user: {
+            ...user,
+            role: user?.role?.[0] || null,
+          },
+        },
+      };
+    }
+
     await this.userService.checkUserActiveByEmail(signInData.username);
     const params = {
       AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
