@@ -8,6 +8,7 @@ import {
   Req,
   HttpException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { CognitoService } from '@aws/cognito/services/cognito.service';
@@ -42,6 +43,7 @@ export class AuthController {
     private configService: ConfigService,
   ) {}
 
+  @Throttle({ medium: { limit: 5, ttl: 60000 } })
   @Post('signup')
   @Public()
   async userSignUp(
@@ -60,6 +62,7 @@ export class AuthController {
     }
   }
 
+  @Throttle({ medium: { limit: 10, ttl: 60000 } })
   @Post('verify')
   @Public()
   async verifyUser(
@@ -81,6 +84,7 @@ export class AuthController {
     }
   }
 
+  @Throttle({ medium: { limit: 3, ttl: 60000 } })
   @Post('resend-confirm-email')
   @Public()
   async resendConfirmationCode(
@@ -102,6 +106,7 @@ export class AuthController {
     }
   }
 
+  @Throttle({ medium: { limit: 10, ttl: 60000 } })
   @Post('signin')
   @Public()
   async signIn(@Body() signInUserInput: SignInUserInput, @Res() res: Response) {
@@ -214,6 +219,7 @@ export class AuthController {
    * @throws Error if email sent failed with confirmation code
    */
   @Public()
+  @Throttle({ medium: { limit: 5, ttl: 60000 } })
   @Post('forgot-password')
   async forgotPassword(
     @Body() forgotPasswordInput: ForgotPasswordInput,
@@ -244,6 +250,7 @@ export class AuthController {
    * @throws Error if confirmation code is incorrect and password policy don't satisfy
    */
   @Public()
+  @Throttle({ medium: { limit: 5, ttl: 60000 } })
   @Post('confirm-forgot-password')
   async confirmForgotPassword(
     @Body() confirmForgotPasswordInput: ConfirmForgotPasswordInput,

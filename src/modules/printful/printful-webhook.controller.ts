@@ -5,9 +5,12 @@ import {
   Res,
   HttpStatus,
   Logger,
+  UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
+import * as crypto from 'crypto';
 import { Public } from '@auth/decorators/public.decorator';
 import { PrintfulWebhookService } from './printful-webhook.service';
 
@@ -22,25 +25,63 @@ export class PrintfulWebhookController {
   @Public()
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
     try {
-      const envSecret = process.env.PRINTFUL_WEBHOOK_SECRET;
-      if (envSecret) {
-        const webhookSecret = req.headers['x-printful-webhook-secret'];
-        if (webhookSecret !== envSecret) {
-          this.logger.warn('Invalid Printful webhook secret');
-          return res
-            .status(HttpStatus.UNAUTHORIZED)
-            .json({ error: 'Invalid webhook secret' });
-        }
+      this.verifySignature(req);
+
+      const { type, data } = req.body ?? {};
+      if (!type) {
+        return res.status(HttpStatus.BAD_REQUEST).json({ error: 'Missing event type' });
       }
 
-      const { type, data } = req.body;
       await this.printfulWebhookService.handleEvent(type, data);
-      res.status(HttpStatus.OK).json({ received: true });
+      return res.status(HttpStatus.OK).json({ received: true });
     } catch (error) {
-      this.logger.error(`Printful webhook error: ${error.message}`);
-      res
-        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .json({ error: error.message });
+      if (error instanceof UnauthorizedException) {
+        this.logger.warn('Printful webhook rejected: invalid signature');
+        return res.status(HttpStatus.UNAUTHORIZED).json({ error: 'Invalid signature' });
+      }
+      this.logger.error(
+        `Printful webhook handler error: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: 'Webhook processing failed' });
     }
+  }
+
+  private verifySignature(req: Request): void {
+    const secret = process.env.PRINTFUL_WEBHOOK_SECRET;
+
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error('PRINTFUL_WEBHOOK_SECRET not configured in production');
+        throw new InternalServerErrorException('Webhook not configured');
+      }
+      this.logger.warn('Webhook signature verification skipped (no secret configured, dev mode)');
+      return;
+    }
+
+    const hmacHeader = req.headers['x-pf-webhook-signature'];
+    if (typeof hmacHeader === 'string' && hmacHeader.length > 0) {
+      const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+      if (!rawBody) {
+        throw new UnauthorizedException('Missing raw body for signature verification');
+      }
+      const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+      if (!this.safeEquals(expected, hmacHeader)) {
+        throw new UnauthorizedException('Signature mismatch');
+      }
+      return;
+    }
+
+    const sharedSecret = req.headers['x-printful-webhook-secret'];
+    if (typeof sharedSecret !== 'string' || !this.safeEquals(sharedSecret, secret)) {
+      throw new UnauthorizedException('Invalid webhook secret');
+    }
+  }
+
+  private safeEquals(a: string, b: string): boolean {
+    const bufferA = Buffer.from(a);
+    const bufferB = Buffer.from(b);
+    if (bufferA.length !== bufferB.length) return false;
+    return crypto.timingSafeEqual(bufferA, bufferB);
   }
 }
