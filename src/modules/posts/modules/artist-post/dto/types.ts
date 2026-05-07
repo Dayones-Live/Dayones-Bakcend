@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { Post_Type } from '../constants';
 import { Comments } from '../../comments/entities/comments.entity';
 import { PaginationResponse } from '@app/types';
@@ -13,6 +13,13 @@ export class CreateArtistPostInput {
 
   @IsOptional()
   imageUrl: string;
+
+  @IsOptional()
+  videoUrl: string;
+
+  @IsOptional()
+  @IsIn(['image', 'video'])
+  mediaType?: 'image' | 'video';
 
   @IsOptional()
   message: string;
@@ -39,6 +46,13 @@ export class CreateGenericArtistPostInput {
 
   @IsOptional()
   imageUrl: string;
+
+  @IsOptional()
+  videoUrl: string;
+
+  @IsOptional()
+  @IsIn(['image', 'video'])
+  mediaType?: 'image' | 'video';
 
   @IsOptional()
   message: string;

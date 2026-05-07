@@ -43,6 +43,13 @@ export class ArtistPost extends BaseEntity {
 
   @Column({ nullable: true })
   @IsOptional()
+  video_url: string;
+
+  @Column({ type: 'varchar', length: 16, default: 'image' })
+  media_type: 'image' | 'video';
+
+  @Column({ nullable: true })
+  @IsOptional()
   range: number;
 
   @Column({ type: 'enum', enum: Post_Type, nullable: false })
