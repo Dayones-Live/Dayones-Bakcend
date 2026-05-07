@@ -13,6 +13,7 @@ import { Public } from '@auth/decorators/public.decorator';
 import { StripeService } from './stripe.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { ERROR_MESSAGES } from '@app/shared/constants/constants';
+import { WebhookDedupService } from '@app/shared/services/webhook-dedup.service';
 
 @ApiTags('Stripe Webhooks')
 @Controller('stripe')
@@ -22,6 +23,7 @@ export class StripeWebhookController {
   constructor(
     private stripeService: StripeService,
     private stripeWebhookService: StripeWebhookService,
+    private webhookDedup: WebhookDedupService,
   ) {}
 
   @Post('webhooks')
@@ -36,11 +38,22 @@ export class StripeWebhookController {
         req.rawBody,
         signature,
       );
+
+      const isNew = await this.webhookDedup.claim({
+        provider: 'stripe',
+        externalId: event.id,
+        eventType: event.type,
+      });
+      if (!isNew) {
+        this.logger.log(`Stripe webhook ${event.id} already processed, skipping`);
+        return res.status(HttpStatus.OK).json({ received: true, deduped: true });
+      }
+
       await this.stripeWebhookService.handleEvent(event);
-      res.status(HttpStatus.OK).json({ received: true });
+      return res.status(HttpStatus.OK).json({ received: true });
     } catch (error) {
-      this.logger.error(`Webhook error: ${error.message}`);
-      res
+      this.logger.error(`Webhook error: ${(error as Error).message}`);
+      return res
         .status(HttpStatus.BAD_REQUEST)
         .json({ error: ERROR_MESSAGES.STRIPE_WEBHOOK_INVALID });
     }

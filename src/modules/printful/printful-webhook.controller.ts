@@ -13,13 +13,17 @@ import { Request, Response } from 'express';
 import * as crypto from 'crypto';
 import { Public } from '@auth/decorators/public.decorator';
 import { PrintfulWebhookService } from './printful-webhook.service';
+import { WebhookDedupService } from '@app/shared/services/webhook-dedup.service';
 
 @ApiTags('Printful Webhooks')
 @Controller('printful')
 export class PrintfulWebhookController {
   private readonly logger = new Logger(PrintfulWebhookController.name);
 
-  constructor(private printfulWebhookService: PrintfulWebhookService) {}
+  constructor(
+    private printfulWebhookService: PrintfulWebhookService,
+    private webhookDedup: WebhookDedupService,
+  ) {}
 
   @Post('webhooks')
   @Public()
@@ -30,6 +34,19 @@ export class PrintfulWebhookController {
       const { type, data } = req.body ?? {};
       if (!type) {
         return res.status(HttpStatus.BAD_REQUEST).json({ error: 'Missing event type' });
+      }
+
+      const externalId = (data?.id || data?.order?.id || data?.order_id || '').toString();
+      if (externalId) {
+        const isNew = await this.webhookDedup.claim({
+          provider: 'printful',
+          externalId: `${type}:${externalId}`,
+          eventType: type,
+        });
+        if (!isNew) {
+          this.logger.log(`Printful webhook ${type}:${externalId} already processed, skipping`);
+          return res.status(HttpStatus.OK).json({ received: true, deduped: true });
+        }
       }
 
       await this.printfulWebhookService.handleEvent(type, data);

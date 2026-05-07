@@ -6,10 +6,12 @@ import { AuthModule } from './modules/auth/auth.module';
 import { NotificationModule } from './shared/services/notification.module';
 import { UserModule } from './modules/user/user.module';
 import { AllExceptionsFilter } from './shared/filters/all-exceptions.filter';
+import { WebhookDedupModule } from './shared/services/webhook-dedup.module';
 
 @Module({
   imports: [
     AppConfigModule,
+    WebhookDedupModule,
     ThrottlerModule.forRoot([
       { name: 'short', ttl: 1000, limit: 10 },
       { name: 'medium', ttl: 60_000, limit: 120 },
