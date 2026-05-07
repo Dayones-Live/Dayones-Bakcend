@@ -25,7 +25,11 @@ export class MerchService {
     private merchCreationQueue: Queue,
   ) {}
 
-  async createMerchDrop(artistPostId: string, artistId: string): Promise<MerchDrop> {
+  async createMerchDrop(
+    artistPostId: string,
+    artistId: string,
+    durationMinutes?: number,
+  ): Promise<MerchDrop> {
     try {
       const existing = await this.merchDropRepo.findOne({ where: { artist_post_id: artistPostId } });
       if (existing) {
@@ -37,9 +41,12 @@ export class MerchService {
         throw new HttpException(ERROR_MESSAGES.STRIPE_ONBOARDING_INCOMPLETE, HttpStatus.BAD_REQUEST);
       }
 
-      const dropDurationHours = parseInt(process.env.MERCH_DROP_DURATION_HOURS || '48');
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + dropDurationHours);
+      const ALLOWED_DURATIONS = new Set([60, 240, 480, 1440, 4320]);
+      const fallbackHours = parseInt(process.env.MERCH_DROP_DURATION_HOURS || '48');
+      const minutes = durationMinutes && ALLOWED_DURATIONS.has(durationMinutes)
+        ? durationMinutes
+        : fallbackHours * 60;
+      const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
 
       const merchDrop = new MerchDrop();
       merchDrop.artist_post_id = artistPostId;

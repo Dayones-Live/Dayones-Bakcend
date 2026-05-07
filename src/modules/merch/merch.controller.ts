@@ -24,7 +24,11 @@ export class MerchController {
   async createMerchDrop(@Body() dto: CreateMerchDropDto, @Req() req: Request, @Res() res: Response) {
     try {
       const userId = req?.user?.id || '';
-      const result = await this.merchService.createMerchDrop(dto.artistPostId, userId);
+      const result = await this.merchService.createMerchDrop(
+        dto.artistPostId,
+        userId,
+        dto.durationMinutes,
+      );
       res.status(HttpStatus.CREATED).json({
         message: SUCCESS_MESSAGES.MERCH_DROP_CREATED,
         data: result,

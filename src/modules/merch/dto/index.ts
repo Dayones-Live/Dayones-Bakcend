@@ -5,6 +5,11 @@ export class CreateMerchDropDto {
   @IsNotEmpty()
   @IsUUID()
   artistPostId: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(60)
+  durationMinutes?: number;
 }
 
 export class OrderItemDto {
