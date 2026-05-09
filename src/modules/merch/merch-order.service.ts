@@ -1,6 +1,6 @@
 import { Injectable, Logger, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { MerchOrder } from './entities/merch-order.entity';
@@ -39,6 +39,7 @@ export class MerchOrderService {
     private orderFulfillmentQueue: Queue,
     private pushNotificationService: PushNotificationService,
     private userDeviceService: UserDeviceService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   private generateOrderNumber(): string {
@@ -109,36 +110,51 @@ export class MerchOrderService {
 
       const total = subtotal + shippingCost;
 
-      const order = new MerchOrder();
-      order.order_number = this.generateOrderNumber();
-      order.merch_drop_id = dto.merchDropId;
-      order.fan_id = fanId;
-      order.artist_id = drop.artist_id;
-      order.status = MerchOrderStatus.PENDING;
-      order.subtotal = subtotal;
-      order.shipping_cost = shippingCost;
-      order.total = total;
-      order.shipping_address = dto.shippingAddress as any;
+      const savedOrder = await this.dataSource.transaction(async (manager) => {
+        const order = new MerchOrder();
+        order.order_number = this.generateOrderNumber();
+        order.merch_drop_id = dto.merchDropId;
+        order.fan_id = fanId;
+        order.artist_id = drop.artist_id;
+        order.status = MerchOrderStatus.PENDING;
+        order.subtotal = subtotal;
+        order.shipping_cost = shippingCost;
+        order.total = total;
+        order.shipping_address = dto.shippingAddress as any;
 
-      const savedOrder = await this.merchOrderRepo.save(order);
+        const persistedOrder = await manager.getRepository(MerchOrder).save(order);
 
-      for (const item of orderItems) {
-        const product = drop.products.find((p) => p.id === item.merch_product_id);
-        const orderItem = new MerchOrderItem();
-        orderItem.merch_order_id = savedOrder.id;
-        orderItem.merch_product_id = item.merch_product_id;
-        orderItem.quantity = item.quantity;
-        orderItem.unit_price = item.unit_price;
-        orderItem.size = product?.size || null;
-        orderItem.color = product?.color || null;
-        await this.merchOrderItemRepo.save(orderItem);
-      }
+        const itemsToInsert = orderItems.map((item) => {
+          const product = drop.products.find((p) => p.id === item.merch_product_id);
+          const orderItem = new MerchOrderItem();
+          orderItem.merch_order_id = persistedOrder.id;
+          orderItem.merch_product_id = item.merch_product_id!;
+          orderItem.quantity = item.quantity!;
+          orderItem.unit_price = item.unit_price!;
+          orderItem.size = product?.size || null;
+          orderItem.color = product?.color || null;
+          return orderItem;
+        });
+        await manager.getRepository(MerchOrderItem).save(itemsToInsert);
 
-      const paymentIntent = await this.stripeService.createPaymentIntent(total, {
-        merch_order_id: savedOrder.id,
-        artist_id: drop.artist_id,
-        order_number: savedOrder.order_number,
+        return persistedOrder;
       });
+
+      let paymentIntent;
+      try {
+        paymentIntent = await this.stripeService.createPaymentIntent(total, {
+          merch_order_id: savedOrder.id,
+          artist_id: drop.artist_id,
+          order_number: savedOrder.order_number,
+        });
+      } catch (stripeErr) {
+        savedOrder.status = MerchOrderStatus.CANCELLED;
+        await this.merchOrderRepo.save(savedOrder);
+        throw new HttpException(
+          'Could not start payment. Please try again.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
 
       savedOrder.stripe_payment_intent_id = paymentIntent.id;
       await this.merchOrderRepo.save(savedOrder);
