@@ -7,7 +7,8 @@ import { IsInt, IsOptional, IsString } from 'class-validator';
  * Use ApiOkResponseData(SomeDto) on routes to advertise the typed `data` field
  * to the OpenAPI spec and code-generated clients.
  */
-export class GlobalServiceResponse<T = unknown> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export class GlobalServiceResponse<T = any> {
   @ApiPropertyOptional({ description: 'Typed response payload' })
   @IsOptional()
   data?: T;

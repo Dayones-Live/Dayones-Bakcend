@@ -1,5 +1,13 @@
 import { Media_Type } from '@app/types';
-import { IsNotEmpty, IsOptional, IsUUID, ValidateIf, registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
+import { ApiHideProperty } from '@nestjs/swagger';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsUUID,
+  registerDecorator,
+  ValidationOptions,
+  ValidationArguments,
+} from 'class-validator';
 
 // Custom validator to ensure at least one of message or url is provided
 function HasMessageOrUrl(validationOptions?: ValidationOptions) {
@@ -12,8 +20,14 @@ function HasMessageOrUrl(validationOptions?: ValidationOptions) {
       validator: {
         validate(value: any, args: ValidationArguments) {
           const obj = args.object as CreateCommentInput;
-          const hasMessage = obj.message !== undefined && obj.message !== null && String(obj.message).trim() !== '';
-          const hasUrl = obj.url !== undefined && obj.url !== null && String(obj.url).trim() !== '';
+          const hasMessage =
+            obj.message !== undefined &&
+            obj.message !== null &&
+            String(obj.message).trim() !== '';
+          const hasUrl =
+            obj.url !== undefined &&
+            obj.url !== null &&
+            String(obj.url).trim() !== '';
           return hasMessage || hasUrl;
         },
         defaultMessage(args: ValidationArguments) {
@@ -25,13 +39,17 @@ function HasMessageOrUrl(validationOptions?: ValidationOptions) {
 }
 
 export class CreateCommentInput {
+  @ApiHideProperty()
   @IsOptional()
   artistPostUserId?: string;
 
   @IsOptional()
-  @HasMessageOrUrl({ message: 'Either message or photo (url) must be provided' })
+  @HasMessageOrUrl({
+    message: 'Either message or photo (url) must be provided',
+  })
   message?: string;
 
+  @ApiHideProperty()
   @IsOptional()
   commentBy?: string;
 
@@ -50,12 +68,14 @@ export class UpdateCommentInput {
   @IsUUID()
   id: string;
 
+  @ApiHideProperty()
   @IsOptional()
-  userId: string;
+  userId?: string;
+
+  @ApiHideProperty()
+  @IsOptional()
+  artistPostUserId?: string;
 
   @IsOptional()
-  artistPostUserId: string;
-
-  @IsOptional()
-  message: string;
+  message?: string;
 }

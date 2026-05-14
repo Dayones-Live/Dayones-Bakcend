@@ -1,3 +1,4 @@
+import { ApiHideProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsEnum, IsEmail, IsOptional } from 'class-validator';
 import { Roles } from '@app/shared/constants/constants';
 
@@ -17,7 +18,7 @@ export class UserSignUpInput {
   name: string;
 
   @IsOptional()
-  phoneNumber: string;
+  phoneNumber?: string;
 }
 
 export class CreateUserInput {
@@ -69,14 +70,14 @@ export class SignInUserInput {
   @IsEmail({}, { message: 'User name must be a valid email address' })
   username: string;
 
-  @IsOptional()
   @IsNotEmpty({ message: 'Password is required' })
   password: string;
 }
 
 export class UpdatePasswordInput {
+  @ApiHideProperty()
   @IsOptional()
-  accessToken: string;
+  accessToken?: string;
 
   @IsNotEmpty({ message: 'Old Password is required' })
   previousPassword: string;
@@ -90,6 +91,7 @@ export class ForgotPasswordInput {
   @IsEmail({}, { message: 'User Name must be a valid email address' })
   userName: string;
 }
+
 export class ConfirmForgotPasswordInput {
   @IsNotEmpty({ message: 'Username is required' })
   userName: string;

@@ -1,3 +1,4 @@
+import { ApiHideProperty } from '@nestjs/swagger';
 import { IsIn, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { Post_Type } from '../constants';
 import { Comments } from '../../comments/entities/comments.entity';
@@ -8,21 +9,22 @@ import {
 } from '@app/modules/posts/modules/artist-post-user/dto/types';
 
 export class CreateArtistPostInput {
+  @ApiHideProperty()
   @IsOptional()
-  userId: string;
+  userId?: string;
 
   @IsOptional()
-  imageUrl: string;
+  imageUrl?: string;
 
   @IsOptional()
-  videoUrl: string;
+  videoUrl?: string;
 
   @IsOptional()
   @IsIn(['image', 'video'])
   mediaType?: 'image' | 'video';
 
   @IsOptional()
-  message: string;
+  message?: string;
 
   @IsNotEmpty({ message: 'Range is required' })
   range: number;
@@ -41,21 +43,22 @@ export class CreateArtistPostInput {
 }
 
 export class CreateGenericArtistPostInput {
+  @ApiHideProperty()
   @IsOptional()
-  userId: string;
+  userId?: string;
 
   @IsOptional()
-  imageUrl: string;
+  imageUrl?: string;
 
   @IsOptional()
-  videoUrl: string;
+  videoUrl?: string;
 
   @IsOptional()
   @IsIn(['image', 'video'])
   mediaType?: 'image' | 'video';
 
   @IsOptional()
-  message: string;
+  message?: string;
 
   @IsNotEmpty({ message: 'Type is required' })
   type: Post_Type;
@@ -63,51 +66,53 @@ export class CreateGenericArtistPostInput {
 
 export class Location {
   @IsOptional()
-  longitude: string;
+  longitude?: string;
 
   @IsOptional()
-  latitude: string;
+  latitude?: string;
 
   @IsOptional()
-  locale: string;
+  locale?: string;
 }
 
 export class UpdateArtistPostInput extends Location {
+  @ApiHideProperty()
   @IsOptional()
-  id: string;
+  id?: string;
+
+  @ApiHideProperty()
+  @IsOptional()
+  userId?: string;
 
   @IsOptional()
-  userId: string;
+  imageUrl?: string;
 
   @IsOptional()
-  imageUrl: string;
+  message?: string;
 
   @IsOptional()
-  message: string;
+  range?: number;
 
   @IsOptional()
-  range: number;
-
-  @IsOptional()
-  type: Post_Type;
+  type?: Post_Type;
 }
 
 export class ArtistPostObject extends Location {
   @IsOptional()
   @IsUUID()
-  id: string;
+  id?: string;
 
   @IsOptional()
-  image_url: string;
+  image_url?: string;
 
   @IsOptional()
-  message: string;
+  message?: string;
 
   @IsOptional()
-  range: number;
+  range?: number;
 
   @IsOptional()
-  type: Post_Type;
+  type?: Post_Type;
 }
 
 export class GenericArtistPostObject extends ArtistPostObject {
@@ -117,7 +122,7 @@ export class GenericArtistPostObject extends ArtistPostObject {
 
 export class AllPostsResponse extends PaginationResponse {
   @IsOptional()
-  posts: ArtistPostObject[];
+  posts?: ArtistPostObject[];
 }
 
 export class ArtistPostResponse {
@@ -136,8 +141,8 @@ export class ArtistPostResponse {
 
 export class ArtistPostWithCounts extends ArtistPostObject {
   @IsOptional()
-  commentsCount: number;
+  commentsCount?: number;
 
   @IsOptional()
-  reactionCount: number;
+  reactionCount?: number;
 }

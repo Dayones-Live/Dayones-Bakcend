@@ -1,9 +1,11 @@
+import { ApiHideProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 import { Invite_Status } from '../constants/constants';
 import { User } from '@user/entities/user.entity';
 export class CreateArtistPostUserInput {
+  @ApiHideProperty()
   @IsOptional()
-  userId: string;
+  userId?: string;
 
   @IsNotEmpty({ message: 'Artist post id is required' })
   artistPostId: string;
@@ -16,17 +18,19 @@ export class CreateArtistPostUserInput {
 }
 
 export class UpdateArtistPostUserInput {
+  @ApiHideProperty()
   @IsOptional()
-  id: string;
+  id?: string;
+
+  @ApiHideProperty()
+  @IsOptional()
+  userId?: string;
 
   @IsOptional()
-  userId: string;
+  artistPostId?: string;
 
   @IsOptional()
-  artistPostId: string;
-
-  @IsOptional()
-  validTill: Date;
+  validTill?: Date;
 
   @IsNotEmpty({ message: 'Status is Required' })
   status: Invite_Status;
@@ -34,51 +38,51 @@ export class UpdateArtistPostUserInput {
 
 export class UserInvitesResponse {
   @IsOptional()
-  id: string;
+  id?: string;
 
   @IsOptional()
-  user_id: string;
+  user_id?: string;
 
   @IsOptional()
-  artist_post_id: string;
+  artist_post_id?: string;
 
   @IsOptional()
-  valid_till: Date;
+  valid_till?: Date;
 
   @IsOptional()
-  status: string;
+  status?: string;
 
   @IsOptional()
-  created_at: Date;
+  created_at?: Date;
 
   @IsOptional()
-  updated_at: Date;
+  updated_at?: Date;
 
   @IsOptional()
-  user: User;
+  user?: User;
 }
 
 export class CommentsWithUserResponse {
   @IsOptional()
-  id: string;
+  id?: string;
 
   @IsOptional()
-  artist_post_user_id: string;
+  artist_post_user_id?: string;
 
   @IsOptional()
-  message: string;
+  message?: string;
 
   @IsOptional()
-  created_at: Date;
+  created_at?: Date;
 
   @IsOptional()
-  updated_at: Date;
+  updated_at?: Date;
 
   @IsOptional()
   commentReactionCount?: number;
 
   @IsOptional()
-  user: Partial<User>;
+  user?: Partial<User>;
 
   @IsOptional()
   replies?: CommentsWithUserResponse[];
@@ -86,17 +90,17 @@ export class CommentsWithUserResponse {
 
 export class ReactionsWithUserResponse {
   @IsOptional()
-  id: string;
+  id?: string;
 
   @IsOptional()
-  artist_post_user_id: string;
+  artist_post_user_id?: string;
 
   @IsOptional()
-  created_at: Date;
+  created_at?: Date;
 
   @IsOptional()
-  updated_at: Date;
+  updated_at?: Date;
 
   @IsOptional()
-  user: Partial<User>;
+  user?: Partial<User>;
 }

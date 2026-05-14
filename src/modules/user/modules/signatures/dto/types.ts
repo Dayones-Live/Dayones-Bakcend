@@ -1,9 +1,12 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { ApiHideProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsUrl } from 'class-validator';
 
 export class CreateUserSignatureInput {
+  @ApiHideProperty()
   @IsOptional()
-  userId: string;
+  userId?: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'Signature URL is required' })
+  @IsUrl(undefined, { message: 'Signature URL must be a valid URL' })
   url: string;
 }
