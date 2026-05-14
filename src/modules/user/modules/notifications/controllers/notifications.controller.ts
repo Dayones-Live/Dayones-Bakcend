@@ -214,6 +214,25 @@ export class NotificationsController {
     }
   }
 
+  @Patch('mark-all-read')
+  async markAllAsRead(
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      this.logger.log(`[MARK_ALL_READ] Received request to mark all notifications as read for user ${req?.user?.id}`);
+
+      await this.notificationService.markAllNotificationsAsRead(req?.user?.id);
+
+      res.status(HttpStatus.OK).json({
+        message: 'All notifications marked as read successfully'
+      });
+    } catch (error) {
+      this.logger.error(`[MARK_ALL_READ] Error marking all notifications as read: ${error.message}`);
+      throw error;
+    }
+  }
+
   @Patch(':id')
   async updateIsRead(
     @Param('id') id: string,
@@ -222,34 +241,15 @@ export class NotificationsController {
   ) {
     try {
       this.logger.log(`[MARK_READ] Received request to mark notification ${id} as read for user ${req?.user?.id}`);
-      
+
       await this.notificationService.markNotificationAsRead(id, req?.user?.id);
-      
-      res.status(HttpStatus.OK).json({ 
+
+      res.status(HttpStatus.OK).json({
         message: 'Notification marked as read successfully',
         data: { id }
       });
     } catch (error) {
       this.logger.error(`[MARK_READ] Error marking notification as read: ${error.message}`);
-      throw error;
-    }
-  }
-
-  @Patch('mark-all-read')
-  async markAllAsRead(
-    @Res() res: Response,
-    @Req() req: Request,
-  ) {
-    try {
-      this.logger.log(`[MARK_ALL_READ] Received request to mark all notifications as read for user ${req?.user?.id}`);
-      
-      await this.notificationService.markAllNotificationsAsRead(req?.user?.id);
-      
-      res.status(HttpStatus.OK).json({ 
-        message: 'All notifications marked as read successfully'
-      });
-    } catch (error) {
-      this.logger.error(`[MARK_ALL_READ] Error marking all notifications as read: ${error.message}`);
       throw error;
     }
   }

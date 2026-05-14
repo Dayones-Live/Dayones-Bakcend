@@ -20,28 +20,34 @@ export class B2DataIntegrity1778200000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "merch_order" ALTER COLUMN "subtotal" TYPE NUMERIC(18,2)
+      ALTER TABLE "merch_orders" ALTER COLUMN "subtotal" TYPE NUMERIC(18,2)
     `);
     await queryRunner.query(`
-      ALTER TABLE "merch_order" ALTER COLUMN "total" TYPE NUMERIC(18,2)
+      ALTER TABLE "merch_orders" ALTER COLUMN "total" TYPE NUMERIC(18,2)
     `);
     await queryRunner.query(`
-      ALTER TABLE "merch_order" ALTER COLUMN "shipping_cost" TYPE NUMERIC(18,2)
+      ALTER TABLE "merch_orders" ALTER COLUMN "shipping_cost" TYPE NUMERIC(18,2)
     `);
     await queryRunner.query(`
-      ALTER TABLE "merch_order_item" ALTER COLUMN "unit_price" TYPE NUMERIC(18,2)
+      ALTER TABLE "merch_order_items" ALTER COLUMN "unit_price" TYPE NUMERIC(18,2)
     `);
     await queryRunner.query(`
-      ALTER TABLE "order_ledger" ALTER COLUMN "amount" TYPE NUMERIC(18,4)
+      ALTER TABLE "order_ledger"
+        ALTER COLUMN "gross_revenue" TYPE NUMERIC(18,4),
+        ALTER COLUMN "stripe_fee" TYPE NUMERIC(18,4),
+        ALTER COLUMN "printful_cost" TYPE NUMERIC(18,4),
+        ALTER COLUMN "net_profit" TYPE NUMERIC(18,4),
+        ALTER COLUMN "artist_share" TYPE NUMERIC(18,4),
+        ALTER COLUMN "platform_share" TYPE NUMERIC(18,4)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX IF NOT EXISTS "idx_merch_order_user_status_created"
-        ON "merch_order" ("user_id", "status", "created_at" DESC)
+      CREATE INDEX IF NOT EXISTS "idx_merch_order_fan_status_created"
+        ON "merch_orders" ("fan_id", "status", "created_at" DESC)
     `);
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "idx_merch_drop_artist_status"
-        ON "merch_drop" ("artist_id", "status")
+        ON "merch_drops" ("artist_id", "status")
     `);
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "idx_artist_post_user_post_status"
@@ -64,7 +70,7 @@ export class B2DataIntegrity1778200000000 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_artist_post_user_user_status"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_artist_post_user_post_status"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_merch_drop_artist_status"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_merch_order_user_status_created"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "idx_merch_order_fan_status_created"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "uq_webhook_event_provider_external"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "webhook_event"`);
   }

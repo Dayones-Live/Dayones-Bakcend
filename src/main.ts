@@ -64,7 +64,11 @@ async function bootstrap() {
 
   if (process.env.NODE_ENV !== 'production') {
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('api/document', app, document);
+    document.security = [{ bearer: [] }];
+    SwaggerModule.setup('api/document', app, document, {
+      jsonDocumentUrl: 'api/v1/openapi.json',
+      yamlDocumentUrl: 'api/v1/openapi.yaml',
+    });
   }
 
   app.useGlobalPipes(
@@ -87,7 +91,8 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`Application is running on port ${port}`);
   if (process.env.NODE_ENV !== 'production') {
-    logger.log(`Swagger available at /api/document`);
+    logger.log(`Swagger UI: http://localhost:${port}/api/document`);
+    logger.log(`OpenAPI JSON: http://localhost:${port}/api/v1/openapi.json`);
   }
 }
 bootstrap();
