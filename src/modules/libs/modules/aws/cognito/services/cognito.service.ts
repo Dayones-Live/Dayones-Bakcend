@@ -92,8 +92,11 @@ export class CognitoService {
       const { v4: uuidv4 } = require('uuid');
       const userSub = uuidv4();
       const passwordHash = this.hashPassword(password);
-      const isPendingApproval = role === Roles.ARTIST;
 
+      // DEMO_MODE bypasses every onboarding gate: email OTP is skipped
+      // (is_confirmed=true) and artist admin-approval is skipped
+      // (pending_approval=false). The whole point of DEMO_MODE is to make
+      // the full flow exercisable without out-of-band steps.
       const newUser = await this.userService.createUser({
         name: userFullName,
         email,
@@ -101,14 +104,12 @@ export class CognitoService {
         role: role,
         userSub,
         password_hash: passwordHash,
-        isConfirmed: !isPendingApproval,
-        pendingApproval: isPendingApproval,
+        isConfirmed: true,
+        pendingApproval: false,
       });
       const { user_sub, password_hash, ...extractedUserData } = newUser;
       return {
-        message: isPendingApproval
-          ? 'Artist registration submitted successfully. Awaiting admin approval.'
-          : SUCCESS_MESSAGES.USER_SIGNUP_SUCCESS,
+        message: SUCCESS_MESSAGES.USER_SIGNUP_SUCCESS,
         statusCode: 200,
         data: { ...extractedUserData, role: extractedUserData?.role[0], demo_confirmed: true },
       };
