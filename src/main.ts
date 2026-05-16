@@ -65,6 +65,18 @@ async function bootstrap() {
   if (process.env.NODE_ENV !== 'production') {
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     document.security = [{ bearer: [] }];
+
+    // Strip the /api/v1 global prefix from path keys so that the spec's
+    // `paths` are relative and the `servers` block carries the base path.
+    // This keeps generated clients from hard-coding /api/v1 into every
+    // per-method URL, which would otherwise double up with the dio baseUrl.
+    const rewritten: typeof document.paths = {};
+    for (const [path, ops] of Object.entries(document.paths)) {
+      const stripped = path.replace(/^\/api\/v1/, '') || '/';
+      rewritten[stripped] = ops;
+    }
+    document.paths = rewritten;
+
     SwaggerModule.setup('api/document', app, document, {
       jsonDocumentUrl: 'api/v1/openapi.json',
       yamlDocumentUrl: 'api/v1/openapi.yaml',
