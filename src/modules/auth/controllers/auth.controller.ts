@@ -120,15 +120,12 @@ export class AuthController {
           email: user.email,
           role: user.role,
         };
-        const jwtSecret = this.configService.get<string>('JWT_SECRET') || 'DEMO_MODE_SECRET_KEY_DO_NOT_USE_IN_PRODUCTION';
-        const accessToken = this.jwtService.sign(payload, {
-          secret: jwtSecret,
-          expiresIn: '1h',
-        });
+        const { accessToken, refreshToken } = this.issueDemoTokens(payload);
         res.status(result.statusCode).json({
           message: result.message,
           data: {
             access_token: accessToken,
+            refresh_token: refreshToken,
             expires_in: 3600,
             token_type: 'Bearer',
             user: user,
@@ -143,6 +140,74 @@ export class AuthController {
       console.error('🚀 ~ CognitoController ~ signIn ~ error:', error);
       throw error; // Handle the error appropriately
     }
+  }
+
+  @Throttle({ medium: { limit: 20, ttl: 60000 } })
+  @Post('refresh')
+  @Public()
+  async refresh(
+    @Body() body: { refresh_token?: string },
+    @Res() res: Response,
+  ) {
+    const refresh = body?.refresh_token;
+    if (!refresh) {
+      throw new HttpException(
+        'refresh_token is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const jwtSecret =
+      this.configService.get<string>('JWT_SECRET') ||
+      'DEMO_MODE_SECRET_KEY_DO_NOT_USE_IN_PRODUCTION';
+    let payload: { sub?: string; email?: string; role?: string; type?: string };
+    try {
+      payload = this.jwtService.verify(refresh, { secret: jwtSecret });
+    } catch (error) {
+      throw new HttpException(
+        'Invalid or expired refresh token',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+    if (payload?.type !== 'refresh' || !payload?.sub) {
+      throw new HttpException(
+        'Invalid refresh token',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+    const basePayload = {
+      sub: payload.sub,
+      email: payload.email,
+      role: payload.role,
+    };
+    const { accessToken, refreshToken } = this.issueDemoTokens(basePayload);
+    res.status(HttpStatus.OK).json({
+      message: 'Token refreshed',
+      data: {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: 3600,
+        token_type: 'Bearer',
+      },
+    });
+  }
+
+  private issueDemoTokens(payload: {
+    sub: string;
+    email?: string;
+    role?: string;
+  }): { accessToken: string; refreshToken: string } {
+    const jwtSecret =
+      this.configService.get<string>('JWT_SECRET') ||
+      'DEMO_MODE_SECRET_KEY_DO_NOT_USE_IN_PRODUCTION';
+    const accessToken = this.jwtService.sign(payload, {
+      secret: jwtSecret,
+      expiresIn: '1h',
+    });
+    const refreshToken = this.jwtService.sign(
+      { ...payload, type: 'refresh' },
+      { secret: jwtSecret, expiresIn: '30d' },
+    );
+    return { accessToken, refreshToken };
   }
 
   @UseGuards(CognitoGuard)
