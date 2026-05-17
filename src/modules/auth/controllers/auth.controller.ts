@@ -128,7 +128,7 @@ export class AuthController {
             refresh_token: refreshToken,
             expires_in: 3600,
             token_type: 'Bearer',
-            user: user,
+            user: this.sanitizeUserForResponse(user),
           },
         });
         return;
@@ -189,6 +189,15 @@ export class AuthController {
         token_type: 'Bearer',
       },
     });
+  }
+
+  private sanitizeUserForResponse(user: Record<string, unknown>): Record<string, unknown> {
+    if (!user) return user;
+    const {
+      password_hash: _passwordHash,
+      ...safe
+    } = user as Record<string, unknown> & { password_hash?: unknown };
+    return safe;
   }
 
   private issueDemoTokens(payload: {
@@ -419,7 +428,7 @@ export class AuthController {
         refresh_token: refreshToken,
         expires_in: 3600,
         token_type: 'Bearer',
-        user: { ...user, role },
+        user: this.sanitizeUserForResponse({ ...user, role }),
       },
     });
   }
