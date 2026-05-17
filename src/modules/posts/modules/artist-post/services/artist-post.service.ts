@@ -168,71 +168,23 @@ export class ArtistPostService {
     createGenericArtistPostInput: CreateGenericArtistPostInput,
   ): Promise<GenericArtistPostObject> {
     try {
-      // see if already generic message has been sent i.e. post is created already
-
-      const existingGenericArtistPost = await this.artistPostRepository.findOne(
-        {
-          where: {
-            user_id: createGenericArtistPostInput.userId,
-            type: Post_Type.GENERIC,
-          },
-          relations: ['artistPostUser', 'artistPostUser.comment'],
-        },
-      );
-
-      if (!existingGenericArtistPost) {
-        // need to create a new Generic Message Post
-        const artistPostDto = this.artistPostMapper.dtoToEntityGenericMessage({
-          ...createGenericArtistPostInput,
-        });
-        const artistPost = await this.artistPostRepository.save(artistPostDto);
-        await this.artistPostUserService.createArtistPostUser({
-          userId: createGenericArtistPostInput?.userId,
-          artistPostId: artistPost?.id,
-          status: Invite_Status.GENERIC,
-          validTill: null,
-        });
-        const { user_id, ...rest } = artistPost;
-        return rest;
-      } else {
-        // need to add a comment now to the already existing Generic Message Post.
-        // Forward url + media_type so video/image uploads after the artist's
-        // first GENERIC post are preserved on the comment instead of being
-        // silently dropped.
-        const mediaUrl =
-          createGenericArtistPostInput.videoUrl ||
-          createGenericArtistPostInput.imageUrl;
-        const comment = await this.commentService.commentAPost(
-          {
-            message: createGenericArtistPostInput.message,
-            url: mediaUrl,
-            mediaType:
-              createGenericArtistPostInput.mediaType as Media_Type | undefined,
-          },
-          existingGenericArtistPost.id,
-          createGenericArtistPostInput?.userId,
-        );
-        let comments: Comments[] | undefined;
-        // Restructure the data
-        if (
-          existingGenericArtistPost &&
-          existingGenericArtistPost.artistPostUser &&
-          existingGenericArtistPost.artistPostUser.length > 0
-        ) {
-          // Extract comments from the artistPostUser relationship and filter out undefined values
-          comments = existingGenericArtistPost.artistPostUser
-            .flatMap((invite) => invite.comment ?? [])
-            .filter(Boolean);
-          comments.push(comment);
-
-          // Remove artistPostUser from the response
-          delete existingGenericArtistPost.artistPostUser;
-        }
-        return {
-          ...existingGenericArtistPost,
-          comments: comments,
-        };
-      }
+      // Always create a NEW post per upload. The Flutter UI presents each
+      // photo/video as a standalone post and the feed renders posts, not
+      // comments — so the old "first post becomes the artist's wall, rest
+      // become comments" logic silently lost media on every upload after
+      // the first one. Each upload is now its own first-class feed item.
+      const artistPostDto = this.artistPostMapper.dtoToEntityGenericMessage({
+        ...createGenericArtistPostInput,
+      });
+      const artistPost = await this.artistPostRepository.save(artistPostDto);
+      await this.artistPostUserService.createArtistPostUser({
+        userId: createGenericArtistPostInput?.userId,
+        artistPostId: artistPost?.id,
+        status: Invite_Status.GENERIC,
+        validTill: null,
+      });
+      const { user_id, ...rest } = artistPost;
+      return rest;
     } catch (error) {
       console.error(
         '🚀 ~ file:artist.post.service.ts ~ ArtistPostService ~ sendGenericMessage ~ error:',

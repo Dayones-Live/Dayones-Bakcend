@@ -277,60 +277,16 @@ export class NotificationService {
   }
 
   async updateBadgeCount(playerIds: string[], count: number): Promise<void> {
-    const startTime = Date.now();
-    this.logger.log(`[BADGE_UPDATE] Starting badge count update for ${playerIds.length} players`);
-    this.logger.log(`[BADGE_UPDATE] Badge count: ${count}`);
-    
-    try {
-      if (!this.appId || !this.restApiKey) {
-        this.logger.error('[BADGE_UPDATE] OneSignal credentials not configured');
-        throw new Error('OneSignal credentials not configured');
-      }
-
-      // Update each player's badge count individually
-      for (const playerId of playerIds) {
-        const playerStartTime = Date.now();
-        this.logger.log(`[BADGE_UPDATE] Updating badge for player ${playerId}`);
-        
-        const payload = {
-          app_id: this.appId,
-          badge: count
-        };
-
-        this.logger.debug(`[BADGE_UPDATE] Request payload for player ${playerId}:`, JSON.stringify(payload, null, 2));
-
-        const apiStartTime = Date.now();
-        const response = await axios.put(
-          `https://onesignal.com/api/v1/players/${playerId}`,
-          payload,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Basic ${this.restApiKey}`,
-            },
-          },
-        );
-
-        const apiDuration = Date.now() - apiStartTime;
-        const playerDuration = Date.now() - playerStartTime;
-        this.logger.log(`[BADGE_UPDATE] Badge updated for player ${playerId} in ${playerDuration}ms (API: ${apiDuration}ms)`);
-        this.logger.debug(`[BADGE_UPDATE] OneSignal API response for player ${playerId}:`, JSON.stringify(response.data, null, 2));
-      }
-      
-      const totalDuration = Date.now() - startTime;
-      this.logger.log(`[BADGE_UPDATE] Badge count update completed for all ${playerIds.length} players in ${totalDuration}ms`);
-    } catch (error) {
-      const totalDuration = Date.now() - startTime;
-      this.logger.error(`[BADGE_UPDATE] Error updating badge count after ${totalDuration}ms: ${error.message}`);
-      this.logger.error(`[BADGE_UPDATE] Stack trace: ${error.stack}`);
-      
-      if (error.response) {
-        this.logger.error('[BADGE_UPDATE] OneSignal API error response:', JSON.stringify(error.response.data, null, 2));
-        this.logger.error(`[BADGE_UPDATE] HTTP status code: ${error.response.status}`);
-        this.logger.error('[BADGE_UPDATE] HTTP response headers:', JSON.stringify(error.response.headers, null, 2));
-      }
-      throw error;
-    }
+    // Badge counts were previously updated via the OneSignal REST API. Since
+    // push delivery moved to FCM HTTP v1 (and OneSignal player_ids aren't
+    // populated anymore), badge sync is now a no-op on the server. Android
+    // launchers manage badges via the notification itself; iOS will need an
+    // APNs path when iOS support comes back online. Critically, this must NOT
+    // throw — callers (mark-as-read, list notifications) shouldn't 500 just
+    // because badge can't be synced.
+    this.logger.debug(
+      `[BADGE_UPDATE] no-op (FCM-only pipeline) for ${playerIds.length} target(s), count=${count}`,
+    );
   }
 
   private async resetBadgeCount(playerIds: string[]): Promise<void> {
