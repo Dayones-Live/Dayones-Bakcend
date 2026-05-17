@@ -669,11 +669,33 @@ export class UserService {
     }
   }
 
-  /**
-   * Service to update the user
-   * @param UpdateUserLocationInput
-   * @returns
-   */
+  async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+    await this.userRepository.update({ id: userId }, { password_hash: passwordHash });
+  }
+
+  async updateNotificationsOnly(
+    userId: string,
+    enabled: boolean,
+  ): Promise<{ id: string; notifications_enabled: boolean }> {
+    const existing = await this.userRepository.findOne({ where: { id: userId } });
+    if (!existing) {
+      throw new HttpException(
+        `User with ID: ${userId} does not exist`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    await this.userRepository.update(
+      { id: userId },
+      {
+        notifications_enabled: enabled,
+        notification_status_valid_till: enabled
+          ? addMinutesToDate(new Date(), 20)
+          : new Date(),
+      },
+    );
+    return { id: userId, notifications_enabled: enabled };
+  }
+
   async updateNotificationStatusAndLocation(
     updateUserLocationAndNotificationInput: UpdateUserLocationAndNotificationInput,
     userId: string,

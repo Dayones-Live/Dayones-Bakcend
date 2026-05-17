@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserDevice } from '../entities/user-device.entity';
+import { UserNotification } from '../modules/user-notifications/entities/user-notifications.entity';
 import { In } from 'typeorm';
 
 @Injectable()
@@ -11,7 +12,15 @@ export class UserDeviceService {
   constructor(
     @InjectRepository(UserDevice)
     private userDeviceRepository: Repository<UserDevice>,
+    @InjectRepository(UserNotification)
+    private userNotificationRepository: Repository<UserNotification>,
   ) {}
+
+  async deactivateByFcmToken(fcmToken: string): Promise<void> {
+    await this.userNotificationRepository.delete({
+      notification_token: fcmToken,
+    });
+  }
 
   async registerDevice(
     userId: string,
@@ -108,36 +117,24 @@ export class UserDeviceService {
   }
 
   async getActivePlayerIds(userId: string): Promise<string[]> {
-    this.logger.debug(`[GET_ACTIVE_PLAYER_IDS] Fetching active player IDs for user ${userId}`);
-    
+    // NOTE: name is kept for back-compat with all callers, but this now
+    // returns FCM tokens from the user-notifications table. The platform
+    // ships push via FCM HTTP v1, not OneSignal.
     try {
-      const devices = await this.userDeviceRepository.find({
-        where: { userId, isActive: true },
-        order: { updatedAt: 'DESC' }
+      const rows = await this.userNotificationRepository.find({
+        where: { user_id: userId },
       });
-      
-      this.logger.log(`[GET_ACTIVE_PLAYER_IDS] Found ${devices.length} active devices for user ${userId}`);
-      
-      // If multiple devices are found, deactivate all but the most recent one
-      if (devices.length > 1) {
-        const [mostRecent, ...olderDevices] = devices;
-        this.logger.log(`[GET_ACTIVE_PLAYER_IDS] Multiple devices found, keeping most recent and deactivating ${olderDevices.length} older devices`);
-        
-        const updateResult = await this.userDeviceRepository.update(
-          { id: In(olderDevices.map(d => d.id)) },
-          { isActive: false, updatedAt: new Date() }
-        );
-        
-        this.logger.log(`[GET_ACTIVE_PLAYER_IDS] Deactivated ${updateResult.affected || 0} older devices`);
-        this.logger.debug(`[GET_ACTIVE_PLAYER_IDS] Active Player ID: ${mostRecent.oneSignalPlayerId}`);
-        return [mostRecent.oneSignalPlayerId];
-      }
-      
-      const playerIds = devices.map(device => device.oneSignalPlayerId);
-      this.logger.debug(`[GET_ACTIVE_PLAYER_IDS] Returning ${playerIds.length} active player IDs`);
-      return playerIds;
+      const tokens = rows
+        .map((r) => r.notification_token)
+        .filter((t): t is string => !!t && t.length > 0);
+      this.logger.debug(
+        `[GET_ACTIVE_FCM_TOKENS] user=${userId} count=${tokens.length}`,
+      );
+      return tokens;
     } catch (error) {
-      this.logger.error(`[GET_ACTIVE_PLAYER_IDS] Error fetching active player IDs: ${error.message}`);
+      this.logger.error(
+        `[GET_ACTIVE_FCM_TOKENS] Error: ${error.message}`,
+      );
       return [];
     }
   }

@@ -59,16 +59,38 @@ export class ProfileService {
     profileUpdateInput: ProfileUpdateInput,
   ): Promise<GlobalServiceResponse> {
     try {
-      const profile = await this.getOrCreateProfile(userId);
+      const { full_name, avatar_url, ...profileFields } = profileUpdateInput;
 
-      // Update profile fields
-      Object.assign(profile, profileUpdateInput);
+      const userPatch: Partial<User> = {};
+      if (full_name !== undefined) userPatch.full_name = full_name;
+      if (avatar_url !== undefined) userPatch.avatar_url = avatar_url;
+      if (Object.keys(userPatch).length > 0) {
+        await this.userRepository.update({ id: userId }, userPatch);
+      }
+
+      const profile = await this.getOrCreateProfile(userId);
+      Object.assign(profile, profileFields);
       await this.profileRepository.save(profile);
+
+      const user = await this.userRepository.findOne({ where: { id: userId } });
 
       return {
         statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.PROFILE_UPDATED_SUCCESS,
-        data: profile,
+        data: {
+          user: user
+            ? {
+                id: user.id,
+                email: user.email,
+                full_name: user.full_name,
+                avatar_url: user.avatar_url,
+                role: user.role,
+                created_at: user.created_at,
+                notifications_enabled: user.notifications_enabled,
+              }
+            : null,
+          profile,
+        },
       };
     } catch (error) {
       console.error('🚀 ~ ProfileService ~ updateProfile ~ error:', error);
@@ -108,10 +130,12 @@ export class ProfileService {
         data: {
           user: {
             id: user.id,
+            email: user.email,
             full_name: user.full_name,
             avatar_url: user.avatar_url,
             role: user.role,
             created_at: user.created_at,
+            notifications_enabled: user.notifications_enabled,
           },
           profile,
           gallery: galleryImages,

@@ -483,6 +483,21 @@ export class CognitoService {
    * @returns {GlobalServiceResponse}
    */
   async forgotPassword(username: string): Promise<GlobalServiceResponse> {
+    if (this.isDemoMode) {
+      const user = await this.userService.findUserByEmail(username);
+      if (!user) {
+        // Mirror Cognito's anti-enumeration behavior: always succeed.
+        return {
+          message: SUCCESS_MESSAGES.FORGOT_PASSWORD_EMAIL_SENT,
+          statusCode: HttpStatus.OK,
+        };
+      }
+      return {
+        message: SUCCESS_MESSAGES.FORGOT_PASSWORD_EMAIL_SENT,
+        statusCode: HttpStatus.OK,
+      };
+    }
+
     const params = {
       ClientId: this.clientId || '',
       Username: username,
@@ -526,6 +541,33 @@ export class CognitoService {
   async confirmForgotPassword(
     confirmForgotPasswordInput: ConfirmForgotPasswordInput,
   ): Promise<GlobalServiceResponse> {
+    if (this.isDemoMode) {
+      const { userName, confirmationCode, newPassword } =
+        confirmForgotPasswordInput || ({} as ConfirmForgotPasswordInput);
+      if (confirmationCode !== '123456') {
+        throw new HttpException(
+          'Invalid or expired confirmation code',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!newPassword || newPassword.length < 8) {
+        throw new HttpException(
+          'Password must be at least 8 characters',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const user = await this.userService.findUserByEmail(userName);
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
+      const newHash = this.hashPassword(newPassword);
+      await this.userService.updatePasswordHash(user.id, newHash);
+      return {
+        statusCode: HttpStatus.OK,
+        message: SUCCESS_MESSAGES.PASSWORD_RESET_SUCCESS,
+      };
+    }
+
     const params = {
       ClientId: this.clientId || '',
       Username: confirmForgotPasswordInput?.userName,

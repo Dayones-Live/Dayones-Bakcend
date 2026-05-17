@@ -13,6 +13,14 @@ import {
 } from '../dto/types';
 import { MessageService } from '../../messages/services/message.service';
 
+function sanitizeUserForChat(u: unknown) {
+  if (!u || typeof u !== 'object') return u;
+  const { password_hash, ...safe } = u as Record<string, unknown> & {
+    password_hash?: unknown;
+  };
+  return safe;
+}
+
 @Injectable()
 export class ConversationService {
   constructor(
@@ -106,8 +114,14 @@ export class ConversationService {
         count,
       );
 
+      const sanitized = conversations.map((c) => ({
+        ...c,
+        sender: c.sender ? sanitizeUserForChat(c.sender) : c.sender,
+        reciever: c.reciever ? sanitizeUserForChat(c.reciever) : c.reciever,
+      })) as Conversations[];
+
       return {
-        conversations,
+        conversations: sanitized,
         meta,
       };
     } catch (error) {
@@ -257,7 +271,15 @@ export class ConversationService {
           HttpStatus.NOT_FOUND,
         );
       }
-      return conversation;
+      return {
+        ...conversation,
+        sender: conversation.sender
+          ? sanitizeUserForChat(conversation.sender)
+          : conversation.sender,
+        reciever: conversation.reciever
+          ? sanitizeUserForChat(conversation.reciever)
+          : conversation.reciever,
+      } as Conversations;
     } catch (error) {
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }

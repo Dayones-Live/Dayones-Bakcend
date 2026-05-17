@@ -3,6 +3,15 @@ import { IsOptional, IsNotEmpty, IsString, IsNumber, IsBoolean, Length, IsUrl } 
 export class ProfileUpdateInput {
   @IsOptional()
   @IsString()
+  @Length(1, 100, { message: 'Name must be 1-100 characters' })
+  full_name?: string;
+
+  @IsOptional()
+  @IsString()
+  avatar_url?: string;
+
+  @IsOptional()
+  @IsString()
   @Length(0, 500, { message: 'Bio must be less than 500 characters' })
   bio?: string;
 

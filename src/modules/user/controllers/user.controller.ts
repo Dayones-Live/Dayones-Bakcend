@@ -87,6 +87,28 @@ export class UserController {
   }
 
   @UseGuards(CognitoGuard)
+  @Post('notifications')
+  async updateNotificationsToggle(
+    @Body() body: { notifications_enabled?: boolean; notificationsEnabled?: boolean },
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    const userId = req?.user?.id || '';
+    const raw = body?.notifications_enabled ?? body?.notificationsEnabled;
+    if (typeof raw !== 'boolean') {
+      res.status(HttpStatus.BAD_REQUEST).json({
+        message: 'notifications_enabled (boolean) is required',
+      });
+      return;
+    }
+    const response = await this.userService.updateNotificationsOnly(userId, raw);
+    res.status(HttpStatus.OK).json({
+      message: SUCCESS_MESSAGES.USER_UPDATED_SUCCESS,
+      data: response,
+    });
+  }
+
+  @UseGuards(CognitoGuard)
   @Post('update-location-and-notification')
   async updateUserLocationAndNotification(
     @Body()
