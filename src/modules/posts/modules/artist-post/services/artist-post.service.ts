@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Media_Type } from '@app/types';
 import { ArtistPost } from '../entities/artist-post.entity';
 import {
   AllPostsResponse,
@@ -194,10 +195,19 @@ export class ArtistPostService {
         const { user_id, ...rest } = artistPost;
         return rest;
       } else {
-        // need to add a comment now to the already existing Generic Message Post
+        // need to add a comment now to the already existing Generic Message Post.
+        // Forward url + media_type so video/image uploads after the artist's
+        // first GENERIC post are preserved on the comment instead of being
+        // silently dropped.
+        const mediaUrl =
+          createGenericArtistPostInput.videoUrl ||
+          createGenericArtistPostInput.imageUrl;
         const comment = await this.commentService.commentAPost(
           {
             message: createGenericArtistPostInput.message,
+            url: mediaUrl,
+            mediaType:
+              createGenericArtistPostInput.mediaType as Media_Type | undefined,
           },
           existingGenericArtistPost.id,
           createGenericArtistPostInput?.userId,
