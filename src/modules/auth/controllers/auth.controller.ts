@@ -355,19 +355,73 @@ export class AuthController {
     @Body('idToken') idToken: string,
     @Res() res: Response,
   ) {
-    try {
-      const result = await this.cognitoService.signInWithGoogle(idToken);
-      res.status(result.statusCode).json({
-        message: result.message,
-        data: result.data
-      });
-    } catch (error) {
-      console.error('Google sign-in error:', error);
+    const profile = await this.googleService.verifyToken(idToken);
+
+    let user = await this.userService
+      .findUserByEmail(profile.email)
+      .catch(() => null);
+
+    if (!user) {
+      user = await this.userService.createUser({
+        email: profile.email,
+        name: profile.name,
+        userSub: `google_${profile.sub}`,
+        role: Roles.USER,
+        isConfirmed: true,
+      } as never);
+      if (profile.picture) {
+        try {
+          const updated = await this.userService.updateUser(
+            { avatarUrl: profile.picture } as never,
+            user.id,
+          );
+          if (updated?.data) user = updated.data;
+        } catch (error) {
+          console.error('Google sign-in: avatar update failed', error);
+        }
+      }
+    } else if (!user.avatar_url && profile.picture) {
+      try {
+        const updated = await this.userService.updateUser(
+          { avatarUrl: profile.picture } as never,
+          user.id,
+        );
+        if (updated?.data) user = updated.data;
+      } catch (error) {
+        console.error('Google sign-in: avatar update failed', error);
+      }
+    }
+
+    if (user.is_deleted) {
       throw new HttpException(
-        error.message || 'Google sign-in failed',
+        'Account has been deleted',
         HttpStatus.UNAUTHORIZED,
       );
     }
+    if (user.pending_approval) {
+      throw new HttpException(
+        'Your artist account is awaiting admin approval. You will be notified once it is approved.',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const role = user.role?.[0] || Roles.USER;
+    const { accessToken, refreshToken } = this.issueDemoTokens({
+      sub: user.user_sub,
+      email: user.email,
+      role,
+    });
+
+    res.status(HttpStatus.OK).json({
+      message: 'Google sign-in successful',
+      data: {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: 3600,
+        token_type: 'Bearer',
+        user: { ...user, role },
+      },
+    });
   }
 
   @Public()

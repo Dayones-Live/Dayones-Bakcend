@@ -1,71 +1,62 @@
-import { Injectable } from '@nestjs/common';
-import { OAuth2Client } from 'google-auth-library';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import { ConfigService } from '@nestjs/config';
-import { CognitoService } from '@aws/cognito/services/cognito.service';
-import { UserService } from '@user/services/user.service';
-import { Roles } from '@app/shared/constants/constants';
+
+export interface GoogleProfile {
+  email: string;
+  name: string;
+  picture?: string;
+  sub: string;
+}
 
 @Injectable()
 export class GoogleService {
-  private client: OAuth2Client;
+  private readonly clientId: string;
+  private readonly extraAudiences: string[];
+  private readonly client: OAuth2Client;
 
-  constructor(
-    private configService: ConfigService,
-    private cognitoService: CognitoService,
-    private userService: UserService,
-  ) {
-    this.client = new OAuth2Client(
-      this.configService.get<string>('GOOGLE_CLIENT_ID'),
-    );
+  constructor(private configService: ConfigService) {
+    this.clientId = this.configService.get<string>('GOOGLE_CLIENT_ID') || '';
+    const extras = this.configService.get<string>('GOOGLE_CLIENT_IDS') || '';
+    this.extraAudiences = extras
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    this.client = new OAuth2Client(this.clientId);
   }
 
-  async verifyIdToken(idToken: string) {
+  async verifyToken(idToken: string): Promise<GoogleProfile> {
+    if (!idToken) {
+      throw new HttpException('idToken is required', HttpStatus.BAD_REQUEST);
+    }
+    const audiences =
+      this.extraAudiences.length > 0
+        ? [this.clientId, ...this.extraAudiences].filter(Boolean)
+        : this.clientId;
+    let payload: TokenPayload | undefined;
     try {
       const ticket = await this.client.verifyIdToken({
         idToken,
-        audience: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+        audience: audiences,
       });
-
-      const payload = ticket.getPayload();
-      if (!payload || !payload.email || !payload.sub) {
-        throw new Error('Invalid token payload');
-      }
-
-      // Try to find the user by email
-      let user;
-      try {
-        user = await this.userService.findUserByUserSub(payload.email);
-        
-        // Only update avatar if user doesn't have one
-        if (!user.avatar_url) {
-          const updateResponse = await this.userService.updateUser({
-            avatarUrl: payload.picture
-          }, user.id);
-          user = updateResponse.data;
-        }
-      } catch (error) {
-        // If user is not found, that's fine - we'll just return the Google user info
-        return {
-          email: payload.email,
-          name: payload.name,
-          picture: payload.picture,
-          sub: payload.sub,
-          user: null
-        };
-      }
-
-      return {
-        email: payload.email,
-        name: payload.name,
-        picture: payload.picture,
-        sub: payload.sub,
-        user: {
-          ...user,
-          role: user?.role?.[0] || null
-        }
-      };
+      payload = ticket.getPayload();
     } catch (error) {
-      throw new Error(`Google token verification failed: ${error.message}`);
+      throw new HttpException(
+        `Invalid Google token: ${error?.message || 'verification failed'}`,
+        HttpStatus.UNAUTHORIZED,
+      );
     }
+    if (!payload?.email || !payload?.sub) {
+      throw new HttpException(
+        'Google token payload missing email or sub',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+    return {
+      email: payload.email,
+      name: payload.name || payload.email.split('@')[0],
+      picture: payload.picture,
+      sub: payload.sub,
+    };
   }
-} 
+}
