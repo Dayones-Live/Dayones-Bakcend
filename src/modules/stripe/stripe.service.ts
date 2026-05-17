@@ -55,7 +55,17 @@ export class StripeService {
     } catch (error) {
       this.logger.error(`Create Connect account failed: ${error.message}`);
       if (error instanceof HttpException) throw error;
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      const msg: string = error?.message || '';
+      if (msg.includes('signed up for Connect')) {
+        throw new HttpException(
+          'Payouts are not yet enabled for this DayOnes account. The DayOnes team needs to activate Stripe Connect before artists can onboard. Please contact support.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw new HttpException(
+        msg || 'Could not start payout onboarding. Please try again.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
