@@ -106,6 +106,23 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^@app/(.*)$": "<rootDir>/$1",
+      "^@auth/(.*)$": "<rootDir>/modules/auth/$1",
+      "^@libs/(.*)$": "<rootDir>/modules/libs/$1",
+      "^@aws/(.*)$": "<rootDir>/modules/libs/modules/aws/$1",
+      "^@cognito/(.*)$": "<rootDir>/modules/libs/modules/aws/cognito/$1",
+      "^@user/(.*)$": "<rootDir>/modules/user/$1",
+      "^@signature/(.*)$": "<rootDir>/modules/user/modules/signatures/$1",
+      "^@user-notifications/(.*)$": "<rootDir>/modules/user/modules/user-notifications/$1",
+      "^@notifications/(.*)$": "<rootDir>/modules/user/modules/notifications/$1",
+      "^@artist-post/(.*)$": "<rootDir>/modules/posts/modules/artist-post/$1",
+      "^@artist-post-user/(.*)$": "<rootDir>/modules/posts/modules/artist-post-user/$1",
+      "^@comments/(.*)$": "<rootDir>/modules/posts/modules/comments/$1",
+      "^@stripe/(.*)$": "<rootDir>/modules/stripe/$1",
+      "^@printful/(.*)$": "<rootDir>/modules/printful/$1",
+      "^@merch/(.*)$": "<rootDir>/modules/merch/$1"
+    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
