@@ -56,10 +56,16 @@ export class MerchCreationProcessor extends WorkerHost {
 
           const variants = getAllVariants(sku);
 
+          const isGarment = sku.productType !== 'POSTER';
+          const placement = isGarment ? 'front' : 'default';
+          const technique = isGarment ? 'dtg' : 'digital';
+
           const printfulVariants: Array<{
             variant_id: number;
             retail_price: string;
-            files: Array<{ type: string; url: string }>;
+            placement: string;
+            technique: string;
+            file_url: string;
           }> = [];
 
           for (const variant of variants) {
@@ -85,7 +91,9 @@ export class MerchCreationProcessor extends WorkerHost {
               printfulVariants.push({
                 variant_id: printfulVariantId,
                 retail_price: variant.price.toFixed(2),
-                files: [{ type: 'default', url: printFileUrl }],
+                placement,
+                technique,
+                file_url: printFileUrl,
               });
             }
           }

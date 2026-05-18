@@ -36,22 +36,37 @@ export class PrintfulService {
     variants: Array<{
       variant_id: number;
       retail_price: string;
-      files: Array<{ type: string; url: string }>;
+      placement: string;
+      technique: string;
+      file_url: string;
     }>;
   }): Promise<any> {
     try {
       const response = await this.client.post('/v2/sync-products', {
         sync_product: { name: productData.name, thumbnail: productData.thumbnail },
         sync_variants: productData.variants.map((v) => ({
-          variant_id: v.variant_id,
+          source: 'catalog',
+          catalog_variant_id: v.variant_id,
           retail_price: v.retail_price,
-          files: v.files,
+          placements: [
+            {
+              placement: v.placement,
+              technique: v.technique,
+              layers: [{ type: 'file', url: v.file_url }],
+            },
+          ],
         })),
       });
       return response.data;
     } catch (error) {
-      this.logger.error(`Create sync product failed: ${error.message}`);
-      throw new HttpException('Printful product creation failed', HttpStatus.BAD_GATEWAY);
+      const printfulBody = error?.response?.data
+        ? JSON.stringify(error.response.data)
+        : '';
+      this.logger.error(`Create sync product failed: ${error.message} ${printfulBody}`);
+      throw new HttpException(
+        printfulBody ? `Printful product creation failed: ${printfulBody}` : 'Printful product creation failed',
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 
