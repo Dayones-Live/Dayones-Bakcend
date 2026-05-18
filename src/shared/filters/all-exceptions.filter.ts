@@ -62,7 +62,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   private resolveMessage(exception: unknown, status: number, raw: unknown): string {
-    if (status >= 500) {
+    if (status === HttpStatus.INTERNAL_SERVER_ERROR && !(exception instanceof HttpException)) {
       return 'Something went wrong. Please try again.';
     }
     if (raw && typeof raw === 'object') {
