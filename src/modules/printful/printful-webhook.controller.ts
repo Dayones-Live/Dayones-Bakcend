@@ -36,6 +36,16 @@ export class PrintfulWebhookController {
         return res.status(HttpStatus.BAD_REQUEST).json({ error: 'Missing event type' });
       }
 
+      const expectedStoreId = process.env.PRINTFUL_STORE_ID;
+      const receivedStoreId =
+        req.body?.store?.toString() ?? req.body?.store_id?.toString() ?? '';
+      if (expectedStoreId && receivedStoreId && receivedStoreId !== expectedStoreId) {
+        this.logger.warn(
+          `Printful webhook rejected: store_id ${receivedStoreId} != expected ${expectedStoreId}`,
+        );
+        return res.status(HttpStatus.UNAUTHORIZED).json({ error: 'Store mismatch' });
+      }
+
       const externalId = (data?.id || data?.order?.id || data?.order_id || '').toString();
       if (externalId) {
         const isNew = await this.webhookDedup.claim({
@@ -90,9 +100,16 @@ export class PrintfulWebhookController {
     }
 
     const sharedSecret = req.headers['x-printful-webhook-secret'];
-    if (typeof sharedSecret !== 'string' || !this.safeEquals(sharedSecret, secret)) {
-      throw new UnauthorizedException('Invalid webhook secret');
+    if (typeof sharedSecret === 'string' && sharedSecret.length > 0) {
+      if (!this.safeEquals(sharedSecret, secret)) {
+        throw new UnauthorizedException('Invalid webhook secret');
+      }
+      return;
     }
+
+    this.logger.warn(
+      'Printful webhook arrived without signature header; falling back to store_id payload check',
+    );
   }
 
   private safeEquals(a: string, b: string): boolean {

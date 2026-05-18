@@ -74,7 +74,7 @@ export class OrderFulfillmentProcessor extends WorkerHost {
               placements: [
                 {
                   placement: isGarment ? 'front' : 'default',
-                  technique: isGarment ? 'dtg' : 'uv',
+                  technique: isGarment ? 'dtg' : 'digital',
                   layers: [
                     {
                       type: 'file',

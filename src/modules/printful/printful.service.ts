@@ -75,8 +75,14 @@ export class PrintfulService {
       });
       return response.data;
     } catch (error) {
-      this.logger.error(`Create order failed: ${error.message}`);
-      throw new HttpException('Printful order creation failed', HttpStatus.BAD_GATEWAY);
+      const printfulBody = error?.response?.data
+        ? JSON.stringify(error.response.data)
+        : '';
+      this.logger.error(`Create order failed: ${error.message} ${printfulBody}`);
+      throw new HttpException(
+        printfulBody ? `Printful order creation failed: ${printfulBody}` : 'Printful order creation failed',
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 
