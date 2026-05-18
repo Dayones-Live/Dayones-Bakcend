@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
@@ -41,6 +41,21 @@ export class OrderFulfillmentProcessor extends WorkerHost {
       }
 
       const address = order.shipping_address as any;
+      const fulfillableItems = order.items.filter(
+        (item) => item.merchProduct?.printful_variant_id,
+      );
+      if (fulfillableItems.length === 0) {
+        // Don't silently submit an empty Printful draft (Printful accepts
+        // 0-item orders and returns 201, which used to look like success).
+        // Fail loud so the job surfaces in the failed queue for an operator.
+        this.logger.error(
+          `Order ${merchOrderId} has 0 fulfillable items (no products are linked to Printful catalog variants). Skipping Printful submission.`,
+        );
+        throw new HttpException(
+          'No fulfillable items: products are missing printful_variant_id',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      }
       const printfulOrder = await this.printfulService.createOrder({
         recipient: {
           name: address.name,
@@ -50,9 +65,7 @@ export class OrderFulfillmentProcessor extends WorkerHost {
           country_code: address.country_code,
           zip: address.zip,
         },
-        items: order.items
-          .filter((item) => item.merchProduct?.printful_variant_id)
-          .map((item) => {
+        items: fulfillableItems.map((item) => {
             const isGarment = item.merchProduct.product_type !== 'POSTER';
             return {
               source: 'catalog',
