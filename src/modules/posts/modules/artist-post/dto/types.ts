@@ -40,6 +40,15 @@ export class CreateArtistPostInput {
 
   @IsNotEmpty({ message: 'Locale is required' })
   locale: string;
+
+  @IsOptional()
+  dropDurationMinutes?: number;
+
+  @IsOptional()
+  automatedMerchDrop?: boolean;
+
+  @IsOptional()
+  merchDelayMinutes?: number;
 }
 
 export class CreateGenericArtistPostInput {

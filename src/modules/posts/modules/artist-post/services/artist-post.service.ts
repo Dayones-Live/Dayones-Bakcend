@@ -33,6 +33,8 @@ import { getPaginated, getPaginatedOutput } from '@app/shared/utils';
 import { UpdateUserLocationAndNotificationInput } from '@app/modules/user/dto/types';
 import { CommentsService } from '@comments/services/commnets.service';
 import { Comments } from '@comments/entities/comments.entity';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class ArtistPostService {
@@ -46,6 +48,8 @@ export class ArtistPostService {
     private userService: UserService,
     private artistPostUserService: ArtistPostUserService,
     private commentService: CommentsService,
+    @InjectQueue('merch-creation')
+    private merchCreationQueue: Queue,
   ) {}
 
   /**
@@ -90,7 +94,13 @@ export class ArtistPostService {
         this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ Check if range ${createArtistPostInput.range} is in the correct unit (meters vs feet)`);
       }
       
-      const minutesToAdd = 6 * 60; // 6 hours for all post types
+      // Drop timer: artist picks how long the drop stays open. Default 4 hours
+      // (matches the UI default) when the field is missing. Clamp to a sane
+      // range so a typo can't create a drop that never closes.
+      const requested = (createArtistPostInput as any).dropDurationMinutes;
+      const minutesToAdd = (typeof requested === 'number' && requested > 0)
+        ? Math.min(requested, 60 * 24 * 7) // hard cap at 7 days
+        : 4 * 60;
       // Loop on users and add it in artist post user
       for (const user of users) {
         this.logger.log(`🎯 [INVITE_CREATION] Creating invite for user ${user.id} (${user.full_name || 'Unknown'}) at distance ${user.distance_in_meters?.toFixed(2)}m`);
@@ -148,6 +158,34 @@ export class ArtistPostService {
         this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ Check the logs above for detailed debugging information`);
       }
       
+      // Automated Merch Drop: if the artist enabled the toggle and this is a
+      // photo drop, schedule a delayed BullMQ job that triggers the merch
+      // pipeline `merchDelayMinutes` after the drop went live. The delay is
+      // independent of the drop's own duration, so a multi-day festival drop
+      // can still fire its merch offer 15 minutes after the autograph lands.
+      const input = createArtistPostInput as any;
+      const isPhotoDrop = createArtistPostInput.type === Post_Type.INVITE_PHOTO;
+      if (input.automatedMerchDrop === true && isPhotoDrop) {
+        const merchDelayMinutes = typeof input.merchDelayMinutes === 'number'
+          ? Math.max(0, Math.min(input.merchDelayMinutes, 60 * 24))
+          : 15;
+        try {
+          await this.merchCreationQueue.add(
+            'start-merch-drop',
+            {
+              kind: 'start-merch-drop',
+              artistId: createArtistPostInput.userId,
+              artistPostId: artistPost.id,
+              merchDurationMinutes: input.dropDurationMinutes,
+            },
+            { delay: merchDelayMinutes * 60 * 1000, attempts: 2 },
+          );
+          this.logger.log(`🛍️ [AUTO_MERCH] Scheduled merch drop for post ${artistPost.id} in ${merchDelayMinutes} minutes`);
+        } catch (err: any) {
+          this.logger.error(`🛍️ [AUTO_MERCH] Failed to schedule merch drop for post ${artistPost.id}: ${err?.message}`);
+        }
+      }
+
       const { user_id, ...rest } = artistPost;
       return rest;
     } catch (error) {

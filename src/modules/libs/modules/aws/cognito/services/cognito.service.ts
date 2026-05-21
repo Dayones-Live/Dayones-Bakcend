@@ -93,6 +93,18 @@ export class CognitoService {
       const userSub = uuidv4();
       const passwordHash = this.hashPassword(password);
 
+      // Reject duplicate-email signups loudly. Without this guard, createUser
+      // silently returns the existing row and overwrites its user_sub, while
+      // keeping the original password_hash. The chained signin then fails
+      // with "Invalid credentials" which is impossible for the user to debug.
+      const existing = await this.userService.findUserByEmailOrNull(email);
+      if (existing) {
+        throw new HttpException(
+          'An account with this email already exists. Please sign in instead.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
       // DEMO_MODE bypasses every onboarding gate: email OTP is skipped
       // (is_confirmed=true) and artist admin-approval is skipped
       // (pending_approval=false). The whole point of DEMO_MODE is to make

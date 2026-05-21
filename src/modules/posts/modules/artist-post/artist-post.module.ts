@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { ArtistPostController } from './controllers/artist-post.controller';
 import { ArtistPostService } from './services/artist-post.service';
 import { ArtistPost } from './entities/artist-post.entity';
@@ -17,6 +18,7 @@ import { InvitesController } from './controllers/invites.controller';
     forwardRef(() => ArtistPostUserModule),
     CommentsModule,
     ReactionsModule,
+    BullModule.registerQueue({ name: 'merch-creation' }),
   ],
   controllers: [ArtistPostController, InvitesController],
   providers: [ArtistPostService, ArtistPostMapper],

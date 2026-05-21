@@ -851,6 +851,12 @@ export class UserService {
     }
   }
 
+  async findUserByEmailOrNull(email: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { email: email, is_deleted: false },
+    });
+  }
+
   /**
    * BIDIRECTIONAL INVITE DISCOVERY: Find nearby posts and create invites for late-arriving users
    * This solves the concert scenario where users arrive after the post is created
