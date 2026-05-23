@@ -84,6 +84,13 @@ export class ArtistPost extends BaseEntity {
   @IsOptional()
   locale: string;
 
+  // Drop window in minutes, captured at creation time so late joiners
+  // (e.g. a fan who Taps In after the drop is already live) get an invite
+  // that expires at the original drop's end, not 30 minutes from their join.
+  @Column({ type: 'integer', nullable: true })
+  @IsOptional()
+  drop_duration_minutes: number;
+
   @OneToMany(() => Report, (report) => report.reportedPost)
   report?: Report[];
 }

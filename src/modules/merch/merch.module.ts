@@ -21,6 +21,7 @@ import { StripeWebhookService } from '../stripe/stripe-webhook.service';
 import { PrintfulWebhookService } from '../printful/printful-webhook.service';
 import { ImageNormalizationService } from './services/image-normalization.service';
 import { ArtistPost } from '@artist-post/entities/artist-post.entity';
+import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
 import { SharedModule } from '@app/shared/shared.module';
 import { UserModule } from '@app/modules/user/user.module';
 
@@ -34,6 +35,7 @@ import { UserModule } from '@app/modules/user/user.module';
       OrderLedger,
       PayoutBatch,
       ArtistPost,
+      ArtistPostUser,
     ]),
     BullModule.registerQueue(
       { name: 'merch-creation' },

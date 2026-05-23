@@ -958,8 +958,16 @@ export class UserService {
               continue;
             }
 
-            // Create invite for this post
-            const inviteExpiry = new Date(currentTime.getTime() + 30 * 60 * 1000); // 30 minutes from now
+            // Create invite for this post. valid_till is anchored to the
+            // post's own creation + drop duration so a fan tapping in late
+            // gets the same end time as the original invites, not a fresh
+            // 30-min clock from the moment they joined.
+            const dropMinutes = (post.drop_duration_minutes && post.drop_duration_minutes > 0)
+              ? Math.min(post.drop_duration_minutes, 60 * 24 * 7)
+              : 4 * 60;
+            const inviteExpiry = new Date(
+              new Date(post.created_at).getTime() + dropMinutes * 60 * 1000,
+            );
 
             await this.artistPostUserService.createArtistPostUser({
               userId: userId,

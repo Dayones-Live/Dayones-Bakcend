@@ -61,8 +61,16 @@ export class ArtistPostService {
     createArtistPostInput: CreateArtistPostInput,
   ): Promise<ArtistPostObject> {
     try {
+      // Clamp drop duration up front so the value we persist matches the
+      // value used for the original invites. Falls back to 4 hours when the
+      // client doesn't send a duration (matches the artist UI default).
+      const requestedDurationRaw = (createArtistPostInput as any).dropDurationMinutes;
+      const clampedDuration = (typeof requestedDurationRaw === 'number' && requestedDurationRaw > 0)
+        ? Math.min(requestedDurationRaw, 60 * 24 * 7)
+        : 4 * 60;
       const artistPostDto = this.artistPostMapper.dtoToEntity({
         ...createArtistPostInput,
+        dropDurationMinutes: clampedDuration,
         message: createArtistPostInput?.message || Post_Message,
       });
       // Use the upsert method
@@ -94,13 +102,10 @@ export class ArtistPostService {
         this.logger.warn(`🎯 [INVITE_CREATION] ⚠️ Check if range ${createArtistPostInput.range} is in the correct unit (meters vs feet)`);
       }
       
-      // Drop timer: artist picks how long the drop stays open. Default 4 hours
-      // (matches the UI default) when the field is missing. Clamp to a sane
-      // range so a typo can't create a drop that never closes.
-      const requested = (createArtistPostInput as any).dropDurationMinutes;
-      const minutesToAdd = (typeof requested === 'number' && requested > 0)
-        ? Math.min(requested, 60 * 24 * 7) // hard cap at 7 days
-        : 4 * 60;
+      // Drop timer: use the value we just persisted on the post so original
+      // invites and late-join (BIDIRECTIONAL_DISCOVERY) invites share the
+      // same valid_till relative to post.created_at.
+      const minutesToAdd = artistPost.drop_duration_minutes || 4 * 60;
       // Loop on users and add it in artist post user
       for (const user of users) {
         this.logger.log(`🎯 [INVITE_CREATION] Creating invite for user ${user.id} (${user.full_name || 'Unknown'}) at distance ${user.distance_in_meters?.toFixed(2)}m`);

@@ -36,9 +36,17 @@ export class MerchService {
         throw new HttpException(ERROR_MESSAGES.MERCH_DROP_EXISTS, HttpStatus.BAD_REQUEST);
       }
 
+      const demoMode = process.env.DEMO_MODE === 'true';
       const stripeAccount = await this.stripeService.getStripeAccountByUserId(artistId);
-      if (!stripeAccount || !stripeAccount.onboarding_complete) {
+      const stripeReady = !!stripeAccount && stripeAccount.onboarding_complete;
+      if (!stripeReady && !demoMode) {
         throw new HttpException(ERROR_MESSAGES.STRIPE_ONBOARDING_INCOMPLETE, HttpStatus.BAD_REQUEST);
+      }
+      if (!stripeReady && demoMode) {
+        this.logger.warn(
+          `[DEMO_MODE] Bypassing Stripe Connect onboarding check for artist ${artistId}. ` +
+          `Merch drop will create products but fan purchases will fail until Stripe is completed.`,
+        );
       }
 
       const ALLOWED_DURATIONS = new Set([60, 240, 480, 1440, 4320]);

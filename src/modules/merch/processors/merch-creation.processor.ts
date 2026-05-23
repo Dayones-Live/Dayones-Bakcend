@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { MerchProduct } from '../entities/merch-product.entity';
 import { MerchService } from '../merch.service';
@@ -12,6 +12,8 @@ import { ArtistPost } from '@artist-post/entities/artist-post.entity';
 import { PRODUCT_CATALOG, getAllVariants } from '../constants/product-catalog';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
+import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
+import { Invite_Status } from '@app/modules/posts/modules/artist-post-user/constants/constants';
 
 @Processor('merch-creation', { concurrency: 2 })
 export class MerchCreationProcessor extends WorkerHost {
@@ -22,6 +24,8 @@ export class MerchCreationProcessor extends WorkerHost {
     private merchProductRepo: Repository<MerchProduct>,
     @InjectRepository(ArtistPost)
     private artistPostRepo: Repository<ArtistPost>,
+    @InjectRepository(ArtistPostUser)
+    private artistPostUserRepo: Repository<ArtistPostUser>,
     private merchService: MerchService,
     private printfulService: PrintfulService,
     private printfulCatalogService: PrintfulCatalogService,
@@ -154,15 +158,59 @@ export class MerchCreationProcessor extends WorkerHost {
       this.logger.log(`Drop ${merchDropId} activated with ${createdCount} product variants`);
 
       try {
-        const playerIds = await this.userDeviceService.getActivePlayerIds(artistId);
-        if (playerIds.length > 0) {
+        const artistPlayerIds = await this.userDeviceService.getActivePlayerIds(artistId);
+        if (artistPlayerIds.length > 0) {
           await this.pushNotificationService.sendPushNotification(
-            playerIds, 'DayOnes', 'Your merch drop is now live!',
-            { type: 'merch_drop', drop_id: merchDropId },
+            artistPlayerIds, 'DayOnes', 'Your merch drop is now live!',
+            { type: 'merch_drop', drop_id: merchDropId, post_id: artistPostId },
           );
         }
       } catch (notifErr) {
-        this.logger.warn(`Drop activation notification failed: ${notifErr.message}`);
+        this.logger.warn(`Artist drop activation notification failed: ${notifErr.message}`);
+      }
+
+      // Fan-side follow-up: notify every fan who got invited or already
+      // accepted this drop that the matching merch is now available. Without
+      // this step the fan side of the loop is silent: artist gets a push,
+      // fans see nothing and the merch never converts.
+      try {
+        const fans = await this.artistPostUserRepo.find({
+          where: {
+            artist_post_id: artistPostId,
+            status: In([Invite_Status.ACCEPTED, Invite_Status.PENDING, Invite_Status.GENERIC]),
+            user_id: Not(artistId),
+          },
+        });
+        this.logger.log(
+          `[FAN_MERCH_NOTIFY] Notifying ${fans.length} fans for merch drop ${merchDropId} (post ${artistPostId})`,
+        );
+        let notified = 0;
+        for (const fan of fans) {
+          try {
+            const tokens = await this.userDeviceService.getActivePlayerIds(fan.user_id);
+            if (tokens.length === 0) continue;
+            await this.pushNotificationService.sendPushNotification(
+              tokens,
+              'DayOnes merch is live',
+              'Your DayOnes merch from this drop is ready, tap to grab it before it goes.',
+              {
+                type: 'merch_drop',
+                drop_id: merchDropId,
+                post_id: artistPostId,
+              },
+            );
+            notified += 1;
+          } catch (fanErr: any) {
+            this.logger.warn(
+              `[FAN_MERCH_NOTIFY] Failed for fan ${fan.user_id}: ${fanErr?.message}`,
+            );
+          }
+        }
+        this.logger.log(`[FAN_MERCH_NOTIFY] Sent fan push to ${notified}/${fans.length}`);
+      } catch (fanNotifyErr: any) {
+        this.logger.warn(
+          `[FAN_MERCH_NOTIFY] Fan notification batch failed: ${fanNotifyErr?.message}`,
+        );
       }
     } catch (error) {
       this.logger.error(`Merch creation job failed: ${error.message}`);
