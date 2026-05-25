@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DayOnes Admin</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0A0B14; color: #e2e8f0; min-height: 100vh; }
+  .container { max-width: 720px; margin: 0 auto; padding: 32px 20px; }
+  h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+  .subtitle { color: #94a3b8; margin-bottom: 32px; }
+  .login-box { background: #1a1b2e; border: 1px solid #2d2e42; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+  .login-box h2 { font-size: 16px; margin-bottom: 16px; }
+  input { width: 100%; padding: 10px 14px; background: #0A0B14; border: 1px solid #2d2e42; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 12px; }
+  input::placeholder { color: #64748b; }
+  button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+  button:hover { opacity: 0.85; }
+  .btn-primary { background: linear-gradient(135deg, #7C3AED, #06B6D4); color: white; width: 100%; }
+  .btn-approve { background: #22c55e; color: white; margin-right: 8px; }
+  .btn-reject { background: #ef4444; color: white; }
+  .btn-sm { padding: 6px 14px; font-size: 13px; }
+  .card { background: #1a1b2e; border: 1px solid #2d2e42; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .card-info { flex: 1; }
+  .card-name { font-weight: 600; font-size: 15px; }
+  .card-email { color: #94a3b8; font-size: 13px; margin-top: 2px; }
+  .card-date { color: #64748b; font-size: 12px; margin-top: 4px; }
+  .card-actions { display: flex; gap: 6px; }
+  .empty { text-align: center; padding: 48px 0; color: #64748b; }
+  .error { background: #ef44441a; border: 1px solid #ef44444d; color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+  .hidden { display: none; }
+  .loading { text-align: center; color: #94a3b8; padding: 32px; }
+  .badge { display: inline-block; background: #7C3AED22; color: #a78bfa; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>DayOnes Admin</h1>
+  <p class="subtitle">Artist approval dashboard</p>
+
+  <div id="login-section" class="login-box">
+    <h2>Sign in</h2>
+    <div id="login-error" class="error hidden"></div>
+    <input id="email" type="email" placeholder="Admin email">
+    <input id="password" type="password" placeholder="Password">
+    <button class="btn-primary" onclick="login()">Sign in</button>
+  </div>
+
+  <div id="dashboard-section" class="hidden">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2>Pending Artists <span id="count-badge" class="badge">0</span></h2>
+      <button class="btn-sm" style="background:#2d2e42; color:#94a3b8;" onclick="loadPending()">Refresh</button>
+    </div>
+    <div id="pending-list"></div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin + '/api/v1';
+let token = '';
+
+async function login() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('hidden');
+  try {
+    const res = await fetch(API + '/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Login failed');
+    token = data.data?.access_token || data.access_token || '';
+    if (!token) throw new Error('No token in response');
+    document.getElementById('login-section').classList.add('hidden');
+    document.getElementById('dashboard-section').classList.remove('hidden');
+    loadPending();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function loadPending() {
+  const list = document.getElementById('pending-list');
+  list.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(API + '/user/pending-artists', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to load');
+    const artists = data.data || [];
+    document.getElementById('count-badge').textContent = artists.length;
+    if (artists.length === 0) {
+      list.innerHTML = '<div class="empty">No pending artists</div>';
+      return;
+    }
+    list.innerHTML = artists.map(a => `
+      <div class="card" id="card-${a.id}">
+        <div class="card-info">
+          <div class="card-name">${esc(a.full_name || 'Unknown')}</div>
+          <div class="card-email">${esc(a.email || '')}</div>
+          <div class="card-date">Signed up: ${new Date(a.created_at).toLocaleDateString()}</div>
+        </div>
+        <div class="card-actions">
+          <button class="btn-approve btn-sm" onclick="approve('${a.id}')">Approve</button>
+          <button class="btn-reject btn-sm" onclick="reject('${a.id}')">Reject</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function approve(userId) {
+  if (!confirm('Approve this artist?')) return;
+  try {
+    const res = await fetch(API + '/user/approve-artist', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Failed'); }
+    const card = document.getElementById('card-' + userId);
+    if (card) card.remove();
+    loadPending();
+  } catch (e) { alert(e.message); }
+}
+
+async function reject(userId) {
+  if (!confirm('Reject this artist? They will be downgraded to a regular user.')) return;
+  try {
+    const res = await fetch(API + '/user/reject-artist', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Failed'); }
+    const card = document.getElementById('card-' + userId);
+    if (card) card.remove();
+    loadPending();
+  } catch (e) { alert(e.message); }
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>

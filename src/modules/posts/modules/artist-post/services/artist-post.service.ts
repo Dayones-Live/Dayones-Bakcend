@@ -19,6 +19,7 @@ import {
   CreateGenericArtistPostInput,
   GenericArtistPostObject,
   UpdateArtistPostInput,
+  VenueGroup,
 } from '../dto/types';
 import { ArtistPostMapper } from '../dto/artist-post.mapper';
 import { UserService } from '@app/modules/user/services/user.service';
@@ -307,6 +308,63 @@ export class ArtistPostService {
       );
       throw err;
     }
+  }
+
+  async fetchVenueGroups(artistId: string): Promise<VenueGroup[]> {
+    const posts = await this.artistPostRepository
+      .createQueryBuilder('p')
+      .leftJoin('p.artistPostUser', 'apu')
+      .select([
+        'p.id',
+        'p.latitude',
+        'p.longitude',
+        'p.image_url',
+        'p.created_at',
+        'p.type',
+        `ROUND(CAST(p.latitude AS NUMERIC), 2)`,
+        `ROUND(CAST(p.longitude AS NUMERIC), 2)`,
+      ])
+      .addSelect('COUNT(DISTINCT apu.user_id)', 'fan_count')
+      .where('p.user_id = :artistId', { artistId })
+      .andWhere('p.type IN (:...types)', {
+        types: [Post_Type.INVITE_PHOTO, Post_Type.INVITE_ONLY],
+      })
+      .andWhere('p.latitude IS NOT NULL')
+      .andWhere('p.longitude IS NOT NULL')
+      .groupBy('p.id')
+      .orderBy('p.created_at', 'DESC')
+      .getRawMany();
+
+    const grouped = new Map<string, VenueGroup>();
+    for (const row of posts) {
+      const lat = parseFloat(row.p_latitude);
+      const lng = parseFloat(row.p_longitude);
+      if (isNaN(lat) || isNaN(lng)) continue;
+      const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+      const existing = grouped.get(key);
+      const fanCount = parseInt(row.fan_count, 10) || 0;
+      if (existing) {
+        existing.dropCount += 1;
+        existing.totalFanCount += fanCount;
+        if (new Date(row.p_created_at) > existing.lastDropDate) {
+          existing.lastDropDate = new Date(row.p_created_at);
+          if (row.p_image_url) existing.coverImageUrl = row.p_image_url;
+        }
+      } else {
+        grouped.set(key, {
+          locationKey: key,
+          latitude: lat,
+          longitude: lng,
+          dropCount: 1,
+          totalFanCount: fanCount,
+          lastDropDate: new Date(row.p_created_at),
+          coverImageUrl: row.p_image_url || null,
+        });
+      }
+    }
+    return Array.from(grouped.values()).sort(
+      (a, b) => b.lastDropDate.getTime() - a.lastDropDate.getTime(),
+    );
   }
 
   /**

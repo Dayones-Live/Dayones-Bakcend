@@ -155,3 +155,13 @@ export class ArtistPostWithCounts extends ArtistPostObject {
   @IsOptional()
   reactionCount?: number;
 }
+
+export interface VenueGroup {
+  locationKey: string;
+  latitude: number;
+  longitude: number;
+  dropCount: number;
+  totalFanCount: number;
+  lastDropDate: Date;
+  coverImageUrl: string | null;
+}

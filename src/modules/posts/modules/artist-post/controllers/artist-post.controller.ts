@@ -172,6 +172,22 @@ export class ArtistPostController {
     }
   }
 
+  @Get('venue-groups')
+  @Role(Roles.ARTIST)
+  async getVenueGroups(@Req() req: Request, @Res() res: Response) {
+    try {
+      const userId = req?.user?.id || '';
+      const groups = await this.artistPostService.fetchVenueGroups(userId);
+      res.status(HttpStatus.OK).json({
+        message: 'Venue groups fetched successfully',
+        data: groups,
+      });
+    } catch (error) {
+      this.logger.error(`Venue groups error: ${error.message}`);
+      throw error;
+    }
+  }
+
   @Get()
   async getAllUserPostsData(
     @Res() res: Response,

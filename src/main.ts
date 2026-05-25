@@ -3,6 +3,8 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import * as express from 'express';
+import * as path from 'path';
 import { swaggerConfig } from './config/swagger/swagger';
 import { SocketModule } from './modules/user/modules/socket/socket.module';
 import { RolesGuard } from './modules/auth/guards/role.guard';
@@ -60,6 +62,7 @@ async function bootstrap() {
     maxAge: 3600,
   });
 
+  app.use('/admin', express.static(path.join(__dirname, '..', 'public', 'admin')));
   app.setGlobalPrefix('api/v1');
 
   if (process.env.NODE_ENV !== 'production') {
