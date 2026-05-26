@@ -213,6 +213,25 @@ export class ArtistPostController {
     }
   }
 
+  @Get('/:id/fans')
+  @Role(Roles.ARTIST)
+  async getPostFans(
+    @Param('id') id: string,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const fans = await this.artistPostService.getPostFans(id, req?.user?.id || '');
+      res.status(HttpStatus.OK).json({
+        message: 'Fans fetched successfully',
+        data: fans,
+      });
+    } catch (error) {
+      this.logger.error(`Post fans error: ${error.message}`);
+      throw error;
+    }
+  }
+
   @Get('/:id')
   async getPostData(
     @Param('id') id: string,

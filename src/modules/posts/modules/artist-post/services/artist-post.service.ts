@@ -367,11 +367,18 @@ export class ArtistPostService {
     );
   }
 
-  /**
-   * Service to fetch all Artist post
-   * @param user_id
-   * @returns {ArtistPostObject[]}
-   */
+  async getPostFans(postId: string, artistId: string): Promise<any[]> {
+    const post = await this.artistPostRepository.findOne({ where: { id: postId, user_id: artistId } });
+    if (!post) throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+    const fans = await this.artistPostUserService.getFansWithAccessToPost(postId, artistId);
+    return fans.map((f) => ({
+      id: f.user_id,
+      full_name: f.user?.full_name || null,
+      avatar_url: f.user?.avatar_url || null,
+      status: f.status,
+    }));
+  }
+
   async fetchAllArtistPost(user_id: string): Promise<ArtistPostObject[]> {
     try {
       const artistPosts: ArtistPostObject[] =
