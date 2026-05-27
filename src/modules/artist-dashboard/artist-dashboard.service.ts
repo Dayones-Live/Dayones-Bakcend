@@ -111,6 +111,18 @@ export class ArtistDashboardService {
       }
     }
 
+    const uniqueFanResult = await this.artistPostUserRepo
+      .createQueryBuilder('apu')
+      .select('COUNT(DISTINCT apu.user_id)', 'count')
+      .innerJoin('apu.artistPost', 'ap')
+      .where('ap.user_id = :artistId', { artistId })
+      .andWhere('apu.user_id != :artistId', { artistId })
+      .andWhere('apu.status IN (:...statuses)', {
+        statuses: [Invite_Status.ACCEPTED, Invite_Status.GENERIC],
+      })
+      .getRawOne();
+    const uniqueTotalFans = parseInt(uniqueFanResult?.count || '0', 10);
+
     let totalFans = 0;
     let totalInvited = 0;
     let totalRevenue = 0;
@@ -151,7 +163,7 @@ export class ArtistDashboardService {
 
     return {
       totalRevenue: Math.round(totalRevenue * 100) / 100,
-      totalFans,
+      totalFans: uniqueTotalFans,
       totalEvents: posts.length,
       avgConversionRate,
       events,
