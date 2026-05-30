@@ -154,4 +154,18 @@ export class MerchController {
       throw error;
     }
   }
+
+  @Post('payouts/run')
+  @Role(Roles.SUPER_ADMIN)
+  async runPayoutBatch(@Res() res: Response) {
+    try {
+      await this.merchPayoutService.triggerPayoutBatch();
+      res.status(HttpStatus.ACCEPTED).json({
+        message: 'Payout batch queued. Stripe transfers will fire shortly.',
+      });
+    } catch (error) {
+      this.logger.error(`Manual payout trigger failed: ${error.message}`);
+      throw error;
+    }
+  }
 }

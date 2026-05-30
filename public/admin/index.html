@@ -52,6 +52,13 @@
       <button class="btn-sm" style="background:#2d2e42; color:#94a3b8;" onclick="loadPending()">Refresh</button>
     </div>
     <div id="pending-list"></div>
+
+    <div style="margin-top:32px; padding-top:24px; border-top:1px solid #2d2e42;">
+      <h2 style="margin-bottom:8px;">Payouts</h2>
+      <p style="color:#94a3b8; font-size:13px; margin-bottom:12px;">Trigger a Stripe payout run for all artists with calculated balances. Runs automatically on the 1st and 15th.</p>
+      <button id="run-payouts-btn" class="btn-sm" style="background:#7C3AED; color:white;" onclick="runPayouts()">Run payout batch now</button>
+      <div id="payout-msg" style="margin-top:12px; font-size:13px;"></div>
+    </div>
   </div>
 </div>
 
@@ -144,6 +151,32 @@ async function reject(userId) {
     if (card) card.remove();
     loadPending();
   } catch (e) { alert(e.message); }
+}
+
+async function runPayouts() {
+  const btn = document.getElementById('run-payouts-btn');
+  const msg = document.getElementById('payout-msg');
+  if (!confirm('Run the payout batch now? This will fire real Stripe transfers to every artist with a calculated balance above the threshold.')) return;
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  msg.textContent = '';
+  msg.style.color = '#94a3b8';
+  try {
+    const res = await fetch(API + '/merch/payouts/run', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || 'Failed to queue payout batch');
+    msg.style.color = '#22c55e';
+    msg.textContent = data.message || 'Payout batch queued.';
+  } catch (e) {
+    msg.style.color = '#ef4444';
+    msg.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run payout batch now';
+  }
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
