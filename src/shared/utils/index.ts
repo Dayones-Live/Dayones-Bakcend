@@ -4,6 +4,7 @@ import { Meta, Paginate } from '@app/types';
 import * as fs from 'fs';
 import axios from 'axios';
 import heicConvert from 'heic-convert';
+import * as sharp from 'sharp';
 
 // Initialize dayjs with UTC plugin
 dayjs.extend(utc);
@@ -206,8 +207,19 @@ export async function removeImageBackground(
     });
 
     const outputBuffer = Buffer.from(await response.arrayBuffer());
+
+    let finalBuffer: Buffer = outputBuffer;
+    try {
+      finalBuffer = await sharp(outputBuffer)
+        .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 5 })
+        .png()
+        .toBuffer();
+    } catch (trimErr: any) {
+      console.warn(`Signature trim failed, using untrimmed PNG: ${trimErr?.message}`);
+    }
+
     const outputPath = inputImagePath.replace(/\.[^/.]+$/, '') + '-nobg.png';
-    fs.writeFileSync(outputPath, outputBuffer);
+    fs.writeFileSync(outputPath, finalBuffer);
 
     console.log('Output image saved to:', outputPath);
     return outputPath;
