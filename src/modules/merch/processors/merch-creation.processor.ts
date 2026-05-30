@@ -39,19 +39,14 @@ export class MerchCreationProcessor extends WorkerHost {
   async process(
     job: Job<
       | { merchDropId: string; artistId: string; artistPostId: string }
-      | { kind: 'start-merch-drop'; artistId: string; artistPostId: string; merchDurationMinutes?: number }
+      | { kind: 'start-merch-drop'; artistId: string; artistPostId: string }
     >,
   ): Promise<void> {
-    // Two job shapes share this processor:
-    //  1. start-merch-drop: scheduled with a delay when the artist enables
-    //     Automated Merch Drop on a photo drop. Calls createMerchDrop which
-    //     in turn enqueues the regular create-products job.
-    //  2. create-products: the actual Printful + push pipeline.
     if ((job.data as any).kind === 'start-merch-drop') {
-      const d = job.data as { kind: 'start-merch-drop'; artistId: string; artistPostId: string; merchDurationMinutes?: number };
+      const d = job.data as { kind: 'start-merch-drop'; artistId: string; artistPostId: string };
       this.logger.log(`Auto-triggering merch drop for post ${d.artistPostId} (artist ${d.artistId})`);
       try {
-        await this.merchService.createMerchDrop(d.artistPostId, d.artistId, d.merchDurationMinutes);
+        await this.merchService.createMerchDrop(d.artistPostId, d.artistId);
         this.logger.log(`Auto-trigger queued create-products for post ${d.artistPostId}`);
       } catch (err: any) {
         this.logger.error(`Auto-trigger failed for post ${d.artistPostId}: ${err?.message}`);

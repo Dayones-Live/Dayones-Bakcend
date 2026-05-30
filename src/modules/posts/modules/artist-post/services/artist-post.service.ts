@@ -182,7 +182,6 @@ export class ArtistPostService {
               kind: 'start-merch-drop',
               artistId: createArtistPostInput.userId,
               artistPostId: artistPost.id,
-              merchDurationMinutes: input.dropDurationMinutes,
             },
             { delay: merchDelayMinutes * 60 * 1000, attempts: 2 },
           );

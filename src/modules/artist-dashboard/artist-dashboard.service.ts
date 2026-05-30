@@ -32,7 +32,17 @@ export class ArtistDashboardService {
     });
 
     if (posts.length === 0) {
-      return { totalRevenue: 0, totalFans: 0, totalEvents: 0, avgConversionRate: 0, events: [] };
+      return {
+        totalRevenue: 0,
+        totalFans: 0,
+        totalEvents: 0,
+        avgConversionRate: 0,
+        events: [],
+        new_fans_last_30_days: 0,
+        total_drops: 0,
+        total_orders: 0,
+        fan_growth: this.buildEmptyFanGrowth(30),
+      };
     }
 
     const postIds = posts.map((p) => p.id);
@@ -161,12 +171,61 @@ export class ArtistDashboardService {
         ? Math.round((totalFans / totalInvited) * 1000) / 10
         : 0;
 
+    const totalDrops = drops.length;
+    let totalOrders = 0;
+    for (const dropId of dropIds) {
+      totalOrders += revenueByDrop[dropId]?.orderCount || 0;
+    }
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentAcceptedFans = await this.artistPostUserRepo
+      .createQueryBuilder('apu')
+      .innerJoin('apu.artistPost', 'ap')
+      .select('DATE(apu.created_at)', 'day')
+      .addSelect('COUNT(DISTINCT apu.user_id)', 'count')
+      .where('ap.user_id = :artistId', { artistId })
+      .andWhere('apu.user_id != :artistId', { artistId })
+      .andWhere('apu.status = :status', { status: Invite_Status.ACCEPTED })
+      .andWhere('apu.created_at >= :since', { since: thirtyDaysAgo })
+      .groupBy('day')
+      .orderBy('day', 'ASC')
+      .getRawMany();
+
+    const fanGrowthByDay: Record<string, number> = {};
+    for (const row of recentAcceptedFans) {
+      const day = row.day instanceof Date
+        ? row.day.toISOString().slice(0, 10)
+        : String(row.day).slice(0, 10);
+      fanGrowthByDay[day] = parseInt(row.count, 10);
+    }
+
+    const fanGrowth = this.buildEmptyFanGrowth(30).map((entry) => ({
+      date: entry.date,
+      count: fanGrowthByDay[entry.date] || 0,
+    }));
+
+    const newFansLast30Days = fanGrowth.reduce((sum, e) => sum + e.count, 0);
+
     return {
       totalRevenue: Math.round(totalRevenue * 100) / 100,
       totalFans: uniqueTotalFans,
       totalEvents: posts.length,
       avgConversionRate,
       events,
+      new_fans_last_30_days: newFansLast30Days,
+      total_drops: totalDrops,
+      total_orders: totalOrders,
+      fan_growth: fanGrowth,
     };
+  }
+
+  private buildEmptyFanGrowth(days: number): { date: string; count: number }[] {
+    const out: { date: string; count: number }[] = [];
+    const today = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+      out.push({ date: d.toISOString().slice(0, 10), count: 0 });
+    }
+    return out;
   }
 }

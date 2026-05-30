@@ -49,12 +49,8 @@ export class MerchService {
         );
       }
 
-      const ALLOWED_DURATIONS = new Set([60, 240, 480, 1440, 4320]);
-      const fallbackHours = parseInt(process.env.MERCH_DROP_DURATION_HOURS || '48');
-      const minutes = durationMinutes && ALLOWED_DURATIONS.has(durationMinutes)
-        ? durationMinutes
-        : fallbackHours * 60;
-      const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
+      const merchHours = parseInt(process.env.MERCH_DROP_DURATION_HOURS || '48', 10);
+      const expiresAt = new Date(Date.now() + merchHours * 60 * 60 * 1000);
 
       const merchDrop = new MerchDrop();
       merchDrop.artist_post_id = artistPostId;
