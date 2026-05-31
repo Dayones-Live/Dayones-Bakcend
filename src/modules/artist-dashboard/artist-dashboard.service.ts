@@ -178,25 +178,25 @@ export class ArtistDashboardService {
     }
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentAcceptedFans = await this.artistPostUserRepo
+    const firstAcceptRows = await this.artistPostUserRepo
       .createQueryBuilder('apu')
       .innerJoin('apu.artistPost', 'ap')
-      .select('DATE(apu.created_at)', 'day')
-      .addSelect('COUNT(DISTINCT apu.user_id)', 'count')
+      .select('apu.user_id', 'userId')
+      .addSelect('MIN(apu.created_at)', 'firstAcceptAt')
       .where('ap.user_id = :artistId', { artistId })
       .andWhere('apu.user_id != :artistId', { artistId })
       .andWhere('apu.status = :status', { status: Invite_Status.ACCEPTED })
-      .andWhere('apu.created_at >= :since', { since: thirtyDaysAgo })
-      .groupBy('day')
-      .orderBy('day', 'ASC')
+      .groupBy('apu.user_id')
       .getRawMany();
 
     const fanGrowthByDay: Record<string, number> = {};
-    for (const row of recentAcceptedFans) {
-      const day = row.day instanceof Date
-        ? row.day.toISOString().slice(0, 10)
-        : String(row.day).slice(0, 10);
-      fanGrowthByDay[day] = parseInt(row.count, 10);
+    for (const row of firstAcceptRows) {
+      const firstAt = row.firstAcceptAt instanceof Date
+        ? row.firstAcceptAt
+        : new Date(row.firstAcceptAt);
+      if (firstAt < thirtyDaysAgo) continue;
+      const day = firstAt.toISOString().slice(0, 10);
+      fanGrowthByDay[day] = (fanGrowthByDay[day] || 0) + 1;
     }
 
     const fanGrowth = this.buildEmptyFanGrowth(30).map((entry) => ({

@@ -537,6 +537,7 @@ async fetchAllUserPostsData(
         where: {
           user_id: user?.id,
         },
+        order: { created_at: 'DESC' },
         skip: paginate.offset,
         take: paginate.limit,
       });
@@ -595,6 +596,7 @@ async fetchAllUserPostsData(
           .addGroupBy('artistPostUser.id') // Add group by for joined entities
           .addGroupBy('comment.id')
           .addGroupBy('reaction.id')
+          .orderBy('artistPost.created_at', 'DESC')
           .skip(paginate.offset) // Apply pagination offset
           .take(paginate.limit) // Apply pagination limit
           .getManyAndCount();

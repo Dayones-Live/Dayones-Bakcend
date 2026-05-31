@@ -137,6 +137,60 @@ export class MerchCreationProcessor extends WorkerHost {
                     productType: sku.productType,
                   })
                   .execute();
+
+                // Fetch the sync product details to grab Printful's
+                // auto-generated mockup preview URLs per variant. These
+                // replace the raw print-file image shown in the merch grid
+                // so fans see the actual garment with the autograph on it.
+                try {
+                  const detail = await this.printfulService.getSyncProduct(
+                    printfulProductId,
+                  );
+                  const syncVariants: any[] =
+                    detail?.data?.sync_variants ||
+                    detail?.result?.sync_variants ||
+                    [];
+
+                  for (const sv of syncVariants) {
+                    const catalogVariantId =
+                      sv?.catalog_variant_id ||
+                      sv?.product?.variant_id ||
+                      sv?.variant_id;
+                    if (!catalogVariantId) continue;
+
+                    const filesArr: any[] = Array.isArray(sv?.files) ? sv.files : [];
+                    const previewFile = filesArr.find(
+                      (f) =>
+                        f?.type === 'preview' ||
+                        f?.role === 'preview' ||
+                        typeof f?.preview_url === 'string',
+                    );
+                    const mockupUrl =
+                      previewFile?.preview_url ||
+                      previewFile?.url ||
+                      sv?.preview_url ||
+                      null;
+
+                    if (mockupUrl) {
+                      await this.merchProductRepo
+                        .createQueryBuilder()
+                        .update(MerchProduct)
+                        .set({ mockup_url: mockupUrl })
+                        .where(
+                          'merch_drop_id = :merchDropId AND printful_variant_id = :variantId',
+                          {
+                            merchDropId,
+                            variantId: catalogVariantId,
+                          },
+                        )
+                        .execute();
+                    }
+                  }
+                } catch (mockupErr: any) {
+                  this.logger.warn(
+                    `Mockup URL fetch failed for ${sku.productType}: ${mockupErr?.message}`,
+                  );
+                }
               }
             } catch (err) {
               this.logger.error(`Printful sync product creation failed for ${sku.productType}: ${err.message}`);

@@ -297,10 +297,11 @@ export class ArtistPostUserService {
           .andWhere(`ST_DistanceSphere(
             ST_MakePoint(CAST(:userLng AS DOUBLE PRECISION), CAST(:userLat AS DOUBLE PRECISION)),
             ST_MakePoint(CAST(artistPost.longitude AS DOUBLE PRECISION), CAST(artistPost.latitude AS DOUBLE PRECISION))
-          ) <= artistPost.range`, { 
-            userLat: currentUser.latitude, 
-            userLng: currentUser.longitude 
+          ) <= artistPost.range`, {
+            userLat: currentUser.latitude,
+            userLng: currentUser.longitude
           }) // Only show invites within post radius
+          .orderBy('artistPost.created_at', 'DESC')
           .getMany();
         
         // Add debug logging for the query results

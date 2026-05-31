@@ -171,6 +171,18 @@ export class PrintfulService {
     }
   }
 
+  async getSyncProduct(syncProductId: number): Promise<any> {
+    try {
+      const response = await this.client.get(`/v2/sync-products/${syncProductId}`);
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `Get sync product failed for ${syncProductId}: ${error.message}`,
+      );
+      return null;
+    }
+  }
+
   async getCatalogVariants(catalogProductId: number): Promise<any[]> {
     try {
       const allVariants: any[] = [];
