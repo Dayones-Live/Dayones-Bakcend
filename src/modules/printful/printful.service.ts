@@ -173,7 +173,12 @@ export class PrintfulService {
 
   async getSyncProduct(syncProductId: number): Promise<any> {
     try {
-      const response = await this.client.get(`/v2/sync-products/${syncProductId}`);
+      // v1 endpoint returns sync_variants with product.image (actual garment
+      // photos from Printful's catalog, per color/size). v2 sync-products
+      // returns only the wrapper without variant images, so we use v1.
+      const response = await this.client.get(
+        `/store/products/${syncProductId}`,
+      );
       return response.data;
     } catch (error) {
       this.logger.error(

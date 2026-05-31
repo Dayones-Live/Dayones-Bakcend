@@ -101,16 +101,27 @@ export class ArtistPostMapper {
         const commentReactionCount = comment.commentReaction?.length || 0;
         const { commentReaction, user: commentedUser, ...rest } = comment;
 
-        // Construct comment object
+        // Pick the most specific available user for this comment:
+        // 1. commentedUser when the comment_by relation actually loaded a user
+        //    record (covers cross-author cases, e.g. fan commenting on the
+        //    artist's GENERIC apu, OR artist replying to a fan's reply).
+        // 2. apu owner as the fallback (the comment lives under that apu so
+        //    the owner is, by definition, the author when comment_by is null).
+        let resolvedUser =
+          (commentedUser && (commentedUser.id || (commentedUser as any).full_name))
+            ? { ...commentedUser, role: undefined }
+            : userWithoutRole;
+        if (resolvedUser) {
+          const { role: _r, ...stripped } = resolvedUser as any;
+          resolvedUser = stripped;
+        }
+
         const commentWithDetails = {
           ...rest,
           commentReaction:
             commentReaction?.map((reaction) => reaction.liked_by) || [],
           commentReactionCount,
-          user:
-            userPost?.status === Invite_Status.GENERIC && comment?.comment_by
-              ? commentedUser
-              : userWithoutRole,
+          user: resolvedUser,
         };
 
         // Check if the comment is a reply

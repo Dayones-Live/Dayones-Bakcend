@@ -138,54 +138,49 @@ export class MerchCreationProcessor extends WorkerHost {
                   })
                   .execute();
 
-                // Fetch the sync product details to grab Printful's
-                // auto-generated mockup preview URLs per variant. These
-                // replace the raw print-file image shown in the merch grid
-                // so fans see the actual garment with the autograph on it.
+                // Fetch the sync product details (v1 endpoint) to grab
+                // Printful's per-variant product images. These are the real
+                // garment photos (black hoodie, white tee, etc) so each
+                // product card shows the actual product not the artist's
+                // raw photo.
                 try {
                   const detail = await this.printfulService.getSyncProduct(
                     printfulProductId,
                   );
                   const syncVariants: any[] =
-                    detail?.data?.sync_variants ||
                     detail?.result?.sync_variants ||
+                    detail?.data?.sync_variants ||
                     [];
 
+                  let saved = 0;
                   for (const sv of syncVariants) {
                     const catalogVariantId =
-                      sv?.catalog_variant_id ||
+                      sv?.variant_id ||
                       sv?.product?.variant_id ||
-                      sv?.variant_id;
-                    if (!catalogVariantId) continue;
-
-                    const filesArr: any[] = Array.isArray(sv?.files) ? sv.files : [];
-                    const previewFile = filesArr.find(
-                      (f) =>
-                        f?.type === 'preview' ||
-                        f?.role === 'preview' ||
-                        typeof f?.preview_url === 'string',
-                    );
+                      sv?.catalog_variant_id;
                     const mockupUrl =
-                      previewFile?.preview_url ||
-                      previewFile?.url ||
-                      sv?.preview_url ||
+                      sv?.product?.image ||
+                      sv?.product?.image_url ||
                       null;
+                    if (!catalogVariantId || !mockupUrl) continue;
 
-                    if (mockupUrl) {
-                      await this.merchProductRepo
-                        .createQueryBuilder()
-                        .update(MerchProduct)
-                        .set({ mockup_url: mockupUrl })
-                        .where(
-                          'merch_drop_id = :merchDropId AND printful_variant_id = :variantId',
-                          {
-                            merchDropId,
-                            variantId: catalogVariantId,
-                          },
-                        )
-                        .execute();
-                    }
+                    const res = await this.merchProductRepo
+                      .createQueryBuilder()
+                      .update(MerchProduct)
+                      .set({ mockup_url: mockupUrl })
+                      .where(
+                        'merch_drop_id = :merchDropId AND printful_variant_id = :variantId',
+                        {
+                          merchDropId,
+                          variantId: catalogVariantId,
+                        },
+                      )
+                      .execute();
+                    if (res.affected && res.affected > 0) saved++;
                   }
+                  this.logger.log(
+                    `[MOCKUP] ${sku.productType} drop ${merchDropId}: matched ${saved}/${syncVariants.length} variants with mockup URLs`,
+                  );
                 } catch (mockupErr: any) {
                   this.logger.warn(
                     `Mockup URL fetch failed for ${sku.productType}: ${mockupErr?.message}`,

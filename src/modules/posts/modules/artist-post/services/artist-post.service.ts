@@ -532,6 +532,8 @@ async fetchAllUserPostsData(
           'artistPostUser',
           'artistPostUser.user',
           'artistPostUser.comment',
+          'artistPostUser.comment.user',
+          'artistPostUser.comment.commentReaction',
           'artistPostUser.reaction',
         ],
         where: {
@@ -572,6 +574,15 @@ async fetchAllUserPostsData(
           ]) // Select specific fields from user
           .leftJoinAndSelect('artistPost.artistPostUser', 'artistPostUser')
           .leftJoinAndSelect('artistPostUser.comment', 'comment')
+          .leftJoin('comment.user', 'commentedUser')
+          .addSelect([
+            'commentedUser.id',
+            'commentedUser.full_name',
+            'commentedUser.email',
+            'commentedUser.phone_number',
+            'commentedUser.avatar_url',
+          ])
+          .leftJoinAndSelect('comment.commentReaction', 'commentReaction')
           .leftJoinAndSelect('artistPostUser.reaction', 'reaction')
           .where('artistPost.id IN (:...acceptedPostIds)', {
             acceptedPostIds,
@@ -595,6 +606,12 @@ async fetchAllUserPostsData(
           .addGroupBy('user.avatar_url')
           .addGroupBy('artistPostUser.id') // Add group by for joined entities
           .addGroupBy('comment.id')
+          .addGroupBy('commentedUser.id')
+          .addGroupBy('commentedUser.full_name')
+          .addGroupBy('commentedUser.email')
+          .addGroupBy('commentedUser.phone_number')
+          .addGroupBy('commentedUser.avatar_url')
+          .addGroupBy('commentReaction.id')
           .addGroupBy('reaction.id')
           .orderBy('artistPost.created_at', 'DESC')
           .skip(paginate.offset) // Apply pagination offset
