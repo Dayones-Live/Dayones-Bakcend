@@ -171,16 +171,29 @@ export class PrintfulService {
     placement: string,
   ): Promise<string | null> {
     try {
+      // Printful's mockup generator requires a `position` for each file. Pull
+      // the printfile area dimensions for this product+placement and use them
+      // so the autograph fills the full print area.
+      const pos = await this.getPrintfilePosition(catalogProductId, placement);
+      const file: any = {
+        placement,
+        image_url: printFileUrl,
+      };
+      if (pos) {
+        file.position = {
+          area_width: pos.width,
+          area_height: pos.height,
+          width: pos.width,
+          height: pos.height,
+          top: 0,
+          left: 0,
+        };
+      }
       const response = await this.client.post(
         `/mockup-generator/create-task/${catalogProductId}`,
         {
           variant_ids: variantIds,
-          files: [
-            {
-              placement,
-              image_url: printFileUrl,
-            },
-          ],
+          files: [file],
           format: 'jpg',
         },
       );
@@ -193,6 +206,49 @@ export class PrintfulService {
         : '';
       this.logger.error(
         `Request mockup task failed for product ${catalogProductId}: ${error.message} ${body}`,
+      );
+      return null;
+    }
+  }
+
+  private printfileCache = new Map<string, { width: number; height: number }>();
+
+  async getPrintfilePosition(
+    catalogProductId: number,
+    placement: string,
+  ): Promise<{ width: number; height: number } | null> {
+    const cacheKey = `${catalogProductId}:${placement}`;
+    const hit = this.printfileCache.get(cacheKey);
+    if (hit) return hit;
+    try {
+      const response = await this.client.get(
+        `/mockup-generator/printfiles/${catalogProductId}`,
+      );
+      const result = response.data?.result;
+      const printfiles: any[] = result?.printfiles || [];
+      const variantPrintfiles: any[] = result?.variant_printfiles || [];
+
+      let printfileId: number | null = null;
+      for (const vp of variantPrintfiles) {
+        const map = vp?.placements;
+        if (map && typeof map === 'object' && map[placement] != null) {
+          printfileId = Number(map[placement]);
+          break;
+        }
+      }
+
+      const pf =
+        (printfileId != null
+          ? printfiles.find((p: any) => p?.printfile_id === printfileId)
+          : null) || printfiles[0];
+
+      if (!pf?.width || !pf?.height) return null;
+      const dims = { width: Number(pf.width), height: Number(pf.height) };
+      this.printfileCache.set(cacheKey, dims);
+      return dims;
+    } catch (error: any) {
+      this.logger.warn(
+        `Get printfiles failed for product ${catalogProductId}: ${error?.message}`,
       );
       return null;
     }
