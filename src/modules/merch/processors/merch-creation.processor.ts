@@ -138,12 +138,48 @@ export class MerchCreationProcessor extends WorkerHost {
                   })
                   .execute();
 
-                // Fetch the sync product details (v1 endpoint) to grab
-                // Printful's per-variant product images. These are the real
-                // garment photos (black hoodie, white tee, etc) so each
-                // product card shows the actual product not the artist's
-                // raw photo.
+                // Two-pass mockup population:
+                //  1) Composited preview via mockup-generator (autograph
+                //     printed on the actual garment — what Eric wants).
+                //  2) Bare catalog photo fallback from /store/products/{id}
+                //     so the merch grid still has SOMETHING relevant if
+                //     mockup gen is unavailable (auth issues, quota, etc).
                 try {
+                  const variantIds = printfulVariants
+                    .map((v) => v.variant_id)
+                    .filter((id): id is number => typeof id === 'number');
+
+                  let composited: Record<number, string> = {};
+                  if (variantIds.length > 0) {
+                    composited = await this.printfulService.generateMockups(
+                      sku.printfulCatalogProductId,
+                      variantIds,
+                      printFileUrl,
+                      placement,
+                    );
+                  }
+
+                  // Apply composited mockups (preferred).
+                  let savedComposited = 0;
+                  for (const [vidStr, url] of Object.entries(composited)) {
+                    const vid = Number(vidStr);
+                    const res = await this.merchProductRepo
+                      .createQueryBuilder()
+                      .update(MerchProduct)
+                      .set({ mockup_url: url })
+                      .where(
+                        'merch_drop_id = :merchDropId AND printful_variant_id = :variantId',
+                        { merchDropId, variantId: vid },
+                      )
+                      .execute();
+                    if (res.affected && res.affected > 0) savedComposited++;
+                  }
+                  this.logger.log(
+                    `[MOCKUP] ${sku.productType} drop ${merchDropId}: ${savedComposited}/${variantIds.length} composited mockups from Printful mockup-generator`,
+                  );
+
+                  // Fallback: fill any variants WITHOUT a composited mockup
+                  // by reading bare catalog photos from the sync product.
                   const detail = await this.printfulService.getSyncProduct(
                     printfulProductId,
                   );
@@ -151,36 +187,31 @@ export class MerchCreationProcessor extends WorkerHost {
                     detail?.result?.sync_variants ||
                     detail?.data?.sync_variants ||
                     [];
-
-                  let saved = 0;
+                  let savedFallback = 0;
                   for (const sv of syncVariants) {
                     const catalogVariantId =
                       sv?.variant_id ||
                       sv?.product?.variant_id ||
                       sv?.catalog_variant_id;
-                    const mockupUrl =
-                      sv?.product?.image ||
-                      sv?.product?.image_url ||
-                      null;
-                    if (!catalogVariantId || !mockupUrl) continue;
-
+                    const fallbackUrl =
+                      sv?.product?.image || sv?.product?.image_url || null;
+                    if (!catalogVariantId || !fallbackUrl) continue;
                     const res = await this.merchProductRepo
                       .createQueryBuilder()
                       .update(MerchProduct)
-                      .set({ mockup_url: mockupUrl })
+                      .set({ mockup_url: fallbackUrl })
                       .where(
-                        'merch_drop_id = :merchDropId AND printful_variant_id = :variantId',
-                        {
-                          merchDropId,
-                          variantId: catalogVariantId,
-                        },
+                        'merch_drop_id = :merchDropId AND printful_variant_id = :variantId AND mockup_url IS NULL',
+                        { merchDropId, variantId: catalogVariantId },
                       )
                       .execute();
-                    if (res.affected && res.affected > 0) saved++;
+                    if (res.affected && res.affected > 0) savedFallback++;
                   }
-                  this.logger.log(
-                    `[MOCKUP] ${sku.productType} drop ${merchDropId}: matched ${saved}/${syncVariants.length} variants with mockup URLs`,
-                  );
+                  if (savedFallback > 0) {
+                    this.logger.log(
+                      `[MOCKUP] ${sku.productType} drop ${merchDropId}: ${savedFallback} bare catalog fallbacks applied`,
+                    );
+                  }
                 } catch (mockupErr: any) {
                   this.logger.warn(
                     `Mockup URL fetch failed for ${sku.productType}: ${mockupErr?.message}`,

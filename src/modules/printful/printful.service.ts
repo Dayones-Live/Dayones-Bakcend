@@ -151,24 +151,129 @@ export class PrintfulService {
     }
   }
 
-  async requestMockup(productId: number): Promise<any> {
+  /**
+   * Kicks off Printful's mockup generator for a catalog product. The print
+   * file is composited onto each requested variant; the resulting mockup
+   * URLs show the actual garment with the autograph design printed on it
+   * (i.e. what fans see in the merch grid).
+   *
+   * @param catalogProductId Printful catalog product id (e.g. 71 for the
+   *   Bella+Canvas tee). NOT the sync product id.
+   * @param variantIds Catalog variant ids (per color/size combo).
+   * @param printFileUrl Public URL of the autograph print file.
+   * @param placement "front" for garments, "default" for posters.
+   * @returns task_key for polling, or null if the request failed.
+   */
+  async requestMockupTask(
+    catalogProductId: number,
+    variantIds: number[],
+    printFileUrl: string,
+    placement: string,
+  ): Promise<string | null> {
     try {
-      const response = await this.client.post(`/v2/mockup-generator/create-task/${productId}`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`Request mockup failed: ${error.message}`);
+      const response = await this.client.post(
+        `/mockup-generator/create-task/${catalogProductId}`,
+        {
+          variant_ids: variantIds,
+          files: [
+            {
+              placement,
+              image_url: printFileUrl,
+            },
+          ],
+          format: 'jpg',
+        },
+      );
+      const taskKey =
+        response.data?.result?.task_key || response.data?.task_key || null;
+      return taskKey;
+    } catch (error: any) {
+      const body = error?.response?.data
+        ? JSON.stringify(error.response.data).slice(0, 200)
+        : '';
+      this.logger.error(
+        `Request mockup task failed for product ${catalogProductId}: ${error.message} ${body}`,
+      );
       return null;
     }
   }
 
-  async getMockupResult(taskKey: string): Promise<any> {
+  /**
+   * Polls a mockup-generator task. Returns the mockups array once status
+   * is "completed", null on still-pending or failure. Each mockup entry
+   * contains variant_ids (the ones it applies to) and mockup_url.
+   */
+  async getMockupTask(taskKey: string): Promise<{
+    status: string;
+    mockups?: Array<{
+      placement?: string;
+      variant_ids: number[];
+      mockup_url: string;
+    }>;
+  } | null> {
     try {
-      const response = await this.client.get(`/v2/mockup-generator/task/${taskKey}`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`Get mockup result failed: ${error.message}`);
+      const response = await this.client.get(
+        `/mockup-generator/task?task_key=${encodeURIComponent(taskKey)}`,
+      );
+      const result = response.data?.result;
+      if (!result) return null;
+      return {
+        status: result.status,
+        mockups: result.mockups,
+      };
+    } catch (error: any) {
+      this.logger.error(
+        `Get mockup task failed for ${taskKey}: ${error.message}`,
+      );
       return null;
     }
+  }
+
+  /**
+   * Convenience: start a mockup task and poll until it completes or times
+   * out. Returns a flat map of variant_id -> mockup_url.
+   */
+  async generateMockups(
+    catalogProductId: number,
+    variantIds: number[],
+    printFileUrl: string,
+    placement: string,
+    options: { maxAttempts?: number; intervalMs?: number } = {},
+  ): Promise<Record<number, string>> {
+    const taskKey = await this.requestMockupTask(
+      catalogProductId,
+      variantIds,
+      printFileUrl,
+      placement,
+    );
+    if (!taskKey) return {};
+
+    const maxAttempts = options.maxAttempts ?? 24;
+    const intervalMs = options.intervalMs ?? 5000;
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, intervalMs));
+      const res = await this.getMockupTask(taskKey);
+      if (!res) continue;
+      if (res.status === 'completed' && Array.isArray(res.mockups)) {
+        const out: Record<number, string> = {};
+        for (const m of res.mockups) {
+          for (const vid of m.variant_ids || []) {
+            if (!out[vid]) out[vid] = m.mockup_url;
+          }
+        }
+        return out;
+      }
+      if (res.status === 'failed') {
+        this.logger.warn(
+          `Mockup task ${taskKey} failed for product ${catalogProductId}`,
+        );
+        return {};
+      }
+    }
+    this.logger.warn(
+      `Mockup task ${taskKey} timed out after ${maxAttempts * intervalMs}ms`,
+    );
+    return {};
   }
 
   async getSyncProduct(syncProductId: number): Promise<any> {
