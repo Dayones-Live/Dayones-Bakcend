@@ -3,11 +3,12 @@ import { Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
 import { Job } from 'bullmq';
+import axios from 'axios';
+import * as sharp from 'sharp';
 import { MerchProduct } from '../entities/merch-product.entity';
 import { MerchService } from '../merch.service';
 import { PrintfulService } from '../../printful/printful.service';
 import { PrintfulCatalogService } from '../../printful/printful-catalog.service';
-import { ImageNormalizationService } from '../services/image-normalization.service';
 import { ArtistPost } from '@artist-post/entities/artist-post.entity';
 import { PRODUCT_CATALOG, getAllVariants } from '../constants/product-catalog';
 import { PushNotificationService } from '@app/shared/services/push-notification.service';
@@ -29,7 +30,6 @@ export class MerchCreationProcessor extends WorkerHost {
     private merchService: MerchService,
     private printfulService: PrintfulService,
     private printfulCatalogService: PrintfulCatalogService,
-    private imageNormalizationService: ImageNormalizationService,
     private pushNotificationService: PushNotificationService,
     private userDeviceService: UserDeviceService,
   ) {
@@ -59,20 +59,24 @@ export class MerchCreationProcessor extends WorkerHost {
     try {
       const artistPost = await this.artistPostRepo.findOne({ where: { id: artistPostId } });
       const sourceImageUrl = artistPost?.image_url || '';
+      let sourceDimensions: { width: number; height: number } | undefined;
+      if (sourceImageUrl) {
+        try {
+          const resp = await axios.get(sourceImageUrl, { responseType: 'arraybuffer' });
+          const meta = await sharp(Buffer.from(resp.data)).metadata();
+          if (meta.width && meta.height) {
+            sourceDimensions = { width: meta.width, height: meta.height };
+            this.logger.log(`[MOCKUP] Source image ${meta.width}x${meta.height} for drop ${merchDropId}`);
+          }
+        } catch (err: any) {
+          this.logger.warn(`Source image probe failed for drop ${merchDropId}: ${err?.message}`);
+        }
+      }
       let createdCount = 0;
 
       for (const sku of PRODUCT_CATALOG) {
         try {
-          let printFileUrl = sourceImageUrl;
-          if (sourceImageUrl) {
-            try {
-              printFileUrl = await this.imageNormalizationService.normalizeForProduct(
-                sourceImageUrl, sku.productType, merchDropId,
-              );
-            } catch (err) {
-              this.logger.warn(`Image normalization failed for ${sku.productType}, using original: ${err.message}`);
-            }
-          }
+          const printFileUrl = sourceImageUrl;
 
           const variants = getAllVariants(sku);
 
@@ -156,6 +160,7 @@ export class MerchCreationProcessor extends WorkerHost {
                       variantIds,
                       printFileUrl,
                       placement,
+                      { imageDimensions: sourceDimensions },
                     );
                   }
 

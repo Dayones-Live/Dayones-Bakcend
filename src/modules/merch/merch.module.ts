@@ -19,7 +19,6 @@ import { StripeModule } from '../stripe/stripe.module';
 import { PrintfulModule } from '../printful/printful.module';
 import { StripeWebhookService } from '../stripe/stripe-webhook.service';
 import { PrintfulWebhookService } from '../printful/printful-webhook.service';
-import { ImageNormalizationService } from './services/image-normalization.service';
 import { ArtistPost } from '@artist-post/entities/artist-post.entity';
 import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
 import { SharedModule } from '@app/shared/shared.module';
@@ -55,7 +54,6 @@ import { UserModule } from '@app/modules/user/user.module';
     MerchCreationProcessor,
     OrderFulfillmentProcessor,
     PayoutBatchProcessor,
-    ImageNormalizationService,
   ],
   exports: [MerchService, MerchOrderService, MerchPayoutService],
 })

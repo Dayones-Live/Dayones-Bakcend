@@ -169,24 +169,36 @@ export class PrintfulService {
     variantIds: number[],
     printFileUrl: string,
     placement: string,
+    imageDimensions?: { width: number; height: number },
   ): Promise<string | null> {
     try {
-      // Printful's mockup generator requires a `position` for each file. Pull
-      // the printfile area dimensions for this product+placement and use them
-      // so the autograph fills the full print area.
       const pos = await this.getPrintfilePosition(catalogProductId, placement);
       const file: any = {
         placement,
         image_url: printFileUrl,
       };
       if (pos) {
+        let fitWidth = pos.width;
+        let fitHeight = pos.height;
+        let top = 0;
+        let left = 0;
+        if (imageDimensions && imageDimensions.width > 0 && imageDimensions.height > 0) {
+          const scale = Math.min(
+            pos.width / imageDimensions.width,
+            pos.height / imageDimensions.height,
+          );
+          fitWidth = Math.round(imageDimensions.width * scale);
+          fitHeight = Math.round(imageDimensions.height * scale);
+          top = Math.round((pos.height - fitHeight) / 2);
+          left = Math.round((pos.width - fitWidth) / 2);
+        }
         file.position = {
           area_width: pos.width,
           area_height: pos.height,
-          width: pos.width,
-          height: pos.height,
-          top: 0,
-          left: 0,
+          width: fitWidth,
+          height: fitHeight,
+          top,
+          left,
         };
       }
       const response = await this.client.post(
@@ -294,13 +306,18 @@ export class PrintfulService {
     variantIds: number[],
     printFileUrl: string,
     placement: string,
-    options: { maxAttempts?: number; intervalMs?: number } = {},
+    options: {
+      maxAttempts?: number;
+      intervalMs?: number;
+      imageDimensions?: { width: number; height: number };
+    } = {},
   ): Promise<Record<number, string>> {
     const taskKey = await this.requestMockupTask(
       catalogProductId,
       variantIds,
       printFileUrl,
       placement,
+      options.imageDimensions,
     );
     if (!taskKey) return {};
 
