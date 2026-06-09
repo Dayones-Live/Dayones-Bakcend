@@ -201,23 +201,46 @@ export class PrintfulService {
           left,
         };
       }
-      const response = await this.client.post(
-        `/mockup-generator/create-task/${catalogProductId}`,
-        {
-          variant_ids: variantIds,
-          files: [file],
-          format: 'jpg',
-        },
-      );
-      const taskKey =
-        response.data?.result?.task_key || response.data?.task_key || null;
-      return taskKey;
-    } catch (error: any) {
-      const body = error?.response?.data
-        ? JSON.stringify(error.response.data).slice(0, 200)
-        : '';
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          const response = await this.client.post(
+            `/mockup-generator/create-task/${catalogProductId}`,
+            {
+              variant_ids: variantIds,
+              files: [file],
+              format: 'jpg',
+            },
+          );
+          return (
+            response.data?.result?.task_key || response.data?.task_key || null
+          );
+        } catch (error: any) {
+          if (error?.response?.status === 429) {
+            const msg = error?.response?.data?.result || '';
+            const m = String(msg).match(/after (\d+) seconds/);
+            const waitS = m ? Number(m[1]) + 2 : 30;
+            this.logger.warn(
+              `[MOCKUP] 429 on product ${catalogProductId}, waiting ${waitS}s (attempt ${attempt + 1}/5)`,
+            );
+            await new Promise((r) => setTimeout(r, waitS * 1000));
+            continue;
+          }
+          const body = error?.response?.data
+            ? JSON.stringify(error.response.data).slice(0, 200)
+            : '';
+          this.logger.error(
+            `Request mockup task failed for product ${catalogProductId}: ${error.message} ${body}`,
+          );
+          return null;
+        }
+      }
       this.logger.error(
-        `Request mockup task failed for product ${catalogProductId}: ${error.message} ${body}`,
+        `Request mockup task gave up after retries for product ${catalogProductId}`,
+      );
+      return null;
+    } catch (error: any) {
+      this.logger.error(
+        `Request mockup task setup failed for product ${catalogProductId}: ${error.message}`,
       );
       return null;
     }
