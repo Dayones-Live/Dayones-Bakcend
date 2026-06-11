@@ -15,6 +15,11 @@ import { PushNotificationService } from '@app/shared/services/push-notification.
 import { UserDeviceService } from '@app/modules/user/services/user-device.service';
 import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
 import { Invite_Status } from '@app/modules/posts/modules/artist-post-user/constants/constants';
+import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
+import {
+  NOTIFICATION_TITLE,
+  NOTIFICATION_TYPE,
+} from '@app/modules/user/modules/notifications/constants';
 
 @Processor('merch-creation', { concurrency: 2 })
 export class MerchCreationProcessor extends WorkerHost {
@@ -27,6 +32,8 @@ export class MerchCreationProcessor extends WorkerHost {
     private artistPostRepo: Repository<ArtistPost>,
     @InjectRepository(ArtistPostUser)
     private artistPostUserRepo: Repository<ArtistPostUser>,
+    @InjectRepository(Notifications)
+    private notificationsRepo: Repository<Notifications>,
     private merchService: MerchService,
     private printfulService: PrintfulService,
     private printfulCatalogService: PrintfulCatalogService,
@@ -238,11 +245,22 @@ export class MerchCreationProcessor extends WorkerHost {
       this.logger.log(`Drop ${merchDropId} activated with ${createdCount} product variants`);
 
       try {
+        const artistNotif = new Notifications();
+        artistNotif.to_id = artistId;
+        artistNotif.from_id = artistId;
+        artistNotif.is_read = false;
+        artistNotif.title = NOTIFICATION_TITLE.MERCH_DROP;
+        artistNotif.message = 'Your merch drop is now live!';
+        artistNotif.type = NOTIFICATION_TYPE.MERCH_DROP;
+        artistNotif.post_id = artistPostId;
+        artistNotif.data = JSON.stringify({ drop_id: merchDropId, post_id: artistPostId });
+        const savedArtistNotif = await this.notificationsRepo.save(artistNotif);
+
         const artistPlayerIds = await this.userDeviceService.getActivePlayerIds(artistId);
         if (artistPlayerIds.length > 0) {
           await this.pushNotificationService.sendPushNotification(
-            artistPlayerIds, 'DayOnes', 'Your merch drop is now live!',
-            { type: 'merch_drop', drop_id: merchDropId, post_id: artistPostId },
+            artistPlayerIds, NOTIFICATION_TITLE.MERCH_DROP, 'Your merch drop is now live!',
+            { type: NOTIFICATION_TYPE.MERCH_DROP, drop_id: merchDropId, post_id: artistPostId, notification_id: savedArtistNotif.id },
           );
         }
       } catch (notifErr) {
@@ -265,18 +283,36 @@ export class MerchCreationProcessor extends WorkerHost {
           `[FAN_MERCH_NOTIFY] Notifying ${fans.length} fans for merch drop ${merchDropId} (post ${artistPostId})`,
         );
         let notified = 0;
+        let inAppCreated = 0;
         for (const fan of fans) {
           try {
+            const fanNotif = new Notifications();
+            fanNotif.to_id = fan.user_id;
+            fanNotif.from_id = artistId;
+            fanNotif.is_read = false;
+            fanNotif.title = NOTIFICATION_TITLE.MERCH_DROP;
+            fanNotif.message =
+              'Your DayOnes merch from this drop is ready, tap to grab it before it goes.';
+            fanNotif.type = NOTIFICATION_TYPE.MERCH_DROP;
+            fanNotif.post_id = artistPostId;
+            fanNotif.data = JSON.stringify({
+              drop_id: merchDropId,
+              post_id: artistPostId,
+            });
+            const savedFanNotif = await this.notificationsRepo.save(fanNotif);
+            inAppCreated += 1;
+
             const tokens = await this.userDeviceService.getActivePlayerIds(fan.user_id);
             if (tokens.length === 0) continue;
             await this.pushNotificationService.sendPushNotification(
               tokens,
-              'DayOnes merch is live',
-              'Your DayOnes merch from this drop is ready, tap to grab it before it goes.',
+              NOTIFICATION_TITLE.MERCH_DROP,
+              fanNotif.message,
               {
-                type: 'merch_drop',
+                type: NOTIFICATION_TYPE.MERCH_DROP,
                 drop_id: merchDropId,
                 post_id: artistPostId,
+                notification_id: savedFanNotif.id,
               },
             );
             notified += 1;
@@ -286,7 +322,9 @@ export class MerchCreationProcessor extends WorkerHost {
             );
           }
         }
-        this.logger.log(`[FAN_MERCH_NOTIFY] Sent fan push to ${notified}/${fans.length}`);
+        this.logger.log(
+          `[FAN_MERCH_NOTIFY] In-app ${inAppCreated}/${fans.length}, push ${notified}/${fans.length}`,
+        );
       } catch (fanNotifyErr: any) {
         this.logger.warn(
           `[FAN_MERCH_NOTIFY] Fan notification batch failed: ${fanNotifyErr?.message}`,

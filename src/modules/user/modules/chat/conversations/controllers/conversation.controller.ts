@@ -45,7 +45,7 @@ export class ConversationController {
    * @throws HttpException if the user is not found.
    */
   @Post()
-  @Role(Roles.ARTIST)
+  @Role(Roles.ARTIST, Roles.USER)
   async createConversation(
     @Body() createConversationInput: CreateConversationInput,
     @Res() res: Response,

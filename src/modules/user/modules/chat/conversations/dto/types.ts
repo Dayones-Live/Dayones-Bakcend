@@ -1,5 +1,5 @@
 import { PaginationResponse } from '@app/types';
-import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
+import { IsNotEmpty, IsOptional } from 'class-validator';
 import { Conversations } from '../entities/conversation.entity';
 import { Media_Type } from '@app/types';
 
@@ -7,8 +7,7 @@ export class CreateConversationInput {
   @IsNotEmpty({ message: 'recieverId is required' })
   recieverId: string;
 
-  @ValidateIf((o) => !o.mediaType)
-  @IsNotEmpty({ message: 'lastMessage is required when no media is attached' })
+  @IsOptional()
   lastMessage?: string;
 
   @IsOptional()

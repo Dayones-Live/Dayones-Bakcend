@@ -128,25 +128,24 @@ export class CommentsService {
               continue;
             }
 
+            this.logger.log(`[COMMENT] Creating notification for fan ${fan.user_id}`);
+            const notification = new Notifications();
+            notification.to_id = fan.user_id;
+            notification.is_read = false;
+            notification.from_id = userId;
+            notification.title = NOTIFICATION_TITLE.COMMENT;
+            notification.data = JSON.stringify({
+              message: createCommentInput?.message,
+              post_id: postId,
+            });
+            notification.message = `${commenter.user.full_name} commented on a post`;
+            notification.type = NOTIFICATION_TYPE.COMMENT;
+            notification.post_id = postId;
+
+            const savedNotification = await this.notificationsRepository.save(notification);
+            this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
+
             if (playerIds.length > 0) {
-              this.logger.log(`[COMMENT] Creating notification for fan ${fan.user_id}`);
-              const notification = new Notifications();
-              notification.to_id = fan.user_id;
-              notification.is_read = false;
-              notification.from_id = userId;
-              notification.title = NOTIFICATION_TITLE.COMMENT;
-              notification.data = JSON.stringify({
-                message: createCommentInput?.message,
-                post_id: postId,
-              });
-              notification.message = `${commenter.user.full_name} commented on a post`;
-              notification.type = NOTIFICATION_TYPE.COMMENT;
-              notification.post_id = postId;
-
-              const savedNotification = await this.notificationsRepository.save(notification);
-              this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
-
-              this.logger.log(`[COMMENT] Sending push notification to fan ${fan.user_id} with player IDs: ${playerIds.join(', ')}`);
               await this.pushNotificationService.sendPushNotification(
                 playerIds,
                 notification.title,
@@ -157,9 +156,8 @@ export class CommentsService {
                   notification_id: savedNotification.id
                 }
               );
-              this.logger.log(`[COMMENT] Successfully sent push notification to fan ${fan.user_id}`);
             } else {
-              this.logger.warn(`[COMMENT] No active devices found for fan ${fan.user_id}`);
+              this.logger.log(`[COMMENT] No active devices for fan ${fan.user_id}, in-app only`);
             }
           }
         } else {
@@ -172,26 +170,24 @@ export class CommentsService {
             this.logger.log(`[COMMENT] Skipping notification for commenter ${userId} (post owner)`);
           } else {
             const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-            
+            this.logger.log(`[COMMENT] Creating notification for artist ${postOwnerId}`);
+            const notification = new Notifications();
+            notification.to_id = postOwnerId;
+            notification.is_read = false;
+            notification.from_id = userId;
+            notification.title = NOTIFICATION_TITLE.COMMENT;
+            notification.data = JSON.stringify({
+              message: createCommentInput?.message,
+              post_id: postId,
+            });
+            notification.message = `${commenter.user.full_name} commented on your post`;
+            notification.type = NOTIFICATION_TYPE.COMMENT;
+            notification.post_id = postId;
+
+            const savedNotification = await this.notificationsRepository.save(notification);
+            this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
+
             if (playerIds.length > 0) {
-              this.logger.log(`[COMMENT] Creating notification for artist ${postOwnerId}`);
-              const notification = new Notifications();
-              notification.to_id = postOwnerId;
-              notification.is_read = false;
-              notification.from_id = userId;
-              notification.title = NOTIFICATION_TITLE.COMMENT;
-              notification.data = JSON.stringify({
-                message: createCommentInput?.message,
-                post_id: postId,
-              });
-              notification.message = `${commenter.user.full_name} commented on your post`;
-              notification.type = NOTIFICATION_TYPE.COMMENT;
-              notification.post_id = postId;
-
-              const savedNotification = await this.notificationsRepository.save(notification);
-              this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
-
-              this.logger.log(`[COMMENT] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
               await this.pushNotificationService.sendPushNotification(
                 playerIds,
                 notification.title,
@@ -202,9 +198,8 @@ export class CommentsService {
                   notification_id: savedNotification.id
                 }
               );
-              this.logger.log(`[COMMENT] Successfully sent push notification to artist ${postOwnerId}`);
             } else {
-              this.logger.warn(`[COMMENT] No active devices found for artist ${postOwnerId}`);
+              this.logger.log(`[COMMENT] No active devices for artist ${postOwnerId}, in-app only`);
             }
           }
         }
@@ -314,7 +309,6 @@ export class CommentsService {
           this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for fan ${fan.user_id}`);
 
           if (playerIds.length > 0) {
-            this.logger.log(`[COMMENT] Sending push notification to fan ${fan.user_id} with player IDs: ${playerIds.join(', ')}`);
             await this.pushNotificationService.sendPushNotification(
               playerIds,
               notification.title,
@@ -325,13 +319,11 @@ export class CommentsService {
                 notification_id: savedNotification.id
               }
             );
-            this.logger.log(`[COMMENT] Successfully sent push notification to fan ${fan.user_id}`);
           } else {
-            this.logger.warn(`[COMMENT] No active devices found for fan ${fan.user_id}`);
+            this.logger.log(`[COMMENT] No active devices for fan ${fan.user_id}, in-app only`);
           }
         }
       } else {
-        // If commenter is a fan, only notify the post owner (artist)
         const postOwnerId = await this.artistPostUserService.getPostOwnerId(postId);
         this.logger.log(`[COMMENT] Post owner ID: ${postOwnerId}`);
 
@@ -339,28 +331,25 @@ export class CommentsService {
         if (postOwnerId === userId) {
           this.logger.log(`[COMMENT] Skipping notification for commenter ${userId} (post owner)`);
         } else {
-          // Get active OneSignal player IDs for the artist
           const playerIds = await this.userDeviceService.getActivePlayerIds(postOwnerId);
-          
+          this.logger.log(`[COMMENT] Creating notification for artist ${postOwnerId}`);
+          const notification = new Notifications();
+          notification.to_id = postOwnerId;
+          notification.is_read = false;
+          notification.from_id = userId;
+          notification.title = NOTIFICATION_TITLE.COMMENT;
+          notification.data = JSON.stringify({
+            message: createCommentInput?.message,
+            post_id: postId,
+          });
+          notification.message = `${commenter.user.full_name} commented on your post`;
+          notification.type = NOTIFICATION_TYPE.COMMENT;
+          notification.post_id = postId;
+
+          const savedNotification = await this.notificationsRepository.save(notification);
+          this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
+
           if (playerIds.length > 0) {
-            this.logger.log(`[COMMENT] Creating notification for artist ${postOwnerId}`);
-            const notification = new Notifications();
-            notification.to_id = postOwnerId;
-            notification.is_read = false;
-            notification.from_id = userId;
-            notification.title = NOTIFICATION_TITLE.COMMENT;
-            notification.data = JSON.stringify({
-              message: createCommentInput?.message,
-              post_id: postId,
-            });
-            notification.message = `${commenter.user.full_name} commented on your post`;
-            notification.type = NOTIFICATION_TYPE.COMMENT;
-            notification.post_id = postId;
-
-            const savedNotification = await this.notificationsRepository.save(notification);
-            this.logger.log(`[COMMENT] Saved notification with ID: ${savedNotification.id} for artist ${postOwnerId}`);
-
-            this.logger.log(`[COMMENT] Sending push notification to artist ${postOwnerId} with player IDs: ${playerIds.join(', ')}`);
             await this.pushNotificationService.sendPushNotification(
               playerIds,
               notification.title,
@@ -371,14 +360,17 @@ export class CommentsService {
                 notification_id: savedNotification.id
               }
             );
-            this.logger.log(`[COMMENT] Successfully sent push notification to artist ${postOwnerId}`);
           } else {
-            this.logger.warn(`[COMMENT] No active devices found for artist ${postOwnerId}`);
+            this.logger.log(`[COMMENT] No active devices for artist ${postOwnerId}, in-app only`);
           }
         }
       }
 
-      return comment;
+      const hydrated = await this.commentsRepository.findOne({
+        where: { id: comment.id },
+        relations: ['user', 'artistPostUser', 'artistPostUser.user'],
+      });
+      return hydrated ?? comment;
     } catch (error) {
       this.logger.error(`[COMMENT] Error in commentAPost: ${error.message}`, error.stack);
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);

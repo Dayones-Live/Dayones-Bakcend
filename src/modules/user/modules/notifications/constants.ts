@@ -7,6 +7,7 @@ export const NOTIFICATION_TITLE = {
   LIKE_COMMENT: 'DayOnes',
   DISLIKE_COMMENT: 'DayOnes',
   INVITE: 'DayOnes',
+  MERCH_DROP: 'DayOnes',
 } as const;
 
 export const NOTIFICATION_TYPE = {
@@ -18,4 +19,5 @@ export const NOTIFICATION_TYPE = {
   DISLIKE_COMMENT: 'reaction',
   INVITE: 'invite',
   MESSAGE: 'message',
-} as const; 
+  MERCH_DROP: 'merch_drop',
+} as const;

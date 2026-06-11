@@ -21,6 +21,7 @@ import { StripeWebhookService } from '../stripe/stripe-webhook.service';
 import { PrintfulWebhookService } from '../printful/printful-webhook.service';
 import { ArtistPost } from '@artist-post/entities/artist-post.entity';
 import { ArtistPostUser } from '@app/modules/posts/modules/artist-post-user/entities/artist-post-user.entity';
+import { Notifications } from '@app/modules/user/modules/notifications/entities/notifications.entity';
 import { SharedModule } from '@app/shared/shared.module';
 import { UserModule } from '@app/modules/user/user.module';
 
@@ -35,6 +36,7 @@ import { UserModule } from '@app/modules/user/user.module';
       PayoutBatch,
       ArtistPost,
       ArtistPostUser,
+      Notifications,
     ]),
     BullModule.registerQueue(
       { name: 'merch-creation' },
