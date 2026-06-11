@@ -204,7 +204,7 @@ export class CommentsService {
           }
         }
 
-        return comment;
+        return this.hydrateComment(comment.id, comment);
       } else {
         this.logger.log(`[COMMENT] No generic post found, checking regular post access`);
         // Fetch the artistPostUserId through user id and artistPost
@@ -366,15 +366,22 @@ export class CommentsService {
         }
       }
 
-      const hydrated = await this.commentsRepository.findOne({
-        where: { id: comment.id },
-        relations: ['user', 'artistPostUser', 'artistPostUser.user'],
-      });
-      return hydrated ?? comment;
+      return this.hydrateComment(comment.id, comment);
     } catch (error) {
       this.logger.error(`[COMMENT] Error in commentAPost: ${error.message}`, error.stack);
       throw new HttpException(` ${error?.message}`, HttpStatus.BAD_REQUEST);
     }
+  }
+
+  private async hydrateComment(
+    commentId: string,
+    fallback: Comments,
+  ): Promise<Comments> {
+    const hydrated = await this.commentsRepository.findOne({
+      where: { id: commentId },
+      relations: ['user', 'artistPostUser', 'artistPostUser.user'],
+    });
+    return hydrated ?? fallback;
   }
 
   /**
