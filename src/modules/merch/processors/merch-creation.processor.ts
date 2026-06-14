@@ -167,7 +167,10 @@ export class MerchCreationProcessor extends WorkerHost {
                       variantIds,
                       printFileUrl,
                       placement,
-                      { imageDimensions: sourceDimensions },
+                      {
+                        imageDimensions: sourceDimensions,
+                        chestOffsetRatio: sku.chestOffsetRatio ?? 0,
+                      },
                     );
                   }
 

@@ -19,6 +19,11 @@ export interface SkuConfig {
   colors: SkuColorConfig[];
   printCanvasWidth: number;
   printCanvasHeight: number;
+  // Vertical nudge applied on top of centering the artwork in the print area,
+  // as a fraction of the print-area height. Negative moves the design UP
+  // (toward the collar/chest), positive moves it DOWN. Tuned so the artwork
+  // lands on the central chest region per garment rather than drifting.
+  chestOffsetRatio?: number;
 }
 
 export const PRODUCT_CATALOG: SkuConfig[] = [
@@ -27,6 +32,7 @@ export const PRODUCT_CATALOG: SkuConfig[] = [
     name: 'Tour Autograph Hoodie',
     blankName: 'Cotton Heritage M2580',
     printfulCatalogProductId: 380,
+    chestOffsetRatio: 0.06,
     priceTiers: [
       { sizes: ['S', 'M', 'L', 'XL'], price: 80 },
       { sizes: ['2XL', '3XL'], price: 85 },
@@ -44,6 +50,7 @@ export const PRODUCT_CATALOG: SkuConfig[] = [
     name: 'Tour Autograph Tee',
     blankName: 'Bella+Canvas 3001',
     printfulCatalogProductId: 71,
+    chestOffsetRatio: -0.06,
     priceTiers: [
       { sizes: ['XS', 'S', 'M', 'L', 'XL', '2XL'], price: 40 },
       { sizes: ['3XL', '4XL', '5XL'], price: 45 },
@@ -61,6 +68,7 @@ export const PRODUCT_CATALOG: SkuConfig[] = [
     name: 'Tour Autograph Tank',
     blankName: 'Bella+Canvas 3480',
     printfulCatalogProductId: 248,
+    chestOffsetRatio: -0.12,
     priceTiers: [
       { sizes: ['S', 'M', 'L'], price: 35 },
       { sizes: ['XL', '2XL'], price: 40 },

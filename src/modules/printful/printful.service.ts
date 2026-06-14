@@ -170,6 +170,7 @@ export class PrintfulService {
     printFileUrl: string,
     placement: string,
     imageDimensions?: { width: number; height: number },
+    chestOffsetRatio = 0,
   ): Promise<string | null> {
     try {
       const pos = await this.getPrintfilePosition(catalogProductId, placement);
@@ -189,7 +190,12 @@ export class PrintfulService {
           );
           fitWidth = Math.round(imageDimensions.width * scale);
           fitHeight = Math.round(imageDimensions.height * scale);
-          top = Math.round((pos.height - fitHeight) / 2);
+          // Center, then nudge vertically so the design lands on the chest for
+          // this garment. Clamp so the artwork never spills outside the print
+          // area regardless of the offset.
+          const centeredTop = (pos.height - fitHeight) / 2;
+          const nudged = centeredTop + chestOffsetRatio * pos.height;
+          top = Math.round(Math.max(0, Math.min(pos.height - fitHeight, nudged)));
           left = Math.round((pos.width - fitWidth) / 2);
         }
         file.position = {
@@ -333,6 +339,7 @@ export class PrintfulService {
       maxAttempts?: number;
       intervalMs?: number;
       imageDimensions?: { width: number; height: number };
+      chestOffsetRatio?: number;
     } = {},
   ): Promise<Record<number, string>> {
     const taskKey = await this.requestMockupTask(
@@ -341,6 +348,7 @@ export class PrintfulService {
       printFileUrl,
       placement,
       options.imageDimensions,
+      options.chestOffsetRatio ?? 0,
     );
     if (!taskKey) return {};
 

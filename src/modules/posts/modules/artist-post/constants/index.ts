@@ -4,4 +4,5 @@ export enum Post_Type {
   GENERIC = 'GENERIC',
 }
 
-export const Post_Message = 'This is demo post text';
+export const Post_Message =
+  "🔥 Welcome to my official DayOnes group, where you're not just a fan—you're family.";
