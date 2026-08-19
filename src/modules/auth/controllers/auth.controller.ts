@@ -407,6 +407,9 @@ export class AuthController {
         HttpStatus.UNAUTHORIZED,
       );
     }
+    // Age refusal is enforced on every auth path, not just at signup, so it
+    // survives a reinstall and cannot be sidestepped via a different provider.
+    this.userService.assertNotAgeBlocked(user);
     if (user.pending_approval) {
       throw new HttpException(
         'Your artist account is awaiting admin approval. You will be notified once it is approved.',

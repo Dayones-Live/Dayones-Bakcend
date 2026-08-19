@@ -87,6 +87,10 @@ export class ProfileService {
                 role: user.role,
                 created_at: user.created_at,
                 notifications_enabled: user.notifications_enabled,
+                // Required by the app's age gate: without these the client
+                // re-hydrates with a null bracket and re-asks forever.
+                age_bracket: user.age_bracket ?? null,
+                age_blocked: user.age_blocked,
               }
             : null,
           profile,
@@ -136,6 +140,10 @@ export class ProfileService {
             role: user.role,
             created_at: user.created_at,
             notifications_enabled: user.notifications_enabled,
+            // Required by the app's age gate: without these the client
+            // re-hydrates with a null bracket and re-asks forever.
+            age_bracket: user.age_bracket ?? null,
+            age_blocked: user.age_blocked,
           },
           profile,
           gallery: galleryImages,

@@ -20,6 +20,7 @@ import {
   UserUpdateInput,
   ApproveArtistInput,
   RejectArtistInput,
+  SetAgeBracketInput,
 } from '../dto/types';
 import { Roles, SUCCESS_MESSAGES } from '@app/shared/constants/constants';
 import { Role } from '@app/modules/auth/decorators/roles.decorator';
@@ -51,6 +52,35 @@ export class UserController {
       });
     } catch (error) {
       console.error('🚀 ~ CognitoController ~ userSignUp ~ error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Records the caller's one-time age bracket.
+   *
+   * Used by both the signup flow and the one-time pass over existing accounts.
+   * Selecting UNDER_13 blocks the account on the row, which is what makes the
+   * refusal survive a reinstall rather than living only on the device.
+   */
+  @UseGuards(CognitoGuard)
+  @Post('age-bracket')
+  async setAgeBracket(
+    @Body() setAgeBracketInput: SetAgeBracketInput,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    try {
+      const response = await this.userService.setAgeBracket(
+        req?.user?.id || '',
+        setAgeBracketInput.ageBracket,
+      );
+      res.status(response.statusCode).json({
+        message: response.message,
+        data: response.data,
+      });
+    } catch (error) {
+      this.logger.error(`setAgeBracket failed: ${error?.message}`);
       throw error;
     }
   }

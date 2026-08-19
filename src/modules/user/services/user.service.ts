@@ -18,7 +18,11 @@ import {
 import { GlobalServiceResponse } from '@app/shared/types/types';
 import { User } from '../entities/user.entity';
 import { UserMapper } from '../dto/user.mapper';
-import { ERROR_MESSAGES, Roles } from '@app/shared/constants/constants';
+import {
+  AgeBracket,
+  ERROR_MESSAGES,
+  Roles,
+} from '@app/shared/constants/constants';
 import { addMinutesToDate } from '@app/modules/posts/modules/artist-post/utils';
 import { ArtistPostService } from '@app/modules/posts/modules/artist-post/services/artist-post.service';
 import { Post_Type } from '@app/modules/posts/modules/artist-post/constants';
@@ -272,6 +276,76 @@ export class UserService {
       throw new HttpException(
         `User update error: ${error?.message}`,
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  /**
+   * Records the one-time age bracket for a user.
+   *
+   * Only the bracket is persisted. The caller may send a birthday to the
+   * endpoint for the re-check strategy, but it is used to derive the bracket
+   * and is deliberately never stored on the row.
+   *
+   * Selecting UNDER_13 sets age_blocked, which is what makes the refusal
+   * survive a reinstall: it is tied to the account row, not to the device.
+   */
+  async setAgeBracket(
+    userId: string,
+    ageBracket: AgeBracket,
+  ): Promise<GlobalServiceResponse> {
+    try {
+      const existingUser = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!existingUser) {
+        throw new HttpException(
+          ERROR_MESSAGES.USER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      existingUser.age_bracket = ageBracket;
+      if (ageBracket === AgeBracket.UNDER_13) {
+        existingUser.age_blocked = true;
+      }
+
+      const saved = await this.userRepository.save(existingUser);
+      const { user_sub, password_hash, ...rest } = saved;
+
+      return {
+        statusCode: HttpStatus.OK,
+        message:
+          ageBracket === AgeBracket.UNDER_13
+            ? 'Account blocked'
+            : 'Age bracket recorded',
+        data: {
+          ...rest,
+          role: rest.role?.[0],
+          age_bracket: saved.age_bracket,
+          age_blocked: saved.age_blocked,
+        },
+      };
+    } catch (error) {
+      console.error(
+        '🚀 ~ file: user.service.ts ~ UserService ~ setAgeBracket ~ error:',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Throws if this account has been age-blocked. Called from every
+   * authentication path so the block cannot be sidestepped by reinstalling
+   * the app or by signing in through a different provider.
+   */
+  assertNotAgeBlocked(user: Pick<User, 'age_blocked'> | null | undefined): void {
+    if (user?.age_blocked) {
+      throw new HttpException(
+        ERROR_MESSAGES.AGE_RESTRICTED,
+        HttpStatus.FORBIDDEN,
       );
     }
   }

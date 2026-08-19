@@ -311,6 +311,8 @@ export class CognitoService {
       if (!this.verifyPassword(signInData.password, user.password_hash)) {
         throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
       }
+      // Age refusal is checked on every auth path, so it survives a reinstall.
+      this.userService.assertNotAgeBlocked(user);
       return {
         statusCode: HttpStatus.OK,
         message: SUCCESS_MESSAGES.USER_SIGN_IN_SUCCESS,
@@ -325,6 +327,10 @@ export class CognitoService {
     }
 
     await this.userService.checkUserActiveByEmail(signInData.username);
+    // Age refusal is checked on every auth path, so it survives a reinstall.
+    this.userService.assertNotAgeBlocked(
+      await this.userService.findUserByEmailOrNull(signInData.username),
+    );
     const params = {
       AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
       ClientId: this.clientId || '',

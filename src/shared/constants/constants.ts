@@ -6,8 +6,15 @@ export enum Roles {
   'SUPER_ADMIN' = 'SUPER_ADMIN',
 }
 
+export enum AgeBracket {
+  UNDER_13 = 'UNDER_13',
+  AGE_13_17 = 'AGE_13_17',
+  AGE_18_PLUS = 'AGE_18_PLUS',
+}
+
 export enum ERROR_MESSAGES {
   USER_NOT_FOUND = 'User not found',
+  AGE_RESTRICTED = 'This account is not eligible to use DayOnes.',
   MESSAGE_NOT_FOUND = 'Message not found',
   WRONG_PASSWORD = 'Password is incorrect',
   USER_ALREADY_EXISTS = 'User already exists',

@@ -1,5 +1,5 @@
 import { IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
-import { Roles } from '@app/shared/constants/constants';
+import { AgeBracket, Roles } from '@app/shared/constants/constants';
 
 export class UserUpdateInput {
   @IsOptional()
@@ -69,4 +69,20 @@ export class RejectArtistInput {
 
   @IsOptional()
   adminNotes?: string;
+}
+
+/**
+ * The one-time age declaration.
+ *
+ * Only the bracket crosses the wire. When the birthday re-check strategy is
+ * active the app derives the bracket from the date locally and sends the
+ * result, so a date of birth never reaches the server and cannot be stored,
+ * logged, or captured in a request trace.
+ */
+export class SetAgeBracketInput {
+  @IsNotEmpty({ message: 'ageBracket is required' })
+  @IsEnum(AgeBracket, {
+    message: 'ageBracket must be one of: UNDER_13, AGE_13_17, AGE_18_PLUS',
+  })
+  ageBracket: AgeBracket;
 }
