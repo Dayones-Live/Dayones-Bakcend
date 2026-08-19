@@ -54,26 +54,33 @@ export class CognitoGuard implements CanActivate {
           request.userSub = payload?.sub;
           request.user = user;
         }
-        return true;
+      } else {
+        const payload = await this.verifier.verify(token, {
+          tokenUse: 'access',
+          clientId: process.env.COGNITO_CLIENT_ID || '',
+        });
+        const user = await this.userService.findUserByUserSub(payload?.username);
+        // You can add additional checks or modify the request object if needed
+        if (user) {
+          request.userSub = payload?.username;
+          request.user = user;
+        }
       }
-
-      const payload = await this.verifier.verify(token, {
-        tokenUse: 'access',
-        clientId: process.env.COGNITO_CLIENT_ID || '',
-      });
-      const user = await this.userService.findUserByUserSub(payload?.username);
-      // You can add additional checks or modify the request object if needed
-      if (user) {
-        request.userSub = payload?.username;
-        request.user = user;
-      }
-      return true;
     } catch (error) {
       throw new HttpException(
         `Error: ${error.message}`,
         error?.status || HttpStatus.UNAUTHORIZED,
       );
     }
+
+    // An age-blocked account keeps whatever access and refresh tokens it was
+    // holding when the block landed, so checking only at sign-in would leave a
+    // live session with full API access until those tokens expire. This is the
+    // one place every authenticated request passes through, so the row is
+    // checked here. Deliberately outside the try/catch above: that handler
+    // rewrites any error into a generic 401, which would hide the 403.
+    this.userService.assertNotAgeBlocked(request.user);
+    return true;
   }
 
   private extractToken(request: any): string | null {
