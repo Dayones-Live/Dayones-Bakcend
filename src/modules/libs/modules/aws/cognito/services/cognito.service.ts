@@ -35,7 +35,7 @@ import {
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
 } from '@app/shared/constants/constants';
-import { Roles } from '@app/shared/constants/constants';
+import { AgeBracket, Roles } from '@app/shared/constants/constants';
 import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { User } from '@user/entities/user.entity';
@@ -86,7 +86,20 @@ export class CognitoService {
    * @returns {User}
    */
   async signUp(userData: UserSignUpInput): Promise<GlobalServiceResponse> {
-    const { email, password, role, name: userFullName, phoneNumber } = userData;
+    const {
+      email,
+      password,
+      role,
+      name: userFullName,
+      phoneNumber,
+      ageBracket,
+    } = userData;
+
+    // A refused identity must not be able to start over and pick a different
+    // bracket. The row survives, so the refusal is checked before anything is
+    // created, and it answers with the reason rather than a generic conflict.
+    const priorAccount = await this.userService.findUserByEmailOrNull(email);
+    this.userService.assertNotAgeBlocked(priorAccount);
 
     if (this.isDemoMode) {
       const { v4: uuidv4 } = require('uuid');
@@ -118,7 +131,12 @@ export class CognitoService {
         password_hash: passwordHash,
         isConfirmed: true,
         pendingApproval: false,
+        ageBracket,
       });
+      // Created, then refused. The row is deliberately kept so the refusal
+      // sticks to the identity: signing up again with this email is rejected
+      // above rather than quietly succeeding with a different bracket.
+      this.userService.assertNotAgeBlocked(newUser);
       const { user_sub, password_hash, ...extractedUserData } = newUser;
       return {
         message: SUCCESS_MESSAGES.USER_SIGNUP_SUCCESS,
@@ -154,7 +172,9 @@ export class CognitoService {
         userSub: result.UserSub || '',
         isConfirmed: !isPendingApproval, // Only confirm immediately if not artist
         pendingApproval: isPendingApproval,
+        ageBracket,
       });
+      this.userService.assertNotAgeBlocked(newUser);
       const { user_sub, ...extractedUserData } = newUser;
       return {
         message: isPendingApproval

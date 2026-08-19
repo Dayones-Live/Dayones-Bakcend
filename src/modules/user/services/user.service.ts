@@ -76,6 +76,13 @@ export class UserService {
 
       // 3. Create new user
       const createUserDto = this.userMapper.dtoToEntity(createUserInput);
+      // Classified in the SAME insert when the caller already knows the answer,
+      // so the row is never briefly readable as unclassified.
+      if (createUserInput.ageBracket) {
+        createUserDto.age_bracket = createUserInput.ageBracket;
+        createUserDto.age_blocked =
+          createUserInput.ageBracket === AgeBracket.UNDER_13;
+      }
       const newUser = await this.userRepository.save(createUserDto);
       return newUser;
     } catch (error) {

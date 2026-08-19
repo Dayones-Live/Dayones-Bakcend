@@ -1,6 +1,6 @@
 import { ApiHideProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsEnum, IsEmail, IsOptional } from 'class-validator';
-import { Roles } from '@app/shared/constants/constants';
+import { AgeBracket, Roles } from '@app/shared/constants/constants';
 
 export class UserSignUpInput {
   @IsNotEmpty({ message: 'Email is required' })
@@ -19,6 +19,18 @@ export class UserSignUpInput {
 
   @IsOptional()
   phoneNumber?: string;
+
+  /**
+   * Optional age bracket, so a client that already knows the answer classifies
+   * the account in the SAME insert that creates it rather than in a follow-up
+   * call. Omitting it is still valid: the one-time gate then classifies the
+   * account before it can be used. Never a date of birth, only the bracket.
+   */
+  @IsOptional()
+  @IsEnum(AgeBracket, {
+    message: 'ageBracket must be one of: UNDER_13, AGE_13_17, AGE_18_PLUS',
+  })
+  ageBracket?: AgeBracket;
 }
 
 export class CreateUserInput {
@@ -41,6 +53,10 @@ export class CreateUserInput {
 
   @IsNotEmpty({ message: 'Is Confirmed is required' })
   isConfirmed: boolean;
+
+  @IsOptional()
+  @IsEnum(AgeBracket)
+  ageBracket?: AgeBracket;
 
   @IsOptional()
   avatarUrl?: string;
